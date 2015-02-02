@@ -679,7 +679,7 @@ public class ExpressionParser {
       case 2:
         return obj instanceof CharSequence;
       case 3:
-        return obj instanceof Object;
+        return isDBObjectButNotDBList(obj);
       case 4:
         return obj instanceof List;
       case 7:
