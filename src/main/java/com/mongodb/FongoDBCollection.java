@@ -76,12 +76,14 @@ public class FongoDBCollection extends DBCollection {
   private CommandResult insertResult(int updateCount) {
     CommandResult result = fongoDb.okResult();
     result.put("n", updateCount);
+    result.put("nInserted", updateCount);
     return result;
   }
 
   private CommandResult updateResult(int updateCount, boolean updatedExisting) {
     CommandResult result = fongoDb.okResult();
     result.put("n", updateCount);
+    result.put("nModified", updateCount);
     result.put("updatedExisting", updatedExisting);
     return result;
   }
@@ -118,6 +120,8 @@ public class FongoDBCollection extends DBCollection {
 
       putSizeCheck(cloned, concern);
     }
+//    Don't know why, but there is not more number of inserted results...
+//    return new WriteResult(insertResult(0), concern);
     return new WriteResult(insertResult(toInsert.size()), concern);
   }
 
@@ -205,6 +209,29 @@ public class FongoDBCollection extends DBCollection {
     q = filterLists(q);
     o = filterLists(o);
 
+    if (o == null) {
+      throw new IllegalArgumentException("update can not be null");
+    }
+
+    if (concern == null) {
+      throw new IllegalArgumentException("Write concern can not be null");
+    }
+
+    if (!o.keySet().isEmpty()) {
+      // if 1st key doesn't start with $, then object will be inserted as is, need to check it
+      String key = o.keySet().iterator().next();
+      if (!key.startsWith("$"))
+        _checkObject(o, false, false);
+    }
+
+    if (multi) {
+      try {
+        checkMultiUpdateDocument(o);
+      } catch (final IllegalArgumentException e) {
+        this.fongoDb.okErrorResult(9, e.getMessage()).throwOnError();
+      }
+    }
+
     if (LOG.isDebugEnabled()) {
       LOG.debug("update(" + q + ", " + o + ", " + upsert + ", " + multi + ")");
     }
@@ -284,20 +311,21 @@ public class FongoDBCollection extends DBCollection {
   protected BasicDBObject createUpsertObject(DBObject q) {
     BasicDBObject newObject = new BasicDBObject();
     newObject.markAsPartialObject();
-    List idsIn = idsIn(q);
-
-    if (!idsIn.isEmpty()) {
-      newObject.put(ID_KEY, Util.clone(idsIn.get(0)));
-    } else {
-      BasicDBObject filteredQuery = new BasicDBObject();
-      for (String key : q.keySet()) {
-        Object value = q.get(key);
-        if (isNotUpdateCommand(value)) {
-          filteredQuery.put(key, value);
-        }
+//    List idsIn = idsIn(q);
+//
+//    if (!idsIn.isEmpty()) {
+//      newObject.put(ID_KEY, Util.clone(idsIn.get(0)));
+//    } else
+//    {
+    BasicDBObject filteredQuery = new BasicDBObject();
+    for (String key : q.keySet()) {
+      Object value = q.get(key);
+      if (isNotUpdateCommand(value)) {
+        filteredQuery.put(key, value);
       }
-      updateEngine.mergeEmbeddedValueFromQuery(newObject, filteredQuery);
     }
+    updateEngine.mergeEmbeddedValueFromQuery(newObject, filteredQuery);
+//    }
     return newObject;
   }
 
@@ -392,7 +420,7 @@ public class FongoDBCollection extends DBCollection {
       if (!notUnique.isEmpty()) {
         // Duplicate key.
         if (enforceDuplicates(getWriteConcern())) {
-          fongoDb.errorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
+          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
         }
         return;
       }
@@ -459,11 +487,11 @@ public class FongoDBCollection extends DBCollection {
     List<DBObject> results = new ArrayList<DBObject>();
     List objects = idsIn(ref);
     if (!objects.isEmpty()) {
-      if (!(ref.get(ID_KEY) instanceof DBObject)) {
-        // Special case : find({id:<val}) doesn't handle skip...
-        // But : find({_id:{$in:[1,2,3]}).skip(3) will return empty list.
-        numToSkip = 0;
-      }
+//      if (!(ref.get(ID_KEY) instanceof DBObject)) {
+      // Special case : find({id:<val}) doesn't handle skip...
+      // But : find({_id:{$in:[1,2,3]}).skip(3) will return empty list.
+//        numToSkip = 0;
+//      }
       if (orderby == null) {
         orderby = new BasicDBObject(ID_KEY, 1);
       } else {
@@ -473,7 +501,8 @@ public class FongoDBCollection extends DBCollection {
     }
     int seen = 0;
     Iterable<DBObject> objectsToSearch = sortObjects(orderby, objectsFromIndex);
-    for (Iterator<DBObject> iter = objectsToSearch.iterator(); iter.hasNext() && foundCount <= upperLimit && maxScan-- > 0; ) {
+    for (Iterator<DBObject> iter = objectsToSearch.iterator();
+         iter.hasNext() && foundCount <= upperLimit && maxScan-- > 0; ) {
       DBObject dbo = iter.next();
       if (filter.apply(dbo)) {
         if (seen++ >= numToSkip) {
@@ -494,7 +523,7 @@ public class FongoDBCollection extends DBCollection {
       }
     }
 
-    if (!Util.isProjectionEmpty(fields)) {
+    if (!Util.isDBObjectEmpty(fields)) {
       results = applyProjections(results, fields);
     }
 
@@ -641,7 +670,10 @@ public class FongoDBCollection extends DBCollection {
    */
   public static DBObject applyProjections(DBObject result, DBObject projectionObject) {
     LOG.debug("applying projections {}", projectionObject);
-    if (Util.isProjectionEmpty(projectionObject)) {
+    if (Util.isDBObjectEmpty(projectionObject)) {
+      if (Util.isDBObjectEmpty(result)) {
+        return null;
+      }
       return Util.cloneIdFirst(result);
     }
 
@@ -973,9 +1005,25 @@ public class FongoDBCollection extends DBCollection {
       WriteResult wr;
       switch (request.getType()) {
         case REPLACE: // fallthrough
+        {
+          ModifyRequest r = (ModifyRequest) request;
+          _checkObject(r.getUpdateDocument(), false, false);
+          wr = update(r.getQuery(), r.getUpdateDocument(), r.isUpsert(), r.isMulti(), writeConcern, encoder);
+          matchedCount += wr.getN();
+          if (wr.isUpdateOfExisting()) {
+            upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+          } else {
+            modifiedCount += wr.getN();
+          }
+          break;
+        }
         case UPDATE: {
           ModifyRequest r = (ModifyRequest) request;
-          wr = update(r.getQuery(), r.getUpdateDocument(), r.isUpsert(), r.isMulti(), writeConcern, encoder);
+          // See com.mongodb.DBCollectionImpl.Run.executeUpdates()
+          final DBObject updateDocument = r.getUpdateDocument();
+          checkMultiUpdateDocument(updateDocument);
+
+          wr = update(r.getQuery(), updateDocument, r.isUpsert(), r.isMulti(), writeConcern, encoder);
           matchedCount += wr.getN();
           if (wr.isUpdateOfExisting()) {
             upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
@@ -1004,6 +1052,30 @@ public class FongoDBCollection extends DBCollection {
       idx++;
     }
     return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
+  }
+
+  private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
+    for (String key : updateDocument.keySet()) {
+      if (!key.startsWith("$")) {
+        throw new IllegalArgumentException("Update document keys must start with $: " + key);
+      }
+    }
+  }
+
+  @Override
+  public List<DBObject> getIndexInfo() {
+    BasicDBObject cmd = new BasicDBObject();
+    cmd.put("ns", getFullName());
+
+    DBCursor cur = _db.getCollection("system.indexes").find(cmd);
+
+    List<DBObject> list = new ArrayList<DBObject>();
+
+    while (cur.hasNext()) {
+      list.add(cur.next());
+    }
+
+    return list;
   }
 
   protected synchronized void _dropIndex(String name) throws MongoException {
@@ -1099,14 +1171,13 @@ public class FongoDBCollection extends DBCollection {
    */
   private synchronized void addToIndexes(DBObject object, DBObject oldObject, WriteConcern concern) {
     // Ensure "insert/update" create collection into "fongoDB"
-    this.fongoDb.addCollection(this);
     // First, try to see if index can add the new value.
     for (IndexAbstract index : indexes) {
       @SuppressWarnings("unchecked") List<List<Object>> error = index.checkAddOrUpdate(object, oldObject);
       if (!error.isEmpty()) {
         // TODO formatting : E11000 duplicate key error index: test.zip.$city_1_state_1_pop_1  dup key: { : "BARRE", : "MA", : 4546.0 }
         if (enforceDuplicates(concern)) {
-          fongoDb.errorResult(11001, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
+          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
         }
         return; // silently ignore.
       }
@@ -1122,6 +1193,7 @@ public class FongoDBCollection extends DBCollection {
         // In case of update and removing a field, we must remove from the index.
         index.remove(oldObject);
     }
+    this.fongoDb.addCollection(this);
   }
 
   /**
@@ -1130,7 +1202,6 @@ public class FongoDBCollection extends DBCollection {
    * @param object object to remove.
    */
   private synchronized void removeFromIndexes(DBObject object) {
-    Set<String> queryFields = object.keySet();
     for (IndexAbstract index : indexes) {
       if (index.canHandle(object)) {
         index.remove(object);
@@ -1171,5 +1242,10 @@ public class FongoDBCollection extends DBCollection {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
+  }
+
+  @Override
+  public long count() {
+    return _idIndex.size();
   }
 }
