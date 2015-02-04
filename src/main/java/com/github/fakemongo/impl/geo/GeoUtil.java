@@ -27,7 +27,9 @@ import org.slf4j.LoggerFactory;
 public final class GeoUtil {
   private static final Logger LOG = LoggerFactory.getLogger(GeoUtil.class);
 
-  public static final double EARTH_RADIUS = 6374892.5; // common way : 6378100D;
+  //  public static final double EARTH_RADIUS = 6374892.5; // common way : 6378100D;
+  // From MongoDB Sources (src/mongo/db/geo/geoconstants.h)
+  public static final double EARTH_RADIUS = 6378100d; // common way : 6378100D;
   /**
    * Length (in meters) of one degree.
    */
