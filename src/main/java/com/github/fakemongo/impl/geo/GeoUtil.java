@@ -19,6 +19,7 @@ import java.util.Collections;
 import java.util.List;
 import org.geojson.GeoJsonObject;
 import org.geojson.LngLatAlt;
+import org.geojson.MultiPolygon;
 import org.geojson.Point;
 import org.geojson.Polygon;
 import org.slf4j.Logger;
@@ -41,18 +42,11 @@ public final class GeoUtil {
   }
 
   public static class GeoDBObject extends BasicDBObject {
-    private final Coordinate coordinate;
     private final Geometry geometry;
 
     public GeoDBObject(DBObject object, String indexKey) {
-      List<Coordinate> latLongs = GeoUtil.coordinate(Util.split(indexKey), object);
-      this.coordinate = latLongs.get(0);
       this.geometry = GeoUtil.toGeometry(Util.extractField(object, indexKey));
       this.putAll(object);
-    }
-
-    public Coordinate getCoordinate() {
-      return coordinate;
     }
 
     public Geometry getGeometry() {
@@ -78,7 +72,6 @@ public final class GeoUtil {
     public String toString() {
       return "GeoDBObject{" +
           "geometry='" + geometry + '\'' +
-          ", coordinate=" + getCoordinate() +
           '}';
     }
   }
@@ -183,11 +176,14 @@ public final class GeoUtil {
           } else if (object instanceof Polygon) {
             Polygon point = (Polygon) object;
             coordinate = new Coordinate(point.getCoordinates().get(0).get(0).getLatitude(), point.getCoordinates().get(0).get(0).getLongitude());
+          } else if (object instanceof MultiPolygon) {
+            MultiPolygon point = (MultiPolygon) object;
+            coordinate = new Coordinate(point.getCoordinates().get(0).get(0).get(0).getLatitude(), point.getCoordinates().get(0).get(0).get(0).getLongitude());
           } else {
             throw new IllegalArgumentException("type " + object + " not correctly handle in Fongo");
           }
         } catch (IOException e) {
-          LOG.warn("don't kown how to handle " + value);
+          LOG.warn("don't known how to handle " + value);
         }
       } else if (dbObject.containsField("lng") && dbObject.containsField("lat")) {
         coordinate = new Coordinate(((Number) dbObject.get("lat")).doubleValue(), ((Number) dbObject.get("lng")).doubleValue());
@@ -236,7 +232,10 @@ public final class GeoUtil {
           return createGeometryPoint(toCoordinate(point.getCoordinates()));
         } else if (geoJsonObject instanceof Polygon) {
           Polygon polygon = (Polygon) geoJsonObject;
-          return GEOMETRY_FACTORY.createPolygon(toCoordinates(polygon.getCoordinates()));
+          return toJtsPolygon(polygon.getCoordinates());
+        } else if (geoJsonObject instanceof MultiPolygon) {
+          MultiPolygon polygon = (MultiPolygon) geoJsonObject;
+          return GEOMETRY_FACTORY.createMultiPolygon(toJtsPolygons(polygon.getCoordinates()));
         }
       } catch (IOException e) {
         LOG.warn("cannot handle " + JSON.serialize(dbObject));
@@ -250,6 +249,25 @@ public final class GeoUtil {
 //    if (true)
 //      throw new IllegalArgumentException("can't handle " + JSON.serialize(dbObject));
     return null;
+  }
+
+  public static com.vividsolutions.jts.geom.Polygon toJtsPolygon(List<List<LngLatAlt>> lngLatAlts) {
+    // it's a trick to ensure that the generated geometry is a closed one.
+    if (lngLatAlts.size() > 1) {
+      if (!lngLatAlts.get(lngLatAlts.size() - 1).equals(lngLatAlts.get(0))) {
+        lngLatAlts = new ArrayList<List<LngLatAlt>>(lngLatAlts);
+        lngLatAlts.add(lngLatAlts.get(0));
+      }
+    }
+    return GEOMETRY_FACTORY.createPolygon(toCoordinates(lngLatAlts));
+  }
+
+  private static com.vividsolutions.jts.geom.Polygon[] toJtsPolygons(List<List<List<LngLatAlt>>> listPolygonsLngLatAlt) {
+    List<com.vividsolutions.jts.geom.Polygon> polygons = new ArrayList<com.vividsolutions.jts.geom.Polygon>();
+    for (List<List<LngLatAlt>> lngLatAlts : listPolygonsLngLatAlt) {
+      polygons.add(toJtsPolygon(lngLatAlts));
+    }
+    return polygons.toArray(new com.vividsolutions.jts.geom.Polygon[0]);
   }
 
   private static Coordinate[] toCoordinates(List<List<LngLatAlt>> lngLatAlts) {
