@@ -202,6 +202,19 @@ public class FongoGeoTest {
         new BasicDBObject("_id", 2).append("loc", Util.list(2.265D, 48.791D))), objects);
   }
 
+  // When in GeoJSon, distance is in meter.
+  @Test
+  public void testFindByNearSphereWithGeoJsonAndMaxDistanceInMeters() {
+    DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("loc", Util.list(-73.97D, 40.72D)));
+    collection.insert(new BasicDBObject("_id", 2).append("loc", Util.list(2.265D, 48.791D)));
+    collection.createIndex(new BasicDBObject("loc", "2dsphere"));
+
+    List<DBObject> objects = collection.find(new BasicDBObject("loc", new BasicDBObject("$nearSphere", new BasicDBObject("$geometry", new BasicDBObject("type", "Point").append("coordinates", Util.list(2.297, 48.809))).append("$maxDistance", 3100D)))).toArray();
+    assertEquals(Arrays.asList(
+        new BasicDBObject("_id", 2).append("loc", Util.list(2.265D, 48.791D))), objects);
+  }
+
   @Test
   public void testFindByNearSphereNoMaxDistance() {
     DBCollection collection = fongoRule.newCollection();

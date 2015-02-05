@@ -373,14 +373,20 @@ public class ExpressionParser {
     @Override
     public Filter createFilter(final List<String> path, DBObject refExpression) {
       LOG.debug("path:{}, refExp:{}", path, refExpression);
-      Number maxDistance = typecast(MAX_DISTANCE, refExpression.get(MAX_DISTANCE), Number.class);
+      Number maxDistance;
       final Geometry geometry;
       if (refExpression.get(command) instanceof BasicDBList) {
         final List<Coordinate> coordinates = GeoUtil.coordinate(Collections.singletonList(command), refExpression);// typecast(command, refExpression.get(command), List.class);
         geometry = GeoUtil.createGeometryPoint(coordinates.get(0));
+        maxDistance = typecast(MAX_DISTANCE, refExpression.get(MAX_DISTANCE), Number.class);
       } else {
         DBObject dbObject = typecast(command, refExpression.get(command), DBObject.class);
         geometry = GeoUtil.toGeometry(((DBObject) Util.extractField(dbObject, "$geometry")));
+        maxDistance = typecast(MAX_DISTANCE, dbObject.get(MAX_DISTANCE), Number.class);
+        if (maxDistance != null) {
+          // When in GeoJSon, distance is in meter.
+          maxDistance = maxDistance.doubleValue() / GeoUtil.EARTH_RADIUS;
+        }
       }
       return createNearFilter(path, maxDistance, geometry, spherical);
     }
