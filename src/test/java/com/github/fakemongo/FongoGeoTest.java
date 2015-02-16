@@ -1,5 +1,6 @@
 package com.github.fakemongo;
 
+import static com.github.fakemongo.ExpectedMongoException.expectWriteConcernException;
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.impl.geo.GeoUtil;
 import com.github.fakemongo.junit.FongoRule;
@@ -433,6 +434,17 @@ public class FongoGeoTest {
         (new BasicDBObject("_id", 10).append("loc", new BasicDBObject("longitude", 1).append("latitude", 41))),
         (new BasicDBObject("_id", 12).append("loc", new BasicDBObject("longitude", -1).append("latitude", 41)))
     );
+  }
+
+  @Test
+  public void should_not_handle_malformed_geojson() {
+    DBCollection collection = fongoRule.newCollection();
+    collection.createIndex(new BasicDBObject("geoJsonObject", "2dsphere"));
+
+    expectWriteConcernException(exception, 16755);
+//        exception.expectMessage("\"insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: { _id: 1, geoJsonObject: { coordinates: [ 93.22196492435961, 61.1911266473824 ] } }\"");
+
+    collection.insert(fongoRule.parseDBObject("{ \"_id\":1, \"geoJsonObject\" : { \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}}), coordinates:{ \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}"));
   }
 
   public static DBObject roundDis(DBObject objectList) {

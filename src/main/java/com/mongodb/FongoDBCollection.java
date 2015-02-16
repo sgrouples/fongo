@@ -1186,12 +1186,16 @@ public class FongoDBCollection extends DBCollection {
     //     Set<String> queryFields = object.keySet();
     DBObject idFirst = Util.cloneIdFirst(object);
     Set<String> oldQueryFields = oldObject == null ? Collections.<String>emptySet() : oldObject.keySet();
-    for (IndexAbstract index : indexes) {
-      if (index.canHandle(object)) {
-        index.addOrUpdate(idFirst, oldObject);
-      } else if (index.canHandle(oldObject))
-        // In case of update and removing a field, we must remove from the index.
-        index.remove(oldObject);
+    try {
+      for (IndexAbstract index : indexes) {
+        if (index.canHandle(object)) {
+          index.addOrUpdate(idFirst, oldObject);
+        } else if (index.canHandle(oldObject))
+          // In case of update and removing a field, we must remove from the index.
+          index.remove(oldObject);
+      }
+    } catch (MongoException e) {
+      this.fongoDb.okErrorResult(e.getCode(), e.getMessage()).throwOnError();
     }
     this.fongoDb.addCollection(this);
   }

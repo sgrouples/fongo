@@ -6,6 +6,7 @@ import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
+import com.mongodb.MongoException;
 import com.mongodb.util.JSON;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
@@ -28,6 +29,11 @@ import org.slf4j.LoggerFactory;
 public final class GeoUtil {
   private static final Logger LOG = LoggerFactory.getLogger(GeoUtil.class);
 
+  /**
+   * Hack tricks to be sure than all is ok.
+   */
+  public static boolean illegalForUnknownGeometry = false;
+
   //  public static final double EARTH_RADIUS = 6374892.5; // common way : 6378100D;
   // From MongoDB Sources (src/mongo/db/geo/geoconstants.h)
   public static final double EARTH_RADIUS = 6378100d; // common way : 6378100D;
@@ -45,8 +51,15 @@ public final class GeoUtil {
     private final Geometry geometry;
 
     public GeoDBObject(DBObject object, String indexKey) {
-      this.geometry = GeoUtil.toGeometry(Util.extractField(object, indexKey));
+      final Object coordinates = Util.extractField(object, indexKey);
+      this.geometry = GeoUtil.toGeometry(coordinates);
       this.putAll(object);
+
+      if (geometry == null) {
+        LOG.warn("Can't extract geometry from this indexKey :{} (object:{}), coordinates:{}", indexKey, object, coordinates);
+
+        throw new MongoException(16755, "insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: " + JSON.serialize(object));
+      }
     }
 
     public Geometry getGeometry() {
@@ -163,6 +176,8 @@ public final class GeoUtil {
       List list = (List) value;
       if (list.size() == 2) {
         coordinate = new Coordinate(((Number) list.get(1)).doubleValue(), ((Number) list.get(0)).doubleValue());
+      } else {
+        LOG.warn("Strange, coordinate of {} has not a size of 2", value);
       }
     } else if (value instanceof DBObject) {
       DBObject dbObject = (DBObject) value;
@@ -246,8 +261,9 @@ public final class GeoUtil {
         return createGeometryPoint(coordinate);
       }
     }
-//    if (true)
-//      throw new IllegalArgumentException("can't handle " + JSON.serialize(dbObject));
+    if (illegalForUnknownGeometry) {
+      throw new IllegalArgumentException("can't handle " + JSON.serialize(dbObject));
+    }
     return null;
   }
 
