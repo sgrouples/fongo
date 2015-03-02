@@ -2,9 +2,6 @@ package com.github.fakemongo.integration;
 
 import com.github.fakemongo.Fongo;
 import com.mongodb.Mongo;
-import java.util.ArrayList;
-import java.util.List;
-import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Test;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -16,6 +13,13 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.Query;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.stereotype.Repository;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
 
 public class SpringQueryTest {
 
@@ -51,6 +55,33 @@ public class SpringQueryTest {
     ctx.close();
   }
 
+  @Test
+  public void should_IN_query_work_in_spring() throws Exception {
+    //Given
+    ConfigurableApplicationContext ctx = new AnnotationConfigApplicationContext(FongoConfig.class);
+    QueryRepository repository = ctx.getBean(QueryRepository.class);
+
+    DomainObject object = new DomainObject();
+    object.setOther(1L);
+    repository.save(object);
+
+    DomainObject object2 = new DomainObject();
+    object2.setOther(2L);
+    repository.save(object2);
+
+    DomainObject object3 = new DomainObject();
+    object3.setOther(3L);
+    repository.save(object3);
+
+    // When
+    final List<? extends DomainObject> withInQuery = repository.findOtherWithInQuery(Arrays.asList(1L, 2L));
+
+    // Then
+    assertEquals(2, withInQuery.size());
+
+    ctx.close();
+  }
+
   @Configuration
   @EnableMongoRepositories
   public static class FongoConfig extends AbstractMongoConfiguration {
@@ -74,6 +105,8 @@ public class SpringQueryTest {
     private String _id;
     private List<Long> longList;
 
+    private Long other;
+
     public List<Long> getLongList() {
       return longList;
     }
@@ -89,6 +122,14 @@ public class SpringQueryTest {
     public void set_id(String _id) {
       this._id = _id;
     }
+
+    public Long getOther() {
+      return other;
+    }
+
+    public void setOther(Long other) {
+      this.other = other;
+    }
   }
 
 }
@@ -101,6 +142,9 @@ interface QueryRepository extends MongoRepository<SpringQueryTest.DomainObject, 
 
   @Query("{'longList' : ?0}")
   List<? extends SpringQueryTest.DomainObject> findLongListWithQuery(List<Long> foo);
+
+  @Query("{'other' : {$in: ?0 }}")
+  List<? extends SpringQueryTest.DomainObject> findOtherWithInQuery(List<Long> foo);
 
   List<? extends SpringQueryTest.DomainObject> findByLongList(Long foo);
 
