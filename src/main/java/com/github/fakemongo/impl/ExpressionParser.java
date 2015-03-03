@@ -39,8 +39,6 @@ import org.slf4j.LoggerFactory;
 
 @SuppressWarnings("javadoc")
 public class ExpressionParser {
-  private static final Logger LOG = LoggerFactory.getLogger(ExpressionParser.class);
-
   public static final String LT = "$lt";
   public static final String EQ = "$eq";
   public static final String LTE = "$lte";
@@ -66,14 +64,17 @@ public class ExpressionParser {
   public static final String WHERE = QueryOperators.WHERE;
   public static final String GEO_WITHIN = "$geoWithin";
   public static final String SLICE = "$slice";
+  public static final Filter AllFilter = new Filter() {
+    @Override
+    public boolean apply(DBObject o) {
+      return true;
+    }
+  };
 
   // TODO : http://docs.mongodb.org/manual/reference/operator/query-geospatial/
   // TODO : http://docs.mongodb.org/manual/reference/operator/geoWithin/#op._S_geoWithin
   // TODO : http://docs.mongodb.org/manual/reference/operator/geoIntersects/
-
-  private static class Null {
-  }
-
+  private static final Logger LOG = LoggerFactory.getLogger(ExpressionParser.class);
   private static final Map<Class, Integer> CLASS_TO_WEIGHT;
 
   static {
@@ -102,348 +103,6 @@ public class ExpressionParser {
 
     CLASS_TO_WEIGHT = Collections.unmodifiableMap(map);
   }
-
-  public ObjectComparator objectComparator(int sortDirection) {
-    if (!(sortDirection == -1 || sortDirection == 1)) {
-      throw new FongoException("The $sort element value must be either 1 or -1. Actual: " + sortDirection);
-    }
-    return new ObjectComparator(sortDirection == 1);
-  }
-
-  public class ObjectComparator implements Comparator {
-    private final int asc;
-
-    ObjectComparator(boolean asc) {
-      this.asc = asc ? 1 : -1;
-    }
-
-    @Override
-    public int compare(Object o1, Object o2) {
-      return asc * compareObjects(o1, o2);
-    }
-  }
-
-  public SortSpecificationComparator sortSpecificationComparator(DBObject orderBy) {
-    return new SortSpecificationComparator(orderBy);
-  }
-
-  public class SortSpecificationComparator implements Comparator<Object> {
-
-    private final DBObject orderBy;
-    private final Set<String> orderByKeySet;
-
-    public SortSpecificationComparator(DBObject orderBy) {
-      this.orderBy = orderBy;
-      this.orderByKeySet = orderBy.keySet();
-
-      if (this.orderByKeySet.isEmpty()) {
-        throw new FongoException("The $sort pattern is empty when it should be a set of fields.");
-      }
-    }
-
-    @Override
-    public int compare(Object o1, Object o2) {
-      if (isDBObjectButNotDBList(o1) && isDBObjectButNotDBList(o2)) {
-        DBObject dbo1 = (DBObject) o1;
-        DBObject dbo2 = (DBObject) o2;
-        for (String sortKey : orderByKeySet) {
-          final List<String> path = Util.split(sortKey);
-          int sortDirection = (Integer) orderBy.get(sortKey);
-
-          List<Object> o1list = getEmbeddedValues(path, dbo1);
-          List<Object> o2list = getEmbeddedValues(path, dbo2);
-
-          int compareValue = compareLists(o1list, o2list) * sortDirection;
-          if (compareValue != 0) {
-            return compareValue;
-          }
-        }
-        return 0;
-      } else if (isDBObjectButNotDBList(o1) || isDBObjectButNotDBList(o2)) {
-        DBObject dbo = (DBObject) (o1 instanceof DBObject ? o1 : o2);
-        for (String sortKey : orderByKeySet) {
-          final List<String> path = Util.split(sortKey);
-          int sortDirection = (Integer) orderBy.get(sortKey);
-
-          List<Object> foundValues = getEmbeddedValues(path, dbo);
-
-          if (!foundValues.isEmpty()) {
-            return o1 instanceof DBObject ? sortDirection : -sortDirection;
-          }
-        }
-        return compareTo(o1, o2);
-      } else {
-        return compareTo(o1, o2);
-      }
-    }
-  }
-
-  private boolean isDBObjectButNotDBList(Object o) {
-    return o instanceof DBObject && !(o instanceof List);
-  }
-
-  public Filter buildFilter(DBObject ref) {
-    AndFilter andFilter = new AndFilter();
-    if (ref != null) {
-      for (String key : ref.keySet()) {
-        Object expression = ref.get(key);
-
-        andFilter.addFilter(buildExpressionFilter(key, expression));
-      }
-    }
-    return andFilter;
-  }
-
-  /**
-   * Only build the filter for this keys.
-   *
-   * @param ref  query for filter.
-   * @param keys must match to build the filter.
-   */
-  public Filter buildFilter(DBObject ref, Collection<String> keys) {
-    AndFilter andFilter = new AndFilter();
-    for (String key : ref.keySet()) {
-      if (keys.contains(key)) {
-        Object expression = ref.get(key);
-        andFilter.addFilter(buildExpressionFilter(key, expression));
-      }
-    }
-    return andFilter;
-  }
-
-  interface FilterFactory {
-    public boolean matchesCommand(DBObject refExpression);
-
-    public Filter createFilter(List<String> path, DBObject refExpression);
-  }
-
-  abstract class BasicCommandFilterFactory implements FilterFactory {
-
-    public final String command;
-
-    public BasicCommandFilterFactory(final String command) {
-      this.command = command;
-    }
-
-    @Override
-    public boolean matchesCommand(DBObject refExpression) {
-      return refExpression.containsField(command);
-    }
-  }
-
-  abstract class BasicFilterFactory extends BasicCommandFilterFactory {
-    public BasicFilterFactory(final String command) {
-      super(command);
-    }
-
-    @Override
-    public boolean matchesCommand(DBObject refExpression) {
-      return refExpression.containsField(command);
-    }
-
-    @Override
-    public Filter createFilter(final List<String> path, final DBObject refExpression) {
-      return new Filter() {
-        @Override
-        public boolean apply(DBObject o) {
-          List<Object> storedList = getEmbeddedValues(path, o);
-          if (storedList.isEmpty()) {
-            return false;
-          } else {
-            for (Object storedValue : storedList) {
-              if (compare(refExpression.get(command), storedValue)) {
-                return true;
-              }
-            }
-            return false;
-          }
-        }
-      };
-    }
-
-    abstract boolean compare(Object queryValue, Object storedValue);
-
-  }
-
-  private final class WhereFilter implements Filter {
-    private final String expression;
-
-    public WhereFilter(String expression) {
-      this.expression = expression;
-    }
-
-    @Override
-    public boolean apply(DBObject o) {
-      Context cx = Context.enter();
-
-      try {
-        Scriptable scope = cx.initStandardObjects();
-        String json = JSON.serialize(o);
-        String expr = "obj=" + json + ";\n" + expression.replace("this.", "obj.") + ";\n";
-        try {
-          return (Boolean) cx.evaluateString(scope, expr, "<$where>", 0, null);
-        } catch (Exception e) {
-          LOG.error("Exception evaluating javascript expression {}", expression, e);
-        }
-      } finally {
-        cx.exit();
-      }
-
-      return false;
-    }
-  }
-
-  @SuppressWarnings("all")
-  private final class InFilterFactory extends BasicCommandFilterFactory {
-
-    private final boolean direction;
-
-    public InFilterFactory(String command, boolean direction) {
-      super(command);
-      this.direction = direction;
-    }
-
-    @Override
-    public Filter createFilter(final List<String> path, final DBObject refExpression) {
-      Collection queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
-      final Set querySet = new HashSet(queryList);
-      return new Filter() {
-        @Override
-        public boolean apply(DBObject o) {
-          List<Object> storedList = getEmbeddedValues(path, o);
-          if (storedList.isEmpty()) {
-            return !direction;
-          } else {
-            for (Object storedValue : storedList) {
-              if (compare(refExpression.get(command), storedValue, querySet) == direction) {
-                return direction;
-              }
-            }
-            return !direction;
-          }
-        }
-      };
-    }
-
-    boolean compare(Object queryValueIgnored, Object storedValue, Set querySet) {
-      if (storedValue instanceof List) {
-        for (Object valueItem : (List) storedValue) {
-          if (containsWithRegex(querySet, valueItem)) {
-            return direction;
-          }
-        }
-        if (containsWithRegex(querySet, storedValue)) {
-          return direction;
-        }
-        return !direction;
-      } else {
-        return !(direction ^ containsWithRegex(querySet, storedValue));
-      }
-    }
-
-    boolean containsWithRegex(Set querySet, Object storedValue) {
-      if (querySet.contains(storedValue)) {
-        return true;
-      }
-      if (storedValue instanceof CharSequence) {
-        CharSequence s = (CharSequence) storedValue;
-        for (Object o : querySet) {
-          if (o instanceof Pattern) {
-            Pattern p = (Pattern) o;
-            if (p.matcher(s).find()) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
-    }
-  }
-
-  private final class NearCommandFilterFactory extends BasicCommandFilterFactory {
-
-    final boolean spherical;
-
-    public NearCommandFilterFactory(final String command, boolean spherical) {
-      super(command);
-      this.spherical = spherical;
-    }
-
-    // http://docs.mongodb.org/manual/reference/operator/near/#op._S_near
-    @Override
-    public Filter createFilter(final List<String> path, DBObject refExpression) {
-      LOG.debug("path:{}, refExp:{}", path, refExpression);
-      Number maxDistance;
-      final Geometry geometry;
-      if (refExpression.get(command) instanceof BasicDBList) {
-        final List<Coordinate> coordinates = GeoUtil.coordinate(Collections.singletonList(command), refExpression);// typecast(command, refExpression.get(command), List.class);
-        geometry = GeoUtil.createGeometryPoint(coordinates.get(0));
-        maxDistance = typecast(MAX_DISTANCE, refExpression.get(MAX_DISTANCE), Number.class);
-      } else {
-        DBObject dbObject = typecast(command, refExpression.get(command), DBObject.class);
-        geometry = GeoUtil.toGeometry(((DBObject) Util.extractField(dbObject, "$geometry")));
-        maxDistance = typecast(MAX_DISTANCE, dbObject.get(MAX_DISTANCE), Number.class);
-        if (maxDistance != null) {
-          // When in GeoJSon, distance is in meter.
-          maxDistance = maxDistance.doubleValue() / GeoUtil.EARTH_RADIUS;
-        }
-      }
-      return createNearFilter(path, maxDistance, geometry, spherical);
-    }
-  }
-
-  private final class GeoWithinCommandFilterFactory extends BasicCommandFilterFactory {
-
-    public GeoWithinCommandFilterFactory(final String command) {
-      super(command);
-    }
-
-    // http://docs.mongodb.org/manual/reference/operator/query/geoWithin/
-    @Override
-    public Filter createFilter(final List<String> path, DBObject refExpression) {
-      LOG.debug("geoWithin path:{}, refExp:{}", path, refExpression);
-      Geometry geometry = GeoUtil.toGeometry(typecast("$geoWithin", refExpression.get("$geoWithin"), DBObject.class));
-      return createGeowithinFilter(path, geometry);
-    }
-  }
-
-  public <T> T typecast(String fieldName, Object obj, Class<T> clazz) {
-    try {
-      return clazz.cast(obj);
-    } catch (Exception e) {
-      throw new FongoException(fieldName + " expected to be of type " + clazz.getName() + " but is " + (obj != null ? obj.getClass() : "null") + " toString:" + obj);
-    }
-  }
-
-  private void enforce(boolean check, String message) {
-    if (!check) {
-      throw new FongoException(message);
-    }
-  }
-
-  abstract class ConditionalOperatorFilterFactory extends BasicFilterFactory {
-
-    public ConditionalOperatorFilterFactory(String command) {
-      super(command);
-    }
-
-    @Override
-    final boolean compare(Object queryValue, Object storedValue) {
-      if (storedValue instanceof List) {
-        for (Object aValue : (List) storedValue) {
-          if (aValue != null && singleCompare(queryValue, aValue)) {
-            return true;
-          }
-        }
-        return false;
-      } else {
-        return storedValue != null && singleCompare(queryValue, storedValue);
-      }
-    }
-
-    abstract boolean singleCompare(Object queryValue, Object storedValue);
-  }
-
 
   @SuppressWarnings("all")
   List<FilterFactory> filterFactories = Arrays.<FilterFactory>asList(
@@ -634,6 +293,64 @@ public class ExpressionParser {
       }
   );
 
+  public ObjectComparator objectComparator(int sortDirection) {
+    if (!(sortDirection == -1 || sortDirection == 1)) {
+      throw new FongoException("The $sort element value must be either 1 or -1. Actual: " + sortDirection);
+    }
+    return new ObjectComparator(sortDirection == 1);
+  }
+
+  public SortSpecificationComparator sortSpecificationComparator(DBObject orderBy) {
+    return new SortSpecificationComparator(orderBy);
+  }
+
+  private boolean isDBObjectButNotDBList(Object o) {
+    return o instanceof DBObject && !(o instanceof List);
+  }
+
+  public Filter buildFilter(DBObject ref) {
+    AndFilter andFilter = new AndFilter();
+    if (ref != null) {
+      for (String key : ref.keySet()) {
+        Object expression = ref.get(key);
+
+        andFilter.addFilter(buildExpressionFilter(key, expression));
+      }
+    }
+    return andFilter;
+  }
+
+  /**
+   * Only build the filter for this keys.
+   *
+   * @param ref  query for filter.
+   * @param keys must match to build the filter.
+   */
+  public Filter buildFilter(DBObject ref, Collection<String> keys) {
+    AndFilter andFilter = new AndFilter();
+    for (String key : ref.keySet()) {
+      if (keys.contains(key)) {
+        Object expression = ref.get(key);
+        andFilter.addFilter(buildExpressionFilter(key, expression));
+      }
+    }
+    return andFilter;
+  }
+
+  public <T> T typecast(String fieldName, Object obj, Class<T> clazz) {
+    try {
+      return clazz.cast(obj);
+    } catch (Exception e) {
+      throw new FongoException(fieldName + " expected to be of type " + clazz.getName() + " but is " + (obj != null ? obj.getClass() : "null") + " toString:" + obj);
+    }
+  }
+
+  private void enforce(boolean check, String message) {
+    if (!check) {
+      throw new FongoException(message);
+    }
+  }
+
   boolean objectMatchesPattern(Object obj, Pattern pattern) {
     if (obj instanceof CharSequence) {
       if (pattern.matcher((CharSequence) obj).find()) {
@@ -762,11 +479,9 @@ public class ExpressionParser {
     }
   }
 
-
   private Filter buildExpressionFilter(final String key, final Object expression) {
     return buildExpressionFilter(Util.split(key), expression);
   }
-
 
   private Filter buildExpressionFilter(final List<String> path, Object expression) {
     if (OR.equals(path.get(0))) {
@@ -1128,6 +843,39 @@ public class ExpressionParser {
     };
   }
 
+  public int parseRegexOptionsToPatternFlags(String flagString) {
+    int flags = 0;
+    for (int i = 0; flagString != null && i < flagString.length(); i++) {
+      switch (flagString.charAt(i)) {
+        case 'i':
+          flags |= Pattern.CASE_INSENSITIVE;
+          break;
+        case 'x':
+          flags |= Pattern.COMMENTS;
+          break;
+        case 'm':
+          flags |= Pattern.MULTILINE;
+          break;
+        case 's':
+          flags |= Pattern.DOTALL;
+          break;
+      }
+    }
+    return flags;
+  }
+
+  public ObjectComparator buildObjectComparator(boolean asc) {
+    return new ObjectComparator(asc);
+  }
+
+  interface FilterFactory {
+    public boolean matchesCommand(DBObject refExpression);
+
+    public Filter createFilter(List<String> path, DBObject refExpression);
+  }
+
+  private static class Null {
+  }
 
   static class NotFilter implements Filter {
     private final Filter filter;
@@ -1178,35 +926,282 @@ public class ExpressionParser {
 
   }
 
-  public static final Filter AllFilter = new Filter() {
-    @Override
-    public boolean apply(DBObject o) {
-      return true;
-    }
-  };
+  public class ObjectComparator implements Comparator {
+    private final int asc;
 
-  public int parseRegexOptionsToPatternFlags(String flagString) {
-    int flags = 0;
-    for (int i = 0; flagString != null && i < flagString.length(); i++) {
-      switch (flagString.charAt(i)) {
-        case 'i':
-          flags |= Pattern.CASE_INSENSITIVE;
-          break;
-        case 'x':
-          flags |= Pattern.COMMENTS;
-          break;
-        case 'm':
-          flags |= Pattern.MULTILINE;
-          break;
-        case 's':
-          flags |= Pattern.DOTALL;
-          break;
-      }
+    ObjectComparator(boolean asc) {
+      this.asc = asc ? 1 : -1;
     }
-    return flags;
+
+    @Override
+    public int compare(Object o1, Object o2) {
+      return asc * compareObjects(o1, o2);
+    }
   }
 
-  public ObjectComparator buildObjectComparator(boolean asc) {
-    return new ObjectComparator(asc);
+  public class SortSpecificationComparator implements Comparator<Object> {
+
+    private final DBObject orderBy;
+    private final Set<String> orderByKeySet;
+
+    public SortSpecificationComparator(DBObject orderBy) {
+      this.orderBy = orderBy;
+      this.orderByKeySet = orderBy.keySet();
+
+      if (this.orderByKeySet.isEmpty()) {
+        throw new FongoException("The $sort pattern is empty when it should be a set of fields.");
+      }
+    }
+
+    @Override
+    public int compare(Object o1, Object o2) {
+      if (isDBObjectButNotDBList(o1) && isDBObjectButNotDBList(o2)) {
+        DBObject dbo1 = (DBObject) o1;
+        DBObject dbo2 = (DBObject) o2;
+        for (String sortKey : orderByKeySet) {
+          final List<String> path = Util.split(sortKey);
+          int sortDirection = (Integer) orderBy.get(sortKey);
+
+          List<Object> o1list = getEmbeddedValues(path, dbo1);
+          List<Object> o2list = getEmbeddedValues(path, dbo2);
+
+          int compareValue = compareLists(o1list, o2list) * sortDirection;
+          if (compareValue != 0) {
+            return compareValue;
+          }
+        }
+        return 0;
+      } else if (isDBObjectButNotDBList(o1) || isDBObjectButNotDBList(o2)) {
+        DBObject dbo = (DBObject) (o1 instanceof DBObject ? o1 : o2);
+        for (String sortKey : orderByKeySet) {
+          final List<String> path = Util.split(sortKey);
+          int sortDirection = (Integer) orderBy.get(sortKey);
+
+          List<Object> foundValues = getEmbeddedValues(path, dbo);
+
+          if (!foundValues.isEmpty()) {
+            return o1 instanceof DBObject ? sortDirection : -sortDirection;
+          }
+        }
+        return compareTo(o1, o2);
+      } else {
+        return compareTo(o1, o2);
+      }
+    }
+  }
+
+  abstract class BasicCommandFilterFactory implements FilterFactory {
+
+    public final String command;
+
+    public BasicCommandFilterFactory(final String command) {
+      this.command = command;
+    }
+
+    @Override
+    public boolean matchesCommand(DBObject refExpression) {
+      return refExpression.containsField(command);
+    }
+  }
+
+  abstract class BasicFilterFactory extends BasicCommandFilterFactory {
+    public BasicFilterFactory(final String command) {
+      super(command);
+    }
+
+    @Override
+    public boolean matchesCommand(DBObject refExpression) {
+      return refExpression.containsField(command);
+    }
+
+    @Override
+    public Filter createFilter(final List<String> path, final DBObject refExpression) {
+      return new Filter() {
+        @Override
+        public boolean apply(DBObject o) {
+          List<Object> storedList = getEmbeddedValues(path, o);
+          if (storedList.isEmpty()) {
+            return false;
+          } else {
+            for (Object storedValue : storedList) {
+              if (compare(refExpression.get(command), storedValue)) {
+                return true;
+              }
+            }
+            return false;
+          }
+        }
+      };
+    }
+
+    abstract boolean compare(Object queryValue, Object storedValue);
+
+  }
+
+  private final class WhereFilter implements Filter {
+    private final String expression;
+
+    public WhereFilter(String expression) {
+      this.expression = expression;
+    }
+
+    @Override
+    public boolean apply(DBObject o) {
+      Context cx = Context.enter();
+
+      try {
+        Scriptable scope = cx.initStandardObjects();
+        String json = JSON.serialize(o);
+        String expr = "obj=" + json + ";\n" + expression.replace("this.", "obj.") + ";\n";
+        try {
+          return (Boolean) cx.evaluateString(scope, expr, "<$where>", 0, null);
+        } catch (Exception e) {
+          LOG.error("Exception evaluating javascript expression {}", expression, e);
+        }
+      } finally {
+        cx.exit();
+      }
+
+      return false;
+    }
+  }
+
+  @SuppressWarnings("all")
+  private final class InFilterFactory extends BasicCommandFilterFactory {
+
+    private final boolean direction;
+
+    public InFilterFactory(String command, boolean direction) {
+      super(command);
+      this.direction = direction;
+    }
+
+    @Override
+    public Filter createFilter(final List<String> path, final DBObject refExpression) {
+      Collection queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
+      final Set querySet = new HashSet(queryList);
+      return new Filter() {
+        @Override
+        public boolean apply(DBObject o) {
+          List<Object> storedList = getEmbeddedValues(path, o);
+          if (storedList.isEmpty()) {
+            return !direction;
+          } else {
+            for (Object storedValue : storedList) {
+              if (compare(refExpression.get(command), storedValue, querySet) == direction) {
+                return direction;
+              }
+            }
+            return !direction;
+          }
+        }
+      };
+    }
+
+    boolean compare(Object queryValueIgnored, Object storedValue, Set querySet) {
+      if (storedValue instanceof List) {
+        for (Object valueItem : (List) storedValue) {
+          if (containsWithRegex(querySet, valueItem)) {
+            return direction;
+          }
+        }
+        if (containsWithRegex(querySet, storedValue)) {
+          return direction;
+        }
+        return !direction;
+      } else {
+        return !(direction ^ containsWithRegex(querySet, storedValue));
+      }
+    }
+
+    boolean containsWithRegex(Set querySet, Object storedValue) {
+      for (Object queryObject : querySet) {
+        if (Integer.valueOf(0).equals(compareObjects(queryObject, storedValue))) {
+          return true;
+        }
+      }
+      if (storedValue instanceof CharSequence) {
+        CharSequence s = (CharSequence) storedValue;
+        for (Object o : querySet) {
+          if (o instanceof Pattern) {
+            Pattern p = (Pattern) o;
+            if (p.matcher(s).find()) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    }
+  }
+
+  private final class NearCommandFilterFactory extends BasicCommandFilterFactory {
+
+    final boolean spherical;
+
+    public NearCommandFilterFactory(final String command, boolean spherical) {
+      super(command);
+      this.spherical = spherical;
+    }
+
+    // http://docs.mongodb.org/manual/reference/operator/near/#op._S_near
+    @Override
+    public Filter createFilter(final List<String> path, DBObject refExpression) {
+      LOG.debug("path:{}, refExp:{}", path, refExpression);
+      Number maxDistance;
+      final Geometry geometry;
+      if (refExpression.get(command) instanceof BasicDBList) {
+        final List<Coordinate> coordinates = GeoUtil.coordinate(Collections.singletonList(command), refExpression);// typecast(command, refExpression.get(command), List.class);
+        geometry = GeoUtil.createGeometryPoint(coordinates.get(0));
+        maxDistance = typecast(MAX_DISTANCE, refExpression.get(MAX_DISTANCE), Number.class);
+      } else {
+        DBObject dbObject = typecast(command, refExpression.get(command), DBObject.class);
+        geometry = GeoUtil.toGeometry(((DBObject) Util.extractField(dbObject, "$geometry")));
+        maxDistance = typecast(MAX_DISTANCE, dbObject.get(MAX_DISTANCE), Number.class);
+        if (maxDistance != null) {
+          // When in GeoJSon, distance is in meter.
+          maxDistance = maxDistance.doubleValue() / GeoUtil.EARTH_RADIUS;
+        }
+      }
+      return createNearFilter(path, maxDistance, geometry, spherical);
+    }
+  }
+
+  private final class GeoWithinCommandFilterFactory extends BasicCommandFilterFactory {
+
+    public GeoWithinCommandFilterFactory(final String command) {
+      super(command);
+    }
+
+    // http://docs.mongodb.org/manual/reference/operator/query/geoWithin/
+    @Override
+    public Filter createFilter(final List<String> path, DBObject refExpression) {
+      LOG.debug("geoWithin path:{}, refExp:{}", path, refExpression);
+      Geometry geometry = GeoUtil.toGeometry(typecast("$geoWithin", refExpression.get("$geoWithin"), DBObject.class));
+      return createGeowithinFilter(path, geometry);
+    }
+  }
+
+  abstract class ConditionalOperatorFilterFactory extends BasicFilterFactory {
+
+    public ConditionalOperatorFilterFactory(String command) {
+      super(command);
+    }
+
+    @Override
+    final boolean compare(Object queryValue, Object storedValue) {
+      if (storedValue instanceof List) {
+        for (Object aValue : (List) storedValue) {
+          if (aValue != null && singleCompare(queryValue, aValue)) {
+            return true;
+          }
+        }
+        return false;
+      } else {
+        return storedValue != null && singleCompare(queryValue, storedValue);
+      }
+    }
+
+    abstract boolean singleCompare(Object queryValue, Object storedValue);
   }
 }

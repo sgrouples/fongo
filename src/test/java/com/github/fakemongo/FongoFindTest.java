@@ -57,7 +57,7 @@ public class FongoFindTest {
   }
 
   @Test
-  public void testInQuery() {
+  public void should_handle_mixed_type_in_$in() {
     // Given
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("_id", 1).append("other", 12L));
