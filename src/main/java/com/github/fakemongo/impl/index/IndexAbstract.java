@@ -6,10 +6,15 @@ import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
+import static com.mongodb.FongoDBCollection.ID_KEY;
 import com.mongodb.MongoException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.bson.types.Binary;
-
-import java.util.*;
 
 /**
  * An index for the MongoDB.
@@ -17,14 +22,14 @@ import java.util.*;
  * NOT Thread Safe. The ThreadSafety must be done by the caller.
  */
 public abstract class IndexAbstract<T extends DBObject> {
-  private final String name;
-  private final DBObject keys;
-  private final Set<String> fields;
-  private final boolean unique;
   final String geoIndex;
   final ExpressionParser expressionParser = new ExpressionParser();
   // Contains all dbObject than field value can have
   final Map<T, List<T>> mapValues;
+  private final String name;
+  private final DBObject keys;
+  private final Set<String> fields;
+  private final boolean unique;
   int lookupCount = 0;
 
   IndexAbstract(String name, DBObject keys, boolean unique, Map<T, List<T>> mapValues, String geoIndex) throws MongoException {
@@ -43,11 +48,26 @@ public abstract class IndexAbstract<T extends DBObject> {
     }
   }
 
+  static boolean isAsc(DBObject keys) {
+    Object value = keys.toMap().values().iterator().next();
+    return value instanceof Number && ((Number) value).intValue() >= 1;
+  }
+
   private DBObject prepareKeys(DBObject keys) {
     DBObject nKeys = Util.clone(keys);
-    if (!nKeys.containsField(FongoDBCollection.ID_KEY)) {
+    if (!nKeys.containsField(ID_KEY)) {
       // Remove _id for projection.
-      nKeys.put("_id", 0);
+      boolean exclude = true;
+      // To be sure than ID_KEY is not in a compbound index.
+      for (String key : nKeys.keySet()) {
+        if (key.startsWith(ID_KEY)) {
+          exclude = false;
+          break;
+        }
+      }
+      if (exclude) {
+        nKeys.put("_id", 0);
+      }
     }
     // Transform 2d indexes into "1" (for now, can change later).
     for (Map.Entry<String, Object> entry : Util.entrySet(keys)) { // Work on keys to avoid ConcurrentModificationException
@@ -59,14 +79,6 @@ public abstract class IndexAbstract<T extends DBObject> {
       }
     }
     return nKeys;
-  }
-
-  static boolean isAsc(DBObject keys) {
-    Object value = keys.toMap().values().iterator().next();
-    if (value instanceof Number) {
-      return ((Number) value).intValue() >= 1;
-    }
-    return false;
   }
 
   public String getName() {
@@ -306,9 +318,6 @@ public abstract class IndexAbstract<T extends DBObject> {
 
   /**
    * Create the key for the hashmap.
-   *
-   * @param object
-   * @return
    */
   T getKeyFor(DBObject object) {
     DBObject applyProjections = FongoDBCollection.applyProjections(object, keys);

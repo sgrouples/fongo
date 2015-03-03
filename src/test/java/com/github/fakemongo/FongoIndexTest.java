@@ -3,6 +3,7 @@ package com.github.fakemongo;
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.Lists;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.CommandFailureException;
@@ -33,6 +34,20 @@ public class FongoIndexTest {
 
   @Rule
   public RuleChain ruleChain = RuleChain.outerRule(exception).around(fongoRule);
+
+  static IndexAbstract getIndex(DBCollection collection, String name) {
+    FongoDBCollection fongoDBCollection = (FongoDBCollection) collection;
+
+    IndexAbstract index = null;
+    for (IndexAbstract i : fongoDBCollection.getIndexes()) {
+      if (i.getName().equals(name)) {
+        index = i;
+        break;
+      }
+    }
+    assertNotNull("index not found :" + name, index);
+    return index;
+  }
 
   @Test
   public void testCreateIndexes() {
@@ -403,7 +418,6 @@ public class FongoIndexTest {
     assertEquals(2, collection.find(new BasicDBObject("_id", 2)).next().get("date"));
   }
 
-
   @Test
   public void uniqueIndexesCanPermitUpdateOfDuplicatedEntriesWhenUpdatedByIdTheSameObject() {
     DBCollection collection = fongoRule.newCollection();
@@ -545,6 +559,36 @@ public class FongoIndexTest {
   }
 
   @Test
+  public void should_mixed_index_works() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    collection.createIndex(new BasicDBObject("object.sub", 1).append("second", 1));
+    collection.insert(new BasicDBObject("_id", 1).append("object", new BasicDBObject("sub", 2).append("sib", 3)).append("second", 2));
+    collection.insert(new BasicDBObject("_id", 2).append("object", new BasicDBObject("sub", 1).append("sib", 3)).append("second", 2));
+
+    // When
+    DBObject result = collection.findOne(new BasicDBObject("object.sub", 1));
+
+    // Then
+    Assertions.assertThat(result).isEqualTo(new BasicDBObject("_id", 2).append("object", new BasicDBObject("sub", 1).append("sib", 3)).append("second", 2));
+  }
+
+  @Test
+  public void should_mixed_index_works_with_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    collection.createIndex(new BasicDBObject("_id.sub", 1).append("second", 1));
+//    collection.insert(new BasicDBObject("_id", new BasicDBObject("sub", 2)).append("second", Lists.newArrayList(10, 11, 12)));
+    collection.insert(new BasicDBObject("_id", new BasicDBObject("sub", 1)).append("second", Lists.newArrayList(10, 11, 12)));
+
+    // When
+    DBObject result = collection.findOne(new BasicDBObject("_id.sub", 1).append("second", 10));
+
+    // Then
+    Assertions.assertThat(result).isEqualTo(new BasicDBObject("_id", new BasicDBObject("sub", 1)).append("second", Lists.newArrayList(10, 11, 12)));
+  }
+
+  @Test
   public void testIdInQueryResultsInIndexOnFieldOrder() {
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("date", 4));
@@ -643,7 +687,7 @@ public class FongoIndexTest {
   }
 
   @Test
-  @Ignore("strange index, Mongo doen't handle but no exception.")
+  @Ignore("strange index, Mongo doesn't handle but no exception.")
   public void testInnerIndex() throws Exception {
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("_id", 1).append("a", new BasicDBObject("n", 1)));
@@ -797,20 +841,6 @@ public class FongoIndexTest {
     // Then
     Assertions.assertThat(collection1.getIndexInfo()).hasSize(1);
     Assertions.assertThat(collection2.getIndexInfo()).hasSize(2);
-  }
-
-  static IndexAbstract getIndex(DBCollection collection, String name) {
-    FongoDBCollection fongoDBCollection = (FongoDBCollection) collection;
-
-    IndexAbstract index = null;
-    for (IndexAbstract i : fongoDBCollection.getIndexes()) {
-      if (i.getName().equals(name)) {
-        index = i;
-        break;
-      }
-    }
-    assertNotNull("index not found :" + name, index);
-    return index;
   }
 
 }
