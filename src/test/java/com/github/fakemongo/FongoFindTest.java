@@ -2,12 +2,15 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
-import com.mongodb.*;
+import com.mongodb.BasicDBList;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
+import com.mongodb.DBObject;
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.*;
 
 public class FongoFindTest {
 
@@ -24,7 +27,7 @@ public class FongoFindTest {
     DBObject result = collection.findOne(new BasicDBObject("field", 12));
 
     // Then
-    assertEquals(new BasicDBObject("_id", 1).append("field", 12L), result);
+    assertThat(result).isEqualTo(new BasicDBObject("_id", 1).append("field", 12L));
   }
 
 
@@ -47,9 +50,9 @@ public class FongoFindTest {
     BasicDBList lst = (BasicDBList) cursor.next().get("lst");
     for (Object o : lst) {
       DBObject item = (DBObject) o;
-      assertNotNull("'a' is expected from projection", item.get("a"));
-      assertNotNull("'b' is expected from projection", item.get("b"));
-      assertNull("'c' is not expected since it is not in projection", item.get("c"));
+      assertThat(item.get("a")).as("'a' is expected from projection").isNotNull();
+      assertThat(item.get("b")).as("'b' is expected from projection").isNotNull();
+      assertThat(item.get("c")).as("'c' is not expected since it is not in projection").isNull();
     }
   }
 
@@ -66,6 +69,6 @@ public class FongoFindTest {
     DBCursor cursor = collection.find(inFind);
 
     // Then
-    assertThat(cursor.size(), is(2));
+    assertThat(cursor.size()).isEqualTo(2);
   }
 }
