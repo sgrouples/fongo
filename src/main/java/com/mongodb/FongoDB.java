@@ -1,8 +1,5 @@
 package com.mongodb;
 
-import com.github.fakemongo.Fongo;
-import com.github.fakemongo.impl.Aggregator;
-import com.github.fakemongo.impl.MapReduce;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -13,6 +10,9 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.github.fakemongo.Fongo;
+import com.github.fakemongo.impl.Aggregator;
+import com.github.fakemongo.impl.MapReduce;
 
 /**
  * fongo override of com.mongodb.DB
@@ -163,7 +163,11 @@ public class FongoDB extends DB {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Fongo got command " + cmd);
     }
-    if (cmd.containsField("getlasterror") || cmd.containsField("getLastError")) {
+    if (cmd.containsField("$eval")) {
+        CommandResult commandResult = okResult();
+        commandResult.append("retval", "null");
+        return commandResult;
+    } else if (cmd.containsField("getlasterror") || cmd.containsField("getLastError")) {
       return okResult();
     } else if (cmd.containsField("fsync")) {
       return okResult();
