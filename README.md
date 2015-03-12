@@ -216,3 +216,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Martin W. Kirst](https://github.com/nitram509)
 * [LiBe](https://github.com/libetl)
 * [Vladimir Shakhov](https://github.com/bogdad)
+* [Pierre-Jean Vardanega](https://github.com/pvardanega)
