@@ -1,9 +1,10 @@
 package com.mongodb;
 
-import com.github.fakemongo.Fongo;
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import com.github.fakemongo.Fongo;
 
 /**
  * @author Anton Bobukh <abobukh@yandex-team.ru>
@@ -62,6 +63,21 @@ public class FongoDBTest {
 
     command = new BasicDBObject("mapReduce", "test").append("out", new BasicDBObject("inline", 1));
     Assert.assertTrue(db.command(command, options, preference).containsField("results"));
+  }
+
+  @Test
+  public void commandEvalString() {
+      DBObject command = BasicDBObjectBuilder.
+              start().
+              add("$eval", "(function() {db.dropDatabase();\ndb.users.createIndex( { email: 1 }, { unique: true } );\n})();").
+              add("args", new Object[0]).
+              get();
+
+      CommandResult result = db.command(command);
+
+      assertThat(result.get("ok")).isEqualTo(1.0);
+      assertThat(result.get("retval")).isNotNull();
+      assertThat(result.get("errmsg")).isNull();
   }
 
 }
