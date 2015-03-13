@@ -54,7 +54,7 @@ public class IndexTest {
     sourceObject.put(ID_KEY, ID);
     sourceObject.put(TOP_LEVEL_KEY, new BasicDBObject(SECOND_LEVEL_KEY, SECOND_LEVEL_VALUE));
 
-    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE);
+    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE, false);
     final DBObject resultObject = iut.embedded(sourceObject);
 
     assertThat(resultObject).isEqualTo(sourceObject);
@@ -77,7 +77,7 @@ public class IndexTest {
     sourceObject.put(ID_KEY, ID);
     sourceObject.put(TOP_LEVEL_KEY + "." + SECOND_LEVEL_KEY, SECOND_LEVEL_VALUE);
 
-    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE);
+    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE, false);
     final DBObject resultObject = iut.embedded(sourceObject);
 
     assertThat(resultObject).isEqualTo(sourceObject);
@@ -102,7 +102,7 @@ public class IndexTest {
     sourceObject.put(TOP_LEVEL_KEY + "." + SECOND_LEVEL_KEY + "." + THIRD_LEVEL_KEY + "." + FOURTH_LEVEL_KEY + "."
         + FIFTH_LEVEL_KEY, FIFTH_LEVEL_VALUE);
 
-    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE);
+    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE, false);
     final DBObject resultObject = iut.embedded(sourceObject);
 
     assertThat(resultObject).isEqualTo(sourceObject);
@@ -136,7 +136,7 @@ public class IndexTest {
     sourceObject.put(TOP_LEVEL_KEY + "." + SECOND_LEVEL_KEY, SECOND_LEVEL_VALUE);
     sourceObject.put(TOP_LEVEL_KEY + "." + FIFTH_LEVEL_KEY, FIFTH_LEVEL_VALUE);
 
-    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE);
+    final Index iut = new Index(INDEX_NAME, DEFAULT_ID_KEY, UNIQUE, false);
     final DBObject resultObject = iut.embedded(sourceObject);
 
     assertThat(resultObject).isEqualTo(sourceObject);

@@ -10,6 +10,7 @@ import com.mongodb.CommandFailureException;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.DuplicateKeyException;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.MongoException;
 import java.util.Arrays;
@@ -28,6 +29,7 @@ import org.junit.rules.RuleChain;
 
 public class FongoIndexTest {
 
+//  public final FongoRule fongoRule = new FongoRule("db", true);
   public final FongoRule fongoRule = new FongoRule("db", !true);
 
   public final ExpectedException exception = ExpectedException.none();
@@ -841,6 +843,39 @@ public class FongoIndexTest {
     // Then
     Assertions.assertThat(collection1.getIndexInfo()).hasSize(1);
     Assertions.assertThat(collection2.getIndexInfo()).hasSize(2);
+  }
+
+  @Test(expected = DuplicateKeyException.class)
+  public void should_not_unique_index_permit_empty_results() {
+    // Given
+//    ExpectedMongoException.expectCode(exception, 11000, DuplicateKeyException.class);
+    DBCollection collection = fongoRule.newCollection();
+
+    collection.insert(fongoRule.parseDBObject("{ \"userid\": \"AAAAAAA\", \"score\": 43 }"));
+    collection.insert(fongoRule.parseDBObject("{ \"userid\": \"BBBBBBB\", \"score\": 34 }"));
+    collection.insert(fongoRule.parseDBObject("{ \"userid\": \"CCCCCCC\" }"));
+    collection.insert(fongoRule.parseDBObject("{ \"userid\": \"DDDDDDD\" }"));
+
+    // When
+    collection.createIndex(new BasicDBObject("score", 1), new BasicDBObject("unique", true));
+  }
+
+  @Test
+  public void should_sparse_index_permit_empty_result() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+
+    collection.insert(fongoRule.parseDBObject("{ \"_id\": \"AAAAAAA\", \"score\": 43 }"));
+    collection.insert(fongoRule.parseDBObject("{ \"_id\": \"BBBBBBB\", \"score\": 34 }"));
+    collection.insert(fongoRule.parseDBObject("{ \"_id\": \"CCCCCCC\" }"));
+    collection.insert(fongoRule.parseDBObject("{ \"_id\": \"DDDDDDD\" }"));
+
+    // When
+    collection.createIndex(new BasicDBObject("score", 1), new BasicDBObject("unique", true).append("sparse", true));
+    final List<DBObject> score = collection.find(new BasicDBObject("score", new BasicDBObject("$gt", 10))).toArray();
+
+    // Then
+    Assertions.assertThat(score).containsOnlyElementsOf(fongoRule.parseList("[{\"_id\":\"BBBBBBB\", \"score\":34}, {\"_id\":\"AAAAAAA\", \"score\":43}]"));
   }
 
 }

@@ -14,7 +14,7 @@ public class HashedIndex extends IndexAbstract<DBObject> {
   private static final Logger LOG = LoggerFactory.getLogger(HashedIndex.class);
 
   HashedIndex(String name, DBObject keys, boolean unique, String hashed) {
-    super(name, keys, unique, new LinkedHashMap<DBObject, List<DBObject>>(), hashed);
+    super(name, keys, unique, false, new LinkedHashMap<DBObject, List<DBObject>>(), hashed);
     //TreeMap<GeoUtil.GeoDBObject, List<GeoUtil.GeoDBObject>>(new GeoUtil.GeoComparator(hashed)), hashed);
   }
 

@@ -30,13 +30,15 @@ public abstract class IndexAbstract<T extends DBObject> {
   private final DBObject keys;
   private final Set<String> fields;
   private final boolean unique;
+  private final boolean sparse;
   int lookupCount = 0;
 
-  IndexAbstract(String name, DBObject keys, boolean unique, Map<T, List<T>> mapValues, String geoIndex) throws MongoException {
+  IndexAbstract(String name, DBObject keys, boolean unique, boolean sparse, Map<T, List<T>> mapValues, String geoIndex) throws MongoException {
     this.name = name;
     this.fields = Collections.unmodifiableSet(keys.keySet()); // Setup BEFORE keys.
     this.keys = prepareKeys(keys);
     this.unique = unique;
+    this.sparse = sparse;
     this.mapValues = mapValues;
     this.geoIndex = geoIndex;
 
@@ -116,7 +118,8 @@ public abstract class IndexAbstract<T extends DBObject> {
     if (unique) {
       // Unique must check if he's really unique.
       if (mapValues.containsKey(key)) {
-        return extractFields(object, key.keySet());
+        List<List<Object>> lists = extractFields(object, key.keySet());
+        return lists;
       }
       mapValues.put(key, Collections.singletonList(embedded(object))); // DO NOT CLONE !
     } else {
@@ -272,6 +275,10 @@ public abstract class IndexAbstract<T extends DBObject> {
    * @return true if index can be used.
    */
   public boolean canHandle(final DBObject queryFields) {
+    if (!sparse) {
+      return true;
+    }
+
     if (queryFields == null) {
       return false;
     }
@@ -325,6 +332,11 @@ public abstract class IndexAbstract<T extends DBObject> {
   }
 
   private List<List<Object>> extractFields(DBObject dbObject, Collection<String> fields) {
+    if (fields.isEmpty()) {
+      // Special case of unique and not sparse index.
+      fields = keys.keySet();
+    }
+
     List<List<Object>> fieldValue = new ArrayList<List<Object>>();
     for (String field : fields) {
       List<Object> embeddedValues = expressionParser.getEmbeddedValues(field, dbObject);

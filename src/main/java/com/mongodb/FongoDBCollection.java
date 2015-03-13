@@ -66,7 +66,7 @@ public class FongoDBCollection extends DBCollection {
     this.expressionParser = new ExpressionParser();
     this.updateEngine = new UpdateEngine();
     this.objectComparator = expressionParser.buildObjectComparator(true);
-    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), true);
+    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), true, false);
     this.indexes.add(_idIndex);
     if (!this.nonIdCollection) {
       this.createIndex(new BasicDBObject(ID_KEY, 1), new BasicDBObject("name", ID_NAME_INDEX));
@@ -408,14 +408,18 @@ public class FongoDBCollection extends DBCollection {
     }
 
     // Unique index must not be in previous find.
-    boolean unique = options != null && options.get("unique") != null && (Boolean.TRUE.equals(options.get("unique")) || "1".equals(options.get("unique")) || Integer.valueOf(1).equals(options.get("unique")));
+    boolean unique = isEnabled(options, "unique");
     if (unique) {
       rec.append("unique", unique);
+    }
+    boolean sparse = isEnabled(options, "sparse");
+    if (sparse) {
+      rec.append("sparse", sparse);
     }
     rec.putAll(options);
 
     try {
-      IndexAbstract index = IndexFactory.create((String) rec.get("name"), keys, unique);
+      IndexAbstract index = IndexFactory.create((String) rec.get("name"), keys, unique, sparse);
       @SuppressWarnings("unchecked") List<List<Object>> notUnique = index.addAll(_idIndex.values());
       if (!notUnique.isEmpty()) {
         // Duplicate key.
@@ -431,6 +435,17 @@ public class FongoDBCollection extends DBCollection {
 
     // Add index if all fine.
     indexColl.insert(rec);
+  }
+
+  /**
+   * Return true if key is enabled.
+   */
+  private boolean isEnabled(DBObject options, String key) {
+    if (options == null) {
+      return false;
+    }
+    Object result = options.get(key);
+    return options.get(key) != null && (Boolean.TRUE.equals(result) || "1".equals(result) || Integer.valueOf(1).equals(result));
   }
 
   @Override

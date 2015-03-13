@@ -25,11 +25,15 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.config.AbstractMongoConfiguration;
 import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.geo.Point;
+import org.springframework.data.mongodb.core.index.CompoundIndex;
+import org.springframework.data.mongodb.core.index.CompoundIndexes;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.Field;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.hateoas.Identifiable;
 
@@ -294,5 +298,38 @@ public class SpringFongoTest {
       this.geo = geo;
     }
 
+  }
+
+  @CompoundIndexes({
+                       @CompoundIndex(name = "foo_idx",
+                                      unique = true,
+                                      sparse = true,
+                                      def = "{'bars._id' : 1}")
+                   })
+  @Document
+  public class Foo implements Serializable {
+    @Field("bars")
+    private List<Bar> applications = new ArrayList<Bar>(); // null is ok
+  }
+
+  @Document
+  public class Bar implements Serializable {
+    @Field("_id")
+    private String id;
+  }
+
+
+  @Test
+  public void testSave() throws Exception {
+    // Given
+    ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
+    FooRepository mongoRepository = ctx.getBean(FooRepository.class);
+
+
+    // When
+    mongoRepository.save(new Foo());
+    mongoRepository.save(new Foo());
+
+    // Then
   }
 }

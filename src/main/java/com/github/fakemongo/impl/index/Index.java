@@ -16,11 +16,11 @@ import java.util.TreeMap;
  */
 public class Index extends IndexAbstract<DBObject> {
 
-  Index(String name, DBObject keys, boolean unique) {
-    super(name, keys, unique, createMap(keys, unique), null);
+  Index(String name, DBObject keys, boolean unique, boolean sparse) {
+    super(name, keys, unique, sparse, createMap(keys, unique, sparse), null);
   }
 
-  private static Map<DBObject, List<DBObject>> createMap(DBObject keys, boolean unique) {
+  private static Map<DBObject, List<DBObject>> createMap(DBObject keys, boolean unique, boolean sparse) {
     // Preserve order only for id.
     if (unique && keys.containsField(FongoDBCollection.ID_KEY) && keys.toMap().size() == 1) {
       return new LinkedHashMap<DBObject, List<DBObject>>();
