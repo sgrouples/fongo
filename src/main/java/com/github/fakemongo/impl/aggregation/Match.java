@@ -3,7 +3,7 @@ package com.github.fakemongo.impl.aggregation;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import java.util.List;
-import org.bson.util.annotations.ThreadSafe;
+import com.mongodb.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

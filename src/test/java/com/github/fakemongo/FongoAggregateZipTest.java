@@ -2,13 +2,13 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.Lists;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import java.util.List;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -45,11 +45,12 @@ public class FongoAggregateZipTest {
     // Aggregate
     AggregationOutput output = collection.aggregate(pipeline.get(0), pipeline.get(1), pipeline.get(2));
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
+    // TODO WDEL
+//    assertTrue(output.getCommandResult().ok());
+//    assertTrue(output.getCommandResult().containsField("result"));
 
 
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    Iterable<DBObject> resultAggregate = output.results();
     Assert.assertEquals(fongoRule.parseDBObject("[ { \"_id\" : \"MA\" , \"totalPop\" : 6016425} , " +
         "{ \"_id\" : \"NJ\" , \"totalPop\" : 7730188} , " +
         "{ \"_id\" : \"NY\" , \"totalPop\" : 12950936}]"), resultAggregate);
@@ -80,10 +81,11 @@ public class FongoAggregateZipTest {
     AggregationOutput output = collection.aggregate(pipeline.get(0), pipeline.get(1), pipeline.get(2), pipeline.get(3), pipeline.get(4));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
+    // TODO WDEL
+//    assertTrue(output.getCommandResult().ok());
+//    assertTrue(output.getCommandResult().containsField("result"));
 
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     // TODO(twillouer) : $project { _id : 0 } must remove the id field but $sort add him...
 //    Assert.assertEquals(fongoRule.parseList("" +
 //        "[ { \"biggestCity\" : { \"name\" : \"BRIDGEPORT\" , \"pop\" : 141638} , \"smallestCity\" : { \"name\" : \"EAST KILLINGLY\" , \"pop\" : 25} , \"state\" : \"CT\"} , " +

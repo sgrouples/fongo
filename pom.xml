@@ -70,7 +70,7 @@
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
-            <version>3.0.0-beta3</version>
+            <version>3.0.0-rc0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

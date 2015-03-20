@@ -236,9 +236,9 @@ public final class Util {
       return clone;
     }
 
-    if (source instanceof org.bson.LazyDBList) {
+    if (source instanceof org.bson.LazyBSONList) {
       BasicDBList clone = new BasicDBList();
-      for (Object o : ((org.bson.LazyDBList) source)) {
+      for (Object o : ((org.bson.LazyBSONList) source)) {
         if (o instanceof DBObject) {
           clone.add(Util.clone((DBObject) o));
         } else {

@@ -6,9 +6,9 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.util.JSON;
 import java.util.List;
+import org.assertj.core.util.Lists;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,14 +44,12 @@ public class FongoAggregateGroupTest {
     AggregationOutput output = coll.aggregate(project);
 
     // Then
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(JSON.parse("[\n" +
         "               { \"_id\" : \"main: pie\", \"count\" : 2 },\n" +
         "               { \"_id\" : \"dessert: pie\", \"count\" : 2 }\n" +
-        "             ]"), result);
+        "             ]"), resultAggregate);
   }
 
 

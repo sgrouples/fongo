@@ -748,7 +748,7 @@ public class FongoTest {
         new BasicDBObject("$inc", new BasicDBObject("a", 1)), true, false);
     assertEquals(new BasicDBObject("_id", 1).append("n", "jon").append("a", 1),
         collection.findOne());
-    assertFalse(result.getLastError().getBoolean("updatedExisting"));
+    assertFalse(result.isUpdateOfExisting());
   }
 
   @Test
@@ -759,7 +759,7 @@ public class FongoTest {
         new BasicDBObject("$inc", new BasicDBObject("a", 1)), true, false);
     assertEquals(new BasicDBObject("_id", 1).append("a", 1),
         collection.findOne());
-    assertTrue(result.getLastError().getBoolean("updatedExisting"));
+    assertTrue(result.isUpdateOfExisting());
   }
 
   @Test
@@ -907,15 +907,16 @@ public class FongoTest {
     assertEquals(expected, collection.findOne());
   }
 
-  @Test
-  public void testAuthentication() {
-    Assume.assumeFalse(fongoRule.isRealMongo());
-    DB fongoDB = fongoRule.getDB("testDB");
-    assertFalse(fongoDB.isAuthenticated());
-    // Once authenticated, fongoDB should be available to answer yes, whatever the credentials were. 
-    assertTrue(fongoDB.authenticate("login", "password".toCharArray()));
-    assertTrue(fongoDB.isAuthenticated());
-  }
+  // TODO WDEL
+//  @Test
+//  public void testAuthentication() {
+//    Assume.assumeFalse(fongoRule.isRealMongo());
+//    DB fongoDB = fongoRule.getDB("testDB");
+//    assertFalse(fongoDB.isAuthenticated());
+//    // Once authenticated, fongoDB should be available to answer yes, whatever the credentials were.
+//    assertTrue(fongoDB.authenticate("login", "password".toCharArray()));
+//    assertTrue(fongoDB.isAuthenticated());
+//  }
 
   @Test
   public void testUpsertOnIdWithPush() {
@@ -1122,16 +1123,6 @@ public class FongoTest {
     collection.insert(new BasicDBObject("n", new BasicDBObject("i", Util.list(3, 4))).append("_id", 2));
     collection.insert(new BasicDBObject("n", new BasicDBObject("i", Util.list(1, 5))).append("_id", 3));
     assertEquals(Arrays.asList(1, 2, 3, 4, 5), collection.distinct("n.i"));
-  }
-
-  @Test
-  public void testGetLastError() {
-    Fongo fongo = newFongo();
-    DB db = fongo.getDB("db");
-    DBCollection collection = db.getCollection("coll");
-    collection.insert(new BasicDBObject("_id", 1));
-    CommandResult error = db.getLastError();
-    assertTrue(error.ok());
   }
 
   @Test
@@ -1385,29 +1376,6 @@ public class FongoTest {
   }
 
   @Test
-  public void testExplicitlyAddedObjectIdNotNew() {
-    Fongo fongo = newFongo();
-    DB db = fongo.getDB("db");
-    DBCollection coll = db.getCollection("coll");
-    ObjectId oid = new ObjectId();
-    assertTrue("new should be true", oid.isNew());
-    coll.save(new BasicDBObject("_id", oid));
-    ObjectId retrievedOid = (ObjectId) coll.findOne().get("_id");
-    assertEquals("retrieved should still equal the inserted", oid, retrievedOid);
-    assertFalse("retrieved should not be new", retrievedOid.isNew());
-  }
-
-  @Test
-  public void testAutoCreatedObjectIdNotNew() {
-    Fongo fongo = newFongo();
-    DB db = fongo.getDB("db");
-    DBCollection coll = db.getCollection("coll");
-    coll.save(new BasicDBObject());
-    ObjectId retrievedOid = (ObjectId) coll.findOne().get("_id");
-    assertFalse("retrieved should not be new", retrievedOid.isNew());
-  }
-
-  @Test
   public void testDbRefs() {
     Fongo fong = newFongo();
     DB db = fong.getDB("db");
@@ -1416,49 +1384,12 @@ public class FongoTest {
     final String coll2oid = "coll2id";
     BasicDBObject coll2doc = new BasicDBObject("_id", coll2oid);
     coll2.insert(coll2doc);
-    coll1.insert(new BasicDBObject("ref", new DBRef(db, "coll2", coll2oid)));
+    coll1.insert(new BasicDBObject("ref", new DBRef("coll2", coll2oid)));
 
     DBRef ref = (DBRef) coll1.findOne().get("ref");
-    assertEquals("db", ref.getDB().getName());
-    assertEquals("coll2", ref.getRef());
+    assertEquals("db", ref.getCollectionName());
+    assertEquals("coll2", ref.getCollectionName());
     assertEquals(coll2oid, ref.getId());
-    assertEquals(coll2doc, ref.fetch());
-  }
-
-  @Test
-  public void testDbRefsWithoutDbSet() {
-    Fongo fong = newFongo();
-    DB db = fong.getDB("db");
-    DBCollection coll1 = db.getCollection("coll");
-    DBCollection coll2 = db.getCollection("coll2");
-    final String coll2oid = "coll2id";
-    BasicDBObject coll2doc = new BasicDBObject("_id", coll2oid);
-    coll2.insert(coll2doc);
-    coll1.insert(new BasicDBObject("ref", new DBRef(null, "coll2", coll2oid)));
-
-    DBRef ref = (DBRef) coll1.findOne().get("ref");
-    assertNotNull(ref.getDB());
-    assertEquals("coll2", ref.getRef());
-    assertEquals(coll2oid, ref.getId());
-    assertEquals(coll2doc, ref.fetch());
-  }
-
-  @Test
-  public void nullable_db_for_dbref() {
-    // Given
-    DBCollection collection = this.newCollection();
-    DBObject saved = new BasicDBObjectBuilder().add("date", "now").get();
-    collection.save(saved);
-    DBRef dbRef = new DBRef(null, collection.getName(), saved.get("_id"));
-    DBObject ref = new BasicDBObject("ref", dbRef);
-
-    // When
-    collection.save(ref);
-    DBRef result = (DBRef) collection.findOne(new BasicDBObject("_id", ref.get("_id"))).get("ref");
-
-    // Then
-    assertThat(result.getDB()).isNotNull().isEqualTo(collection.getDB());
-    assertThat(result.fetch()).isEqualTo(saved);
   }
 
   @Test
@@ -1775,7 +1706,6 @@ public class FongoTest {
     collection.insert(new BasicDBObject("_id", id).append("name", "jon"));
 
     assertEquals(1, collection.count(new BasicDBObject("name", "jon")));
-    assertFalse(id.isNew());
   }
 
   @Test

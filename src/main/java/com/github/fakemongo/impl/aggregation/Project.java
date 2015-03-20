@@ -7,6 +7,7 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.MongoException;
+import com.mongodb.annotations.ThreadSafe;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -16,7 +17,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
-import org.bson.util.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

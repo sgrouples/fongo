@@ -5,13 +5,12 @@ import com.mongodb.BasicDBList;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
+import com.mongodb.annotations.ThreadSafe;
 import java.util.ArrayList;
 import java.util.List;
-import org.bson.util.annotations.ThreadSafe;
 
 /**
- * User: william
- * Date: 24/07/13
+ *
  */
 @ThreadSafe
 public class Unwind extends PipelineKeyword {

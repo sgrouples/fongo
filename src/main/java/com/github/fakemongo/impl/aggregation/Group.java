@@ -7,12 +7,12 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.annotations.ThreadSafe;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.bson.util.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,7 +52,7 @@ public class Group extends PipelineKeyword {
   }
 
   @ThreadSafe
-  static enum GroupKeyword {
+  enum GroupKeyword {
     MIN("$min") {
       @Override
       Object work(DBCollection coll, Object keywordParameter) {

@@ -11,6 +11,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.bson.BsonDocument;
+import org.bson.BsonDouble;
+import org.bson.BsonInt32;
+import org.bson.BsonString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,18 +40,6 @@ public class FongoDB extends DB {
     doGetCollection("system.users");
     doGetCollection("system.indexes");
     doGetCollection(SYSTEM_NAMESPACES);
-  }
-
-  @Override
-  public void requestStart() {
-  }
-
-  @Override
-  public void requestDone() {
-  }
-
-  @Override
-  public void requestEnsureConnection() {
   }
 
   @Override
@@ -110,10 +102,6 @@ public class FongoDB extends DB {
 //  }
 
   @Override
-  public void cleanCursors(boolean force) throws MongoException {
-  }
-
-  @Override
   public DB getSisterDB(String name) {
     return fongo.getDB(name);
   }
@@ -136,30 +124,30 @@ public class FongoDB extends DB {
     }
   }
 
-  @Override
-  CommandResult doAuthenticate(MongoCredential credentials) {
-    this.mongoCredential = credentials;
-    return okResult();
-  }
-
-  @Override
-  MongoCredential getAuthenticationCredentials() {
-    return this.mongoCredential;
-  }
+  // TODO WDEL
+//  @Override
+//  CommandResult doAuthenticate(MongoCredential credentials) {
+//    this.mongoCredential = credentials;
+//    return okResult();
+//  }
+//
+//  @Override
+//  MongoCredential getAuthenticationCredentials() {
+//    return this.mongoCredential;
+//  }
 
   /**
    * Executes a database command.
    *
-   * @param cmd       dbobject representing the command to execute
-   * @param options   query options to use
-   * @param readPrefs ReadPreferences for this command (nodes selection is the biggest part of this)
+   * @param cmd            dbobject representing the command to execute
+   * @param readPreference ReadPreferences for this command (nodes selection is the biggest part of this)
    * @return result of command from the database
    * @throws MongoException
    * @dochub commands
    * @see <a href="http://mongodb.onconfluence.com/display/DOCS/List+of+Database+Commands">List of Commands</a>
    */
   @Override
-  public CommandResult command(DBObject cmd, int options, ReadPreference readPrefs) throws MongoException {
+  public CommandResult command(final DBObject cmd, final ReadPreference readPreference, final DBEncoder encoder) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Fongo got command " + cmd);
     }
@@ -300,8 +288,7 @@ public class FongoDB extends DB {
 //  @Override
   public Set<String> getCollectionNames() {
     List<String> collectionNames = new ArrayList<String>();
-    Iterator<DBObject> collections = getCollection("system.namespaces")
-        .find(new BasicDBObject(), null, 0, 0, 0, getOptions(), ReadPreference.primary(), null);
+    Iterator<DBObject> collections = getCollection("system.namespaces").find(new BasicDBObject());
     for (; collections.hasNext(); ) {
       String collectionName = collections.next().get("name").toString();
       if (!collectionName.contains("$")) {
@@ -314,19 +301,17 @@ public class FongoDB extends DB {
   }
 
   public CommandResult okResult() {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 1.0);
-    return result;
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult okErrorResult(int code, String err) {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 1.0);
-    result.put("code", code);
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
+    result.put("code", new BsonInt32(code));
     if (err != null) {
-      result.put("err", err);
+      result.put("err", new BsonString(err));
     }
-    return result;
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(String err) {
@@ -334,15 +319,14 @@ public class FongoDB extends DB {
   }
 
   public CommandResult notOkErrorResult(String err, String errmsg) {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 0);
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
     if (err != null) {
-      result.put("err", err);
+      result.put("err", new BsonString(err));
     }
     if (errmsg != null) {
-      result.put("errmsg", errmsg);
+      result.put("errmsg", new BsonString(errmsg));
     }
-    return result;
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(int code, String err) {

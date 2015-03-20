@@ -716,9 +716,9 @@ public class ExpressionParserTest {
   public void compare_dbref() {
     Fongo fongo = new Fongo("test");
     ExpressionParser expressionParser = new ExpressionParser();
-    DBRef first = new DBRef(fongo.getDB("test"), "coll", ObjectId.get());
-    DBRef second = new DBRef(fongo.getDB("test"), "coll", ObjectId.get());
-    DBRef third = new DBRef(fongo.getDB("test"), "coll2", first.getId());
+    DBRef first = new DBRef("coll", ObjectId.get());
+    DBRef second = new DBRef("coll", ObjectId.get());
+    DBRef third = new DBRef("coll2", first.getId());
     assertThat(expressionParser.compareObjects(first, first)).isEqualTo(0);
     assertThat(expressionParser.compareObjects(first, second)).isNotEqualTo(0);
     assertThat(expressionParser.compareObjects(first, third)).isNotEqualTo(0);
@@ -913,21 +913,21 @@ public class ExpressionParserTest {
 
   @Test
   public void testDBRef() throws Exception {
-    BasicDBObject rec1 = new BasicDBObject("a", new DBRef(null, "c", 1));
+    BasicDBObject rec1 = new BasicDBObject("a", new DBRef("c", 1));
     List<DBObject> results = doFilter(
         new BasicDBObject("a.$id", 1),
         rec1,
-        new BasicDBObject("a", new DBRef(null, "c", 2)));
+        new BasicDBObject("a", new DBRef("c", 2)));
     assertEquals(Arrays.<DBObject>asList(rec1), results);
   }
 
   @Test
   public void testDBRefList() throws Exception {
-    BasicDBObject rec1 = new BasicDBObject("a", asList(new DBRef(null, "c", 1), new DBRef(null, "c", 2)));
+    BasicDBObject rec1 = new BasicDBObject("a", asList(new DBRef("c", 1), new DBRef("c", 2)));
     List<DBObject> results = doFilter(
         new BasicDBObject("a.$id", 1),
         rec1,
-        new BasicDBObject("a", asList(new DBRef(null, "c", 2))));
+        new BasicDBObject("a", asList(new DBRef("c", 2))));
 
     assertEquals(Arrays.<DBObject>asList(rec1), results);
   }

@@ -45,7 +45,7 @@ public class MockMongoClient extends MongoClient {
 
   @Override
   public int getMaxBsonObjectSize() {
-    return Bytes.MAX_OBJECT_SIZE;
+    return 16 * 1024 * 1024;
   }
 
   @Override
@@ -56,11 +56,6 @@ public class MockMongoClient extends MongoClient {
   @Override
   public void dropDatabase(String dbName) {
     fongo.dropDatabase(dbName);
-  }
-
-  @Override
-  boolean isMongosConnection() {
-    return false;
   }
 
   @Override
@@ -75,7 +70,8 @@ public class MockMongoClient extends MongoClient {
 
   @Override
   public List<ServerAddress> getAllAddress() {
-    if (super.getConnector() != null) return super.getAllAddress();
+//    if (super.getConnector() != null) return super.getAllAddress();
+    if (true) return super.getAllAddress();
     return Collections.emptyList();
   }
 }

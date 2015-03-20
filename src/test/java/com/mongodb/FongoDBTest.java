@@ -25,10 +25,10 @@ public class FongoDBTest {
     BasicDBObject command;
 
     command = new BasicDBObject("getlasterror", 1);
-    Assert.assertTrue(db.command(command, options, preference).containsField("ok"));
+    Assert.assertTrue(db.command(command, preference).containsField("ok"));
 
     command = new BasicDBObject("getLastError", 1);
-    Assert.assertTrue(db.command(command, options, preference).containsField("ok"));
+    Assert.assertTrue(db.command(command, preference).containsField("ok"));
   }
 
   @Test
@@ -36,10 +36,10 @@ public class FongoDBTest {
     BasicDBObject command;
 
     command = new BasicDBObject("findandmodify", "test");
-    Assert.assertTrue(db.command(command, options, preference).containsField("value"));
+    Assert.assertTrue(db.command(command, preference).containsField("value"));
 
     command = new BasicDBObject("findAndModify", "test");
-    Assert.assertTrue(db.command(command, options, preference).containsField("value"));
+    Assert.assertTrue(db.command(command, preference).containsField("value"));
   }
 
   @Test
@@ -47,10 +47,10 @@ public class FongoDBTest {
     BasicDBObject command;
 
     command = new BasicDBObject("buildinfo", 1);
-    Assert.assertTrue(db.command(command, options, preference).containsField("version"));
+    Assert.assertTrue(db.command(command, preference).containsField("version"));
 
     command = new BasicDBObject("buildInfo", 1);
-    Assert.assertTrue(db.command(command, options, preference).containsField("version"));
+    Assert.assertTrue(db.command(command, preference).containsField("version"));
   }
 
   @Test
@@ -58,10 +58,10 @@ public class FongoDBTest {
     BasicDBObject command;
 
     command = new BasicDBObject("mapreduce", "test").append("out", new BasicDBObject("inline", 1));
-    Assert.assertTrue(db.command(command, options, preference).containsField("results"));
+    Assert.assertTrue(db.command(command, preference).containsField("results"));
 
     command = new BasicDBObject("mapReduce", "test").append("out", new BasicDBObject("inline", 1));
-    Assert.assertTrue(db.command(command, options, preference).containsField("results"));
+    Assert.assertTrue(db.command(command, preference).containsField("results"));
   }
 
 }

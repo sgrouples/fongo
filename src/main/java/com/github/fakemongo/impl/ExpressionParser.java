@@ -5,7 +5,7 @@ import com.github.fakemongo.impl.geo.GeoUtil;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.DBRefBase;
+import com.mongodb.DBRef;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.LazyDBObject;
 import com.mongodb.QueryOperators;
@@ -429,13 +429,13 @@ public class ExpressionParser {
     return getEmbeddedValues(Util.split(key), 0, dbo);
   }
 
-  public List<Object> extractDBRefValue(DBRefBase ref, String refKey) {
+  public List<Object> extractDBRefValue(DBRef ref, String refKey) {
     if ("$id".equals(refKey)) {
       return Collections.singletonList(ref.getId());
     } else if ("$ref".equals(refKey)) {
-      return Collections.<Object>singletonList(ref.getRef());
-    } else if ("$db".equals(refKey)) {
-      return Collections.<Object>singletonList(ref.getDB());
+      return Collections.<Object>singletonList(ref.getCollectionName());
+//    } else if ("$db".equals(refKey)) {
+//      return Collections.<Object>singletonList(ref.getDB());
     } else return Collections.emptyList();
   }
 
@@ -458,15 +458,15 @@ public class ExpressionParser {
           if (listValue instanceof DBObject) {
             List<Object> embeddedListValue = getEmbeddedValues(path, i + 1, (DBObject) listValue);
             results.addAll(embeddedListValue);
-          } else if (listValue instanceof DBRefBase) {
-            results.addAll(extractDBRefValue((DBRefBase) listValue, path.get(i + 1)));
+          } else if (listValue instanceof DBRef) {
+            results.addAll(extractDBRefValue((DBRef) listValue, path.get(i + 1)));
           }
         }
         if (!results.isEmpty()) {
           return results;
         }
-      } else if (value instanceof DBRefBase) {
-        return extractDBRefValue((DBRefBase) value, path.get(i + 1));
+      } else if (value instanceof DBRef) {
+        return extractDBRefValue((DBRef) value, path.get(i + 1));
       } else {
         return Collections.emptyList();
       }
@@ -649,9 +649,9 @@ public class ExpressionParser {
           checkTypes = false;
         }
       }
-      if (cc1 instanceof DBRefBase && cc2 instanceof DBRefBase) {
-        DBRefBase a1 = (DBRefBase) cc1;
-        DBRefBase a2 = (DBRefBase) cc2;
+      if (cc1 instanceof DBRef && cc2 instanceof DBRef) {
+        DBRef a1 = (DBRef) cc1;
+        DBRef a2 = (DBRef) cc2;
         if (a1.equals(a2)) {
           return 0;
         }
