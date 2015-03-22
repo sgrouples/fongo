@@ -434,8 +434,6 @@ public class ExpressionParser {
       return Collections.singletonList(ref.getId());
     } else if ("$ref".equals(refKey)) {
       return Collections.<Object>singletonList(ref.getCollectionName());
-//    } else if ("$db".equals(refKey)) {
-//      return Collections.<Object>singletonList(ref.getDB());
     } else return Collections.emptyList();
   }
 
@@ -589,19 +587,29 @@ public class ExpressionParser {
     } else if (queryValue instanceof List && storedValue instanceof List) {
       List queryList = (List) queryValue;
       List storedList = (List) storedValue;
-      return compareLists(queryList, storedList);
+      return compareLists(queryList, storedList, comparableFilter);
     } else {
       Object queryComp = typecast("query value", queryValue, Object.class);
       if (comparableFilter && !(storedValue instanceof Comparable)) {
+        if (queryComp.equals(storedValue)) {
+          return 0;
+        }
         return null;
       }
       Object storedComp = typecast("stored value", storedValue, Object.class);
-      return compareTo(queryComp, storedComp);
+      return compareTo(queryComp, storedComp, comparableFilter);
     }
   }
 
-  //@VisibleForTesting
   protected int compareTo(Object c1, Object c2) { // Object to handle MinKey/MaxKey
+    return compareTo(c1, c2, false);
+  }
+
+  /**
+   * @param comparableFilter if true, return null if {@code queryValue} and {@code storedValue} can't be compared..
+   */
+  //@VisibleForTesting
+  protected Integer compareTo(Object c1, Object c2, boolean comparableFilter) { // Object to handle MinKey/MaxKey
     Object cc1 = c1;
     Object cc2 = c2;
     Class<?> clazz1 = c1 == null ? Null.class : c1.getClass();
@@ -667,7 +675,11 @@ public class ExpressionParser {
           cc1 = type1;
           cc2 = type2;
         } else {
-          throw new FongoException("Don't know how to compare " + cc1.getClass() + " and " + cc2.getClass() + " values are : " + c1 + " vs " + c2);
+          if (!comparableFilter) {
+            throw new FongoException("Don't know how to compare " + cc1.getClass() + " and " + cc2.getClass() + " values are : " + c1 + " vs " + c2);
+          } else {
+            return null;
+          }
         }
       }
     }
@@ -702,7 +714,15 @@ public class ExpressionParser {
     return true;
   }
 
+
   public int compareLists(List queryList, List storedList) {
+    return compareLists(queryList, storedList, false);
+  }
+
+  /**
+   * @param comparableFilter if true, return null if {@code queryValue} and {@code storedValue} can't be compared..
+   */
+  private Integer compareLists(List queryList, List storedList, boolean comparableFilter) {
     int sizeDiff = queryList.size() - storedList.size();
     if (sizeDiff != 0) {
       if (sizeDiff > 0 && queryList.get(storedList.size()) instanceof MinKey) {
@@ -725,7 +745,10 @@ public class ExpressionParser {
       return sizeDiff;
     }
     for (int i = 0, length = queryList.size(); i < length; i++) {
-      Integer compareValue = compareObjects(queryList.get(i), storedList.get(i));
+      Integer compareValue = compareObjects(queryList.get(i), storedList.get(i), comparableFilter);
+      if (compareValue == null) {
+        return -1; // Arbitrary
+      }
       if (compareValue != 0) {
         return compareValue;
       }
@@ -965,7 +988,7 @@ public class ExpressionParser {
           List<Object> o1list = getEmbeddedValues(path, dbo1);
           List<Object> o2list = getEmbeddedValues(path, dbo2);
 
-          int compareValue = compareLists(o1list, o2list) * sortDirection;
+          int compareValue = compareLists(o1list, o2list, false) * sortDirection;
           if (compareValue != 0) {
             return compareValue;
           }

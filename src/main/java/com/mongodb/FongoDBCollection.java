@@ -29,6 +29,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.bson.BSON;
+import org.bson.BsonValue;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
 import org.bson.types.Binary;
@@ -268,7 +269,7 @@ public class FongoDBCollection extends DBCollection {
 
 
   private List idsIn(DBObject query) {
-    Object idValue = query.get(ID_KEY);
+    Object idValue = query != null ? query.get(ID_KEY) : null;
     if (idValue == null || query.keySet().size() > 1) {
       return Collections.emptyList();
     } else if (idValue instanceof DBObject) {
@@ -470,72 +471,7 @@ public class FongoDBCollection extends DBCollection {
   }
 
   public DBCursor find(final DBObject query, final DBObject projection) {
-    return new DBCursor(this, query, null, getReadPreference()) {
-
-      public int numSeen = 0;
-      private DBObject currentObject;
-      private List<DBObject> objects = null;
-      private Iterator<DBObject> iterator;
-
-      private void fetch() {
-        if (this.objects == null) {
-          objects = new ArrayList<DBObject>();
-          objects.addAll(__find(query, projection, 0, 0, 0, 0, getReadPreference(), null));
-          iterator = objects.iterator();
-        }
-      }
-
-
-      private DBObject currentObject(final DBObject newCurrentObject) {
-        if (newCurrentObject != null) {
-          currentObject = newCurrentObject;
-          numSeen++;
-
-          if (projection != null && !(projection.keySet().isEmpty())) {
-            currentObject.markAsPartialObject();
-          }
-        }
-        return newCurrentObject;
-      }
-
-      @Override
-      public synchronized List<DBObject> toArray(int max) {
-        fetch();
-        return objects;
-      }
-
-      @Override
-      public boolean hasNext() {
-        fetch();
-        return iterator.hasNext();
-      }
-
-      @Override
-      public DBObject next() {
-        fetch();
-        return currentObject(iterator.next());
-      }
-
-      @Override
-      public DBObject tryNext() {
-        return next();
-      }
-
-      @Override
-      public DBObject curr() {
-        return currentObject;
-      }
-
-      @Override
-      public Iterator<DBObject> iterator() {
-        return super.iterator();
-      }
-
-      @Override
-      public int length() {
-        return this.objects.size();
-      }
-    };
+    return new FongoDBCursor(this, query, projection);
   }
 
 
@@ -590,7 +526,7 @@ public class FongoDBCollection extends DBCollection {
     int seen = 0;
     Iterable<DBObject> objectsToSearch = sortObjects(orderby, objectsFromIndex);
     for (Iterator<DBObject> iter = objectsToSearch.iterator();
-         iter.hasNext() && foundCount <= upperLimit && maxScan-- > 0; ) {
+         iter.hasNext() && foundCount < upperLimit && maxScan-- > 0; ) {
       DBObject dbo = iter.next();
       if (filter.apply(dbo)) {
         if (seen++ >= numToSkip) {
@@ -977,10 +913,11 @@ public class FongoDBCollection extends DBCollection {
     return objectsToSearch;
   }
 
-
   @Override
-  public synchronized long getCount(DBObject query, DBObject fields, long limit, long skip) {
-    query = filterLists(query);
+  synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
+                             final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
+                             final BsonValue hint) {
+    final DBObject query = filterLists(pQuery);
     Filter filter = query == null ? ExpressionParser.AllFilter : expressionParser.buildFilter(query);
     long count = 0;
     long upperLimit = Long.MAX_VALUE;
@@ -1049,8 +986,8 @@ public class FongoDBCollection extends DBCollection {
   }
 
   @Override
-  public synchronized List distinct(String key, DBObject query) {
-    query = filterLists(query);
+  public synchronized List distinct(final String key, final DBObject pQuery, final ReadPreference readPreference) {
+    final DBObject query = filterLists(pQuery);
     Set<Object> results = new LinkedHashSet<Object>();
     Filter filter = expressionParser.buildFilter(query);
     for (Iterator<DBObject> iter = filterByIndexes(query).iterator(); iter.hasNext(); ) {

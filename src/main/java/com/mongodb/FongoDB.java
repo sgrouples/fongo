@@ -335,7 +335,7 @@ public class FongoDB extends DB {
   }
 
   public CommandResult notOkErrorResult(String err, String errmsg) {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0));
     if (err != null) {
       result.put("err", new BsonString(err));
     }
