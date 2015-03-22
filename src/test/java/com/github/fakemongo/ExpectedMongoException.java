@@ -15,7 +15,7 @@ public final class ExpectedMongoException {
   private ExpectedMongoException() {
   }
 
-  public static ExpectedException expectCommandFailure(ExpectedException expectedException, int code) {
+  public static ExpectedException expectMongoCommandException(ExpectedException expectedException, int code) {
     return expectCode(expectedException, code, MongoCommandException.class);
   }
 

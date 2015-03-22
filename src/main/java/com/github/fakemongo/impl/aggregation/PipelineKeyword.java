@@ -1,6 +1,7 @@
 package com.github.fakemongo.impl.aggregation;
 
 import com.github.fakemongo.Fongo;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -44,7 +45,7 @@ public abstract class PipelineKeyword {
   }
 
   protected DBCollection createAndInsert(List<DBObject> objects) {
-    DBCollection coll = fongo.createCollection(UUID.randomUUID().toString(), null);
+    DBCollection coll = fongo.createCollection(UUID.randomUUID().toString(), new BasicDBObject());
     coll.insert(objects);
     return coll;
   }

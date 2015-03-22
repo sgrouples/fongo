@@ -1116,7 +1116,7 @@ public class ExpressionParser {
 
     boolean containsWithRegex(Set querySet, Object storedValue) {
       for (Object queryObject : querySet) {
-        if (Integer.valueOf(0).equals(compareObjects(queryObject, storedValue))) {
+        if (Integer.valueOf(0).equals(compareObjects(queryObject, storedValue, true))) {
           return true;
         }
       }

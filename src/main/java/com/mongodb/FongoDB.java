@@ -11,6 +11,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDouble;
 import org.bson.BsonInt32;
@@ -40,6 +41,21 @@ public class FongoDB extends DB {
     doGetCollection("system.users");
     doGetCollection("system.indexes");
     doGetCollection(SYSTEM_NAMESPACES);
+  }
+
+  @Override
+  public DBCollection createCollection(final String collectionName, final DBObject options) {
+    if (options == null) {
+      throw new NullPointerException();
+    }
+    final DBCollection collection = getCollection(collectionName);
+    this.addCollection((FongoDBCollection) collection);
+    return collection;
+  }
+
+  @Override
+  public DBCollection getCollection(final String name) {
+    return doGetCollection(name);
   }
 
   @Override
@@ -285,11 +301,11 @@ public class FongoDB extends DB {
    * @throws com.mongodb.MongoException
    * @mongodb.driver.manual reference/method/db.getCollectionNames/ getCollectionNames()
    */
-//  @Override
+  @Override
   public Set<String> getCollectionNames() {
     List<String> collectionNames = new ArrayList<String>();
     Iterator<DBObject> collections = getCollection("system.namespaces").find(new BasicDBObject());
-    for (; collections.hasNext(); ) {
+    while (collections.hasNext()) {
       String collectionName = collections.next().get("name").toString();
       if (!collectionName.contains("$")) {
         collectionNames.add(collectionName.substring(getName().length() + 1));
@@ -330,9 +346,12 @@ public class FongoDB extends DB {
   }
 
   public CommandResult notOkErrorResult(int code, String err) {
-    CommandResult result = notOkErrorResult(err);
-    result.put("code", code);
-    return result;
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
@@ -342,11 +361,13 @@ public class FongoDB extends DB {
   }
 
   public CommandResult errorResult(int code, String err) {
-    CommandResult result = okResult();
-    result.put("err", err);
-    result.put("code", code);
-    result.put("ok", false);
-    return result;
+    final BsonDocument result = new BsonDocument();
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    result.put("ok", BsonBoolean.FALSE);
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   @Override

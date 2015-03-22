@@ -8,6 +8,7 @@ import com.github.fakemongo.impl.aggregation.Project;
 import com.github.fakemongo.impl.aggregation.Skip;
 import com.github.fakemongo.impl.aggregation.Sort;
 import com.github.fakemongo.impl.aggregation.Unwind;
+import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
@@ -26,10 +27,10 @@ public class Aggregator {
 
   private final FongoDB fongoDB;
   private final FongoDBCollection fongoDBCollection;
-  private final List<DBObject> pipeline;
+  private final List<? extends DBObject> pipeline;
   private static final List<PipelineKeyword> keywords = Arrays.asList(Match.INSTANCE, Project.INSTANCE, Group.INSTANCE, Sort.INSTANCE, Limit.INSTANCE, Skip.INSTANCE, Unwind.INSTANCE);
 
-  public Aggregator(FongoDB fongoDB, FongoDBCollection coll, List<DBObject> pipeline) {
+  public Aggregator(FongoDB fongoDB, FongoDBCollection coll, List<? extends DBObject> pipeline) {
     this.fongoDB = fongoDB;
     this.fongoDBCollection = coll;
     this.pipeline = pipeline;
@@ -39,7 +40,7 @@ public class Aggregator {
    * @return null if error.
    */
   public List<DBObject> computeResult() {
-    DBCollection coll = fongoDB.createCollection(UUID.randomUUID().toString(), null);
+    DBCollection coll = fongoDB.createCollection(UUID.randomUUID().toString(), new BasicDBObject());
     try {
       coll.insert(this.fongoDBCollection.find().toArray());
 

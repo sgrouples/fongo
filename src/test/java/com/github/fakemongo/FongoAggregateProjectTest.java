@@ -200,7 +200,7 @@ public class FongoAggregateProjectTest {
    */
   @Test
   public void testStrcasecmpMustBeAFailure() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -353,7 +353,7 @@ public class FongoAggregateProjectTest {
    */
   @Test
   public void testSubstrWithErrorParams() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -509,7 +509,7 @@ public class FongoAggregateProjectTest {
 
   @Test
   public void testCmpMustBeAFailure() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -691,7 +691,7 @@ public class FongoAggregateProjectTest {
   @Test
   public void testToLowerMustNotHandleBigArray() {
     //com.mongodb.CommandFailureException: { "serverUsed" : "/127.0.0.1:27017" , "errmsg" : "exception: the $toLower operator requires 1 operand(s)" , "code" : 16020 , "ok" : 0.0}
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"APPLE\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"CHERRY\" } },\n" +

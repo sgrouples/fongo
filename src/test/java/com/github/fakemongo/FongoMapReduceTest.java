@@ -232,7 +232,7 @@ public class FongoMapReduceTest {
 
   @Test
   public void testMapReduceMapInError() {
-    ExpectedMongoException.expectCommandFailure(exception, 16722);
+    ExpectedMongoException.expectMongoCommandException(exception, 16722);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
         " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
@@ -248,7 +248,7 @@ public class FongoMapReduceTest {
 
   @Test
   public void testMapReduceReduceInError() {
-    ExpectedMongoException.expectCommandFailure(exception, 16722);
+    ExpectedMongoException.expectMongoCommandException(exception, 16722);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
         " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +

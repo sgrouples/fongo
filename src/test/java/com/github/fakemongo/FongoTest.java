@@ -4,6 +4,7 @@ import ch.qos.logback.classic.Level;
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.Sets;
 import com.mongodb.AggregationOutput;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
@@ -18,6 +19,7 @@ import com.mongodb.DBObject;
 import com.mongodb.DBRef;
 import com.mongodb.DuplicateKeyException;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoException;
 import com.mongodb.QueryBuilder;
 import com.mongodb.ServerAddress;
@@ -44,6 +46,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
 import org.bson.BSON;
 import org.bson.Transformer;
+import org.bson.codecs.configuration.CodecConfigurationException;
 import org.bson.types.Binary;
 import org.bson.types.MaxKey;
 import org.bson.types.MinKey;
@@ -55,7 +58,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -95,11 +97,27 @@ public class FongoTest {
     assertEquals(newHashSet("coll", "system.indexes"), db.getCollectionNames());
   }
 
-  @Test
-  public void testCreateCollection() {
+  @Test(expected = NullPointerException.class)
+  public void should_throw_a_NPE_when_option_is_null() {
     DB db = fongoRule.getDB("db");
     db.createCollection("coll", null);
-    assertEquals(new HashSet<String>(), db.getCollectionNames());
+  }
+
+  @Test
+  public void should_createCollection_create_the_collection() {
+    DB db = fongoRule.getDB("db");
+    db.createCollection("coll", new BasicDBObject());
+    assertEquals(Sets.newHashSet("coll", "system.indexes"), db.getCollectionNames());
+  }
+
+  @Test
+  public void should_not_create_twice() {
+    DB db = fongoRule.getDB("db");
+    db.createCollection("coll", new BasicDBObject());
+    exception.expect(MongoCommandException.class);
+    exception.expectMessage("collection already exists");
+
+    db.createCollection("coll", new BasicDBObject());
   }
 
   @Test
@@ -1072,10 +1090,12 @@ public class FongoTest {
     collection.insert(new BasicDBObject("_id", 3));
     collection.insert(new BasicDBObject("_id", 4));
 
-    collection.remove(new BasicDBObject("_id", 2));
+    final WriteResult id = collection.remove(new BasicDBObject("_id", 2));
 
     assertEquals(null,
         collection.findOne(new BasicDBObject("_id", 2)));
+    assertThat(id.getN()).isEqualTo(1);
+    assertThat(id.getUpsertedId()).isNull();
   }
 
   @Test
@@ -1334,19 +1354,16 @@ public class FongoTest {
 
   @Test
   public void testUndefinedCommand() throws Exception {
-    Fongo fongo = newFongo();
-    DB db = fongo.getDB("db");
+    DB db = fongoRule.getDB();
     CommandResult result = db.command("undefined");
-    assertEquals("ok should always be defined", 0, result.get("ok"));
+    assertEquals("ok should always be defined", 0.0, result.get("ok"));
     assertEquals("no such cmd: undefined", result.get("errmsg"));
   }
 
   @Test
   public void testCountCommand() throws Exception {
-    Fongo fongo = newFongo();
-
     DBObject countCmd = new BasicDBObject("count", "coll");
-    DB db = fongo.getDB("db");
+    DB db = fongoRule.getDB();
     DBCollection coll = db.getCollection("coll");
     coll.insert(new BasicDBObject());
     coll.insert(new BasicDBObject());
@@ -1387,7 +1404,6 @@ public class FongoTest {
     coll1.insert(new BasicDBObject("ref", new DBRef("coll2", coll2oid)));
 
     DBRef ref = (DBRef) coll1.findOne().get("ref");
-    assertEquals("db", ref.getCollectionName());
     assertEquals("coll2", ref.getCollectionName());
     assertEquals(coll2oid, ref.getId());
   }
@@ -1467,7 +1483,7 @@ public class FongoTest {
       LOG.setLevel(Level.ERROR);
 
       int size = 1000;
-      final DBCollection col = new Fongo("InMemoryMongo").getDB("myDB").createCollection("myCollection", null);
+      final DBCollection col = new Fongo("InMemoryMongo").getDB("myDB").createCollection("myCollection", new BasicDBObject());
 
       final CountDownLatch lockSynchro = new CountDownLatch(size);
       final CountDownLatch lockDone = new CountDownLatch(size);
@@ -2401,14 +2417,16 @@ public class FongoTest {
   }
 
   @Test
-  public void test_multi_update_should_not_works_in_multi_with_no_$() {
+  public void test_multi_update_should_works_in_multi_with_no_$() {
     // Given
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 100).append("hi", 1));
 
     // When
-    ExpectedMongoException.expectWriteConcernException(exception, 9);
     collection.update(new BasicDBObject("fongo", "sucks"), new BasicDBObject("not", "upserted"), false, true);
+
+    // Then
+    assertThat(collection.find().toArray()).containsOnly(new BasicDBObject("_id", 100).append("hi", 1));
   }
 
   @Test
@@ -2434,8 +2452,8 @@ public class FongoTest {
     collection.insert(new BasicDBObject("_id", 100).append("hi", 1));
 
     // When
-    exception.expect(IllegalStateException.class);
-    exception.expectMessage("no operations");
+    exception.expect(IllegalArgumentException.class);
+    exception.expectMessage("state should be: writes is not an empty list");
     BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
     bulkWriteOperation.execute();
   }
@@ -2450,7 +2468,7 @@ public class FongoTest {
     BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
     bulkWriteOperation.find(new BasicDBObject("_id", 100)).update(new BasicDBObject("hi", 2));
     exception.expect(IllegalArgumentException.class);
-    exception.expectMessage("Update document keys must start with $: hi");
+    exception.expectMessage("Invalid BSON field name hi");
     bulkWriteOperation.execute();
   }
 
@@ -2874,19 +2892,36 @@ public class FongoTest {
   }
 
   @Test
-  public void should_mixed_data_date_works_together() {
+  public void should_not_handle_timestamp() {
     // Given
     DBCollection collection = newCollection();
     final long now = 1444444444444L;
+    // Timestamp doesn't work anymore
+    exception.expect(CodecConfigurationException.class);
+    exception.expectMessage("Can't find a codec for class java.sql.Timestamp");
     collection.insert(new BasicDBObject("_id", 1).append("date", new Timestamp(now)));
-    collection.insert(new BasicDBObject("_id", 2).append("date", new Date(now)));
+  }
+
+  @Test
+  public void should_not_handle_time() {
+    // Given
+    DBCollection collection = newCollection();
+    final long now = 1444444444444L;
+    // Timestamp doesn't work anymore
+    exception.expect(CodecConfigurationException.class);
+    exception.expectMessage("Can't find a codec for class java.sql.Time");
     collection.insert(new BasicDBObject("_id", 3).append("date", new Time(now)));
+  }
 
-    // When
-    List<DBObject> dbObjects = collection.find(new BasicDBObject("date", new Time(now))).sort(new BasicDBObject("_id", 1)).toArray();
-
-    // Then
-    Assertions.assertThat(dbObjects).isEqualTo(Arrays.asList(new BasicDBObject("_id", 1).append("date", new Date(now)), new BasicDBObject("_id", 2).append("date", new Date(now)), new BasicDBObject("_id", 3).append("date", new Date(now))));
+  @Test
+  public void should_not_handle_character() {
+    // Given
+    DBCollection collection = newCollection();
+    final long now = 1444444444444L;
+    // Timestamp doesn't work anymore
+    exception.expect(CodecConfigurationException.class);
+    exception.expectMessage("Can't find a codec for class java.lang.Character.");
+    collection.insert(new BasicDBObject("_id", 2).append("value", Character.valueOf('c')));
   }
 
   @Test

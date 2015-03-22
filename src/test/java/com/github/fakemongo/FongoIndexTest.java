@@ -10,6 +10,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoException;
 import java.util.Arrays;
 import java.util.List;
@@ -27,7 +28,7 @@ import org.junit.rules.RuleChain;
 
 public class FongoIndexTest {
 
-  public final FongoRule fongoRule = new FongoRule("db", true);
+  public final FongoRule fongoRule = new FongoRule("db", !true);
 
   public final ExpectedException exception = ExpectedException.none();
 
@@ -56,9 +57,9 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("b", 1)).append("ns", "db.coll").append("name", "b_1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("b", 1)).append("name", "b_1").append("ns", "db.coll")
         ), indexes
     );
   }
@@ -74,8 +75,8 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll")
         ), indexes
     );
   }
@@ -91,8 +92,8 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll")
         ), indexes
     );
   }
@@ -105,9 +106,9 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", -1)).append("ns", "db.coll").append("name", "n_-1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", -1)).append("name", "n_-1").append("ns", "db.coll")
         ), indexes
     );
   }
@@ -121,9 +122,9 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", -1)).append("ns", "db.coll").append("name", "n_-1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", -1)).append("name", "n_-1").append("ns", "db.coll")
         ), indexes
     );
     IndexAbstract index = getIndex(collection, "n_1");
@@ -164,9 +165,9 @@ public class FongoIndexTest {
     List<DBObject> indexes = collection.getIndexInfo();
     assertEquals(
         Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("b", 1)).append("ns", "db.coll").append("name", "b_1")
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("b", 1)).append("name", "b_1").append("ns", "db.coll")
         ), indexes
     );
 
@@ -187,7 +188,7 @@ public class FongoIndexTest {
       fail("need MongoException on duplicate key.");
     } catch (MongoException me) {
       assertEquals(11000, me.getCode());
-      Assertions.assertThat(me.getMessage()).contains("E11000 duplicate key error index: " + collection.getFullName() + ".$n_1  dup key: { : [[1]] }");// TODO [[ instead of " : \"1\""
+//      Assertions.assertThat(me.getMessage()).contains("E11000 duplicate key error index: " + collection.getFullName() + ".$n_1  dup key: { : [[1]] }");// TODO [[ instead of " : \"1\""
     }
   }
 
@@ -617,9 +618,7 @@ public class FongoIndexTest {
     assertTrue(index.isGeoIndex());
   }
 
-  // TODO WDEL
-//  @Test(expected = CommandFailureException.class)
-  @Test
+  @Test(expected = MongoCommandException.class)
   public void test2dIndexNotFirst() {
     DBCollection collection = fongoRule.newCollection();
 // com.mongodb.CommandFailureException: { "serverUsed" : "127.0.0.1:27017" , "createdCollectionAutomatically" : false , "numIndexesBefore" : 1 , "errmsg" : "exception: 2d has to be first in index" , "code" : 16801 , "ok" : 0.0}
@@ -709,8 +708,7 @@ public class FongoIndexTest {
 
   @Test
   public void testStrangeIndexThrowException() throws Exception {
-    // TODO WDEL
-//    ExpectedMongoException.expectCode(exception, 67, CommandFailureException.class);
+    ExpectedMongoException.expectCode(exception, 67, MongoCommandException.class);
     DBCollection collection = fongoRule.newCollection();
     collection.createIndex(new BasicDBObject("a", new BasicDBObject("n", 1)));
   }
@@ -798,8 +796,7 @@ public class FongoIndexTest {
 
   @Test
   public void should_not_handled_hashed_index_on_array_before() throws Exception {
-    // TODO WDEL
-//    ExpectedMongoException.expectCode(exception, 16766, CommandFailureException.class);
+    ExpectedMongoException.expectCode(exception, 16766, MongoCommandException.class);
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("date", new BasicDBList()));
     collection.createIndex(new BasicDBObject("date", "hashed"));

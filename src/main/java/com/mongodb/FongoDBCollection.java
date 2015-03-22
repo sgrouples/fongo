@@ -1,6 +1,7 @@
 package com.mongodb;
 
 import com.github.fakemongo.FongoException;
+import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Filter;
 import com.github.fakemongo.impl.Tuple2;
@@ -11,8 +12,9 @@ import com.github.fakemongo.impl.index.GeoIndex;
 import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
+import com.mongodb.operation.BaseWriteOperation;
+import com.mongodb.operation.InsertOperation;
 import com.vividsolutions.jts.geom.Geometry;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -25,18 +27,14 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.bson.BSON;
-import org.bson.BsonDocument;
-import org.bson.BsonInt32;
-import org.bson.BsonString;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
-import org.objenesis.ObjenesisStd;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * fongo override of com.mongodb.DBCollection
@@ -76,7 +74,7 @@ public class FongoDBCollection extends DBCollection {
   }
 
   private synchronized WriteResult updateResult(int updateCount, boolean updatedExisting, final Object upsertedId) {
-    return new WriteResult( updateCount, updatedExisting, upsertedId);
+    return new WriteResult(updateCount, updatedExisting, upsertedId);
   }
 
   private DBObject encodeDecode(DBObject dbObject, DBEncoder encoder) {
@@ -328,6 +326,11 @@ public class FongoDBCollection extends DBCollection {
   }
 
   @Override
+  public WriteResult remove(final DBObject query, final WriteConcern writeConcern) {
+    return this.remove(query, writeConcern, null);
+  }
+
+  @Override
   public synchronized WriteResult remove(DBObject o, WriteConcern concern, DBEncoder encoder) throws MongoException {
     o = filterLists(o);
     if (LOG.isDebugEnabled()) {
@@ -424,25 +427,126 @@ public class FongoDBCollection extends DBCollection {
 //    return resultIterator.hasNext() ? replaceWithObjectClass(resultIterator.next()) : null;
 //  }
 
+  @Override
+  DBObject findOne(final DBObject pRef, final DBObject projection, final DBObject sort,
+                   final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit) {
+    final DBObject query = new BasicDBObject("$query", pRef);
+    if (sort != null) {
+      query.put("$orderby", sort);
+    }
+    final List<DBObject> objects = __find(query, projection, 0, 1, 1, 0, readPreference, null, null);
+    return objects.size() > 0 ? replaceWithObjectClass(objects.get(0)) : null;
+  }
+
+
   /**
    * Used for older compatibility.
    * <p/>
    * note: encoder, decoder, readPref, options are ignored
    */
-  Iterator<DBObject> __find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options,
-                            ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
+  List<DBObject> __find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options,
+                        ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
     return __find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder);
   }
+
+  @Override
+  WriteResult executeWriteOperation(final BaseWriteOperation operation) {
+    if (operation instanceof InsertOperation) {
+      InsertOperation insertOperation = (InsertOperation) operation;
+
+    }
+    return null;
+  }
+
+
+  @Override
+  public DBCursor find() {
+    return find(new BasicDBObject());
+  }
+
+  @Override
+  public DBCursor find(final DBObject query) {
+    return find(query, null);
+  }
+
+  public DBCursor find(final DBObject query, final DBObject projection) {
+    return new DBCursor(this, query, null, getReadPreference()) {
+
+      public int numSeen = 0;
+      private DBObject currentObject;
+      private List<DBObject> objects = null;
+      private Iterator<DBObject> iterator;
+
+      private void fetch() {
+        if (this.objects == null) {
+          objects = new ArrayList<DBObject>();
+          objects.addAll(__find(query, projection, 0, 0, 0, 0, getReadPreference(), null));
+          iterator = objects.iterator();
+        }
+      }
+
+
+      private DBObject currentObject(final DBObject newCurrentObject) {
+        if (newCurrentObject != null) {
+          currentObject = newCurrentObject;
+          numSeen++;
+
+          if (projection != null && !(projection.keySet().isEmpty())) {
+            currentObject.markAsPartialObject();
+          }
+        }
+        return newCurrentObject;
+      }
+
+      @Override
+      public synchronized List<DBObject> toArray(int max) {
+        fetch();
+        return objects;
+      }
+
+      @Override
+      public boolean hasNext() {
+        fetch();
+        return iterator.hasNext();
+      }
+
+      @Override
+      public DBObject next() {
+        fetch();
+        return currentObject(iterator.next());
+      }
+
+      @Override
+      public DBObject tryNext() {
+        return next();
+      }
+
+      @Override
+      public DBObject curr() {
+        return currentObject;
+      }
+
+      @Override
+      public Iterator<DBObject> iterator() {
+        return super.iterator();
+      }
+
+      @Override
+      public int length() {
+        return this.objects.size();
+      }
+    };
+  }
+
 
   /**
    * Used for older compatibility.
    * <p/>
    * note: decoder, readPref, options are ignored
    */
-  synchronized Iterator<DBObject> __find(final DBObject pRef, DBObject fields, int numToSkip, int batchSize, int limit,
-                                         int options,
-                                         ReadPreference readPref, DBDecoder decoder) throws MongoException {
-    DBObject ref = filterLists(pRef);
+  synchronized List<DBObject> __find(final DBObject pRef, DBObject fields, int numToSkip, int batchSize, int limit,
+                                     int options, ReadPreference readPref, DBDecoder decoder) throws MongoException {
+    DBObject ref = filterLists(pRef == null ? new BasicDBObject() : pRef);
     long maxScan = Long.MAX_VALUE;
     if (LOG.isDebugEnabled()) {
       LOG.debug("find({}, {}).skip({}).limit({})", ref, fields, numToSkip, limit);
@@ -514,7 +618,7 @@ public class FongoDBCollection extends DBCollection {
 
     LOG.debug("found results {}", results);
 
-    return replaceWithObjectClass(results).iterator();
+    return replaceWithObjectClass(results);
   }
 
   /**
@@ -972,6 +1076,13 @@ public class FongoDBCollection extends DBCollection {
 //    return this.createQueryResultIterator(this.aggregate(pipeline, readPreference).results().iterator());
 //  }
 
+  @Override
+  public AggregationOutput aggregate(final List<? extends DBObject> pipeline, final ReadPreference readPreference) {
+    final Aggregator aggregator = new Aggregator(this.fongoDb, this, pipeline);
+
+    return new AggregationOutput(aggregator.computeResult());
+  }
+
 
   /**
    * Method implements aggregation framework.
@@ -1060,7 +1171,6 @@ public class FongoDBCollection extends DBCollection {
 //    }
 //    return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
 //  }
-
   private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
     for (String key : updateDocument.keySet()) {
       if (!key.startsWith("$")) {
@@ -1084,6 +1194,12 @@ public class FongoDBCollection extends DBCollection {
 
     return list;
   }
+
+  @Override
+  public void dropIndex(final String indexName) {
+    _dropIndex(indexName);
+  }
+
 
   protected synchronized void _dropIndex(String name) throws MongoException {
     DBCollection indexColl = fongoDb.getCollection("system.indexes");
