@@ -13,6 +13,7 @@ import com.github.fakemongo.impl.index.GeoIndex;
 import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
+import static com.mongodb.assertions.Assertions.isTrueArgument;
 import com.mongodb.operation.BaseWriteOperation;
 import com.mongodb.operation.InsertOperation;
 import com.vividsolutions.jts.geom.Geometry;
@@ -211,13 +212,13 @@ public class FongoDBCollection extends DBCollection {
       }
     }
 
-    if (multi) {
-      try {
-        checkMultiUpdateDocument(o);
-      } catch (final IllegalArgumentException e) {
-        this.fongoDb.notOkErrorResult(9, e.getMessage()).throwOnError();
-      }
-    }
+//    if (multi) {
+//      try {
+//        checkMultiUpdateDocument(o);
+//      } catch (final IllegalArgumentException e) {
+//        this.fongoDb.notOkErrorResult(9, e.getMessage()).throwOnError();
+//      }
+//    }
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("update(" + q + ", " + o + ", " + upsert + ", " + multi + ")");
@@ -225,7 +226,7 @@ public class FongoDBCollection extends DBCollection {
 
     if (o.containsField(ID_KEY) && q.containsField(ID_KEY) && objectComparator.compare(o.get(ID_KEY), q.get(ID_KEY)) != 0) {
       LOG.warn("can not change _id of a document query={}, document={}", q, o);
-//TODO WDEL      throw new WriteConcernException(fongoDb.notOkErrorResult(16836, "can not change _id of a document " + ID_KEY));
+      throw fongoDb.writeConcernException(16837, "can not change _id of a document " + ID_KEY);
     }
 
     int updatedDocuments = 0;
@@ -428,18 +429,6 @@ public class FongoDBCollection extends DBCollection {
     return updateResult(updatedDocuments, true, null);
   }
 
-  // TODO WDEL
-//  @Override
-//  QueryResultIterator find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options, ReadPreference readPref, DBDecoder decoder) {
-//    return find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder, null);
-//  }
-//
-//  @Override
-//  synchronized QueryResultIterator find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options, ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
-//    final Iterator<DBObject> values = __find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder, encoder);
-//    return createQueryResultIterator(values);
-//  }
-
   @Override
   public synchronized void createIndex(final DBObject keys, final DBObject options) {
     DBCollection indexColl = fongoDb.getCollection("system.indexes");
@@ -462,7 +451,13 @@ public class FongoDBCollection extends DBCollection {
       rec.append("name", sb.toString());
     }
     // Ensure index doesn't exist.
-    if (indexColl.findOne(rec) != null) {
+    final DBObject oldIndex = indexColl.findOne(rec);
+    if (oldIndex != null) {
+      for (Map.Entry<String, Object> entry : Util.entrySet(options)) {
+        if (!entry.getValue().equals(oldIndex.get(entry.getKey()))) {
+          fongoDb.notOkErrorResult(85, String.format("Index with name: %s already exists with different options", nsName())).throwOnError();
+        }
+      }
       return;
     }
 
@@ -491,14 +486,6 @@ public class FongoDBCollection extends DBCollection {
     // Add index if all fine.
     indexColl.insert(rec);
   }
-
-  // TODO WDEL
-//  @Override
-//  public DBObject findOne(DBObject query, DBObject fields, DBObject orderBy, ReadPreference readPref) {
-//    QueryOpBuilder queryOpBuilder = new QueryOpBuilder().addQuery(query).addOrderBy(orderBy);
-//    Iterator<DBObject> resultIterator = __find(queryOpBuilder.get(), fields, 0, 1, -1, 0, readPref, null);
-//    return resultIterator.hasNext() ? replaceWithObjectClass(resultIterator.next()) : null;
-//  }
 
   @Override
   DBObject findOne(final DBObject pRef, final DBObject projection, final DBObject sort,
@@ -1079,12 +1066,6 @@ public class FongoDBCollection extends DBCollection {
     return new ArrayList(results);
   }
 
-  // TODO WDEL
-//  @Override
-//  public Cursor aggregate(List<DBObject> pipeline, AggregationOptions options, ReadPreference readPreference) {
-//    return this.createQueryResultIterator(this.aggregate(pipeline, readPreference).results().iterator());
-//  }
-
   @Override
   public AggregationOutput aggregate(final List<? extends DBObject> pipeline, final ReadPreference readPreference) {
     final Aggregator aggregator = new Aggregator(this.fongoDb, this, pipeline);
@@ -1105,6 +1086,7 @@ public class FongoDBCollection extends DBCollection {
   @Override
   BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
                                             final WriteConcern writeConcern) {
+    isTrueArgument("writes is not an empty list", !writeRequests.isEmpty());
 
     List<BulkWriteUpsert> upserts = new ArrayList<BulkWriteUpsert>();
     int insertedCount = 0;
@@ -1153,69 +1135,6 @@ public class FongoDBCollection extends DBCollection {
     return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
   }
 
-  // TODO WDEL
-//  @Override
-//  BulkWriteResult executeBulkWriteOperation(boolean ordered, List<WriteRequest> requests, WriteConcern writeConcern, DBEncoder encoder) {
-//    isTrue("no operations", !requests.isEmpty());
-//    // TODO: unordered
-//    List<BulkWriteUpsert> upserts = new ArrayList<BulkWriteUpsert>();
-//    int insertedCount = 0;
-//    int matchedCount = 0;
-//    int removedCount = 0;
-//    int modifiedCount = 0;
-//    int idx = 0;
-//    for (WriteRequest request : requests) {
-//      WriteResult wr;
-//      switch (request.getType()) {
-//        case REPLACE: // fallthrough
-//        {
-//          ModifyRequest r = (ModifyRequest) request;
-//          _checkObject(r.getUpdateDocument(), false, false);
-//          wr = update(r.getQuery(), r.getUpdateDocument(), r.isUpsert(), r.isMulti(), writeConcern, encoder);
-//          matchedCount += wr.getN();
-//          if (wr.isUpdateOfExisting()) {
-//            upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-//          } else {
-//            modifiedCount += wr.getN();
-//          }
-//          break;
-//        }
-//        case UPDATE: {
-//          ModifyRequest r = (ModifyRequest) request;
-//          // See com.mongodb.DBCollectionImpl.Run.executeUpdates()
-//          final DBObject updateDocument = r.getUpdateDocument();
-//          checkMultiUpdateDocument(updateDocument);
-//
-//          wr = update(r.getQuery(), updateDocument, r.isUpsert(), r.isMulti(), writeConcern, encoder);
-//          matchedCount += wr.getN();
-//          if (wr.isUpdateOfExisting()) {
-//            upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-//          } else {
-//            modifiedCount += wr.getN();
-//          }
-//          break;
-//        }
-//        case REMOVE: {
-//          RemoveRequest r = (RemoveRequest) request;
-//          wr = remove(r.getQuery(), writeConcern, encoder);
-//          matchedCount += wr.getN();
-//          removedCount += wr.getN();
-//          break;
-//        }
-//
-//        case INSERT: {
-//          InsertRequest r = (InsertRequest) request;
-//          wr = insert(r.getDocument());
-//          insertedCount += wr.getN();
-//          break;
-//        }
-//        default:
-//          throw new NotImplementedException();
-//      }
-//      idx++;
-//    }
-//    return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
-//  }
   private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
     for (String key : updateDocument.keySet()) {
       if (!key.startsWith("$")) {

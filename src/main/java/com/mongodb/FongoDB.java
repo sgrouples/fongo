@@ -43,10 +43,28 @@ public class FongoDB extends DB {
   }
 
   @Override
-  public DBCollection createCollection(final String collectionName, final DBObject options) {
-    if (options == null) {
-      throw new NullPointerException();
+  public synchronized DBCollection createCollection(final String collectionName, final DBObject options) {
+    // See getCreateCollectionOperation()
+    if (options.get("size") != null && !(options.get("size") instanceof Number)) {
+      throw new IllegalArgumentException("'size' should be Number");
     }
+    if (options.get("max") != null && !(options.get("max") instanceof Number)) {
+      throw new IllegalArgumentException("'max' should be Number");
+    }
+    if (options.get("capped") != null && !(options.get("capped") instanceof Boolean)) {
+      throw new IllegalArgumentException("'capped' should be Boolean");
+    }
+    if (options.get("autoIndexId") != null && !(options.get("capped") instanceof Boolean)) {
+      throw new IllegalArgumentException("'capped' should be Boolean");
+    }
+    if (options.get("storageEngine") != null && !(options.get("storageEngine") instanceof DBObject)) {
+      throw new IllegalArgumentException("storageEngine' should be DBObject");
+    }
+
+    if (this.collMap.containsKey(collectionName)) {
+      this.notOkErrorResult("collection already exists").throwOnError();
+    }
+
     final DBCollection collection = getCollection(collectionName);
     this.addCollection((FongoDBCollection) collection);
     return collection;
@@ -58,15 +76,13 @@ public class FongoDB extends DB {
   }
 
   @Override
-  protected FongoDBCollection doGetCollection(String name) {
-    synchronized (collMap) {
-      FongoDBCollection coll = collMap.get(name);
-      if (coll == null) {
-        coll = new FongoDBCollection(this, name);
-        collMap.put(name, coll);
-      }
-      return coll;
+  protected synchronized FongoDBCollection doGetCollection(String name) {
+    FongoDBCollection coll = collMap.get(name);
+    if (coll == null) {
+      coll = new FongoDBCollection(this, name);
+      collMap.put(name, coll);
     }
+    return coll;
   }
 
   private DBObject findAndModify(String collection, DBObject query, DBObject sort, boolean remove, DBObject update, boolean returnNew, DBObject fields, boolean upsert) {

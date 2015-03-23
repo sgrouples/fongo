@@ -164,7 +164,7 @@ public class MapReduce {
   public MapReduceOutput computeResult() {
     // Replace, merge or reduce ?
     Outmode outmode = Outmode.valueFor(out);
-    DBCollection coll = fongoDB.createCollection(outmode.collectionName(out), new BasicDBObject());
+    DBCollection coll = fongoDB.getCollection(outmode.collectionName(out));
     // Mode replace.
     outmode.initCollection(coll);
     outmode.newResults(this, coll, runInContext());

@@ -17,7 +17,6 @@ import java.util.List;
 import org.assertj.core.api.Assertions;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
@@ -89,6 +88,10 @@ public class FongoIndexTest {
   public void testCreateSameIndexWithDifferentsOptions() {
     DBCollection collection = fongoRule.newCollection("coll");
     collection.createIndex(new BasicDBObject("n", 1), "n_1");
+
+    //com.mongodb.MongoCommandException: Command failed with error 85: 'Index with name: n_1 already exists with
+    // different options' on server 127.0.0.1:27017. The full response is
+    // { "ok" : 0.0, "errmsg" : "Index with name: n_1 already exists with different options", "code" : 85 }
     ExpectedMongoException.expect(exception, MongoCommandException.class);
     ExpectedMongoException.expectCode(exception, 85);
     collection.createIndex(new BasicDBObject("n", 1), "n_1", true);
