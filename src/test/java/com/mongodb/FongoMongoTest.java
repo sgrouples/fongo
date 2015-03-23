@@ -1,22 +1,12 @@
 package com.mongodb;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-
 import com.github.fakemongo.Fongo;
+import java.util.Collections;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 
-import java.util.Collections;
-
 public class FongoMongoTest {
-
-  @Test
-  public void testIsMongosConnection() {
-    Mongo mongo = new Fongo("test").getMongo();
-    // TODO WDEL
-//    assertFalse("should be mocked", mongo.isMongosConnection());
-  }
 
   @Test
   public void mongoClientHasOptions() {
@@ -24,7 +14,7 @@ public class FongoMongoTest {
     assertNotNull(mongoClient.getMongoClientOptions());
     assertNotNull(mongoClient.getMongoOptions());
   }
-  
+
   @Test
   public void mongoHasWriteConcern() {
     Fongo fongo = new Fongo("test");
@@ -35,7 +25,8 @@ public class FongoMongoTest {
   @Test
   public void mongoAllAdressOverride() {
     MongoClient mongoClient = new Fongo("test").getMongo();
+
     assertNotNull(mongoClient.getAllAddress());
-    assertEquals(Collections.emptyList(), mongoClient.getAllAddress());
+    assertEquals(Collections.singletonList(new ServerAddress()), mongoClient.getAllAddress());
   }
 }

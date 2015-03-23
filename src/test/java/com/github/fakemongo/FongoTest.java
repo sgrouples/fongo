@@ -1347,7 +1347,7 @@ public class FongoTest {
     Fongo fongo = newFongo();
     DB db = fongo.getDB("db");
     CommandResult result = db.command("forceerror");
-    assertEquals("ok should always be defined", 0, result.get("ok"));
+    assertEquals("ok should always be defined", 0.0, result.get("ok"));
     assertEquals("exception: forced error", result.get("errmsg"));
     assertEquals(10038, result.get("code"));
   }

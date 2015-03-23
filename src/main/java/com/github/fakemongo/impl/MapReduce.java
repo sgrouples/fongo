@@ -7,12 +7,17 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.MapReduceCommand;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-
-import org.mozilla.javascript.*;
+import org.mozilla.javascript.Context;
+import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.NativeObject;
+import org.mozilla.javascript.RhinoException;
+import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,8 +28,6 @@ import org.slf4j.LoggerFactory;
  */
 public class MapReduce {
   private static final Logger LOG = LoggerFactory.getLogger(MapReduce.class);
-
-  private final Fongo fongo;
 
   private final FongoDB fongoDB;
 
@@ -115,6 +118,15 @@ public class MapReduce {
       return null;
     }
 
+    public static Outmode valueFor(MapReduceCommand.OutputType outputType) {
+      for (Outmode outmode : values()) {
+        if (outputType.name().equalsIgnoreCase(outmode.name().toLowerCase())) {
+          return outmode;
+        }
+      }
+      return null;
+    }
+
     public String collectionName(DBObject object) {
       return (String) object.get(name().toLowerCase());
     }
@@ -132,7 +144,6 @@ public class MapReduce {
   }
 
   public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
-    this.fongo = fongo;
     if (out.containsField("db")) {
       this.fongoDB = (FongoDB) fongo.getDB((String) out.get("db"));
     } else {
@@ -154,7 +165,7 @@ public class MapReduce {
   public DBObject computeResult() {
     // Replace, merge or reduce ?
     Outmode outmode = Outmode.valueFor(out);
-    DBCollection coll = fongoDB.createCollection(outmode.collectionName(out), null);
+    DBCollection coll = fongoDB.createCollection(outmode.collectionName(out), new BasicDBObject());
     // Mode replace.
     outmode.initCollection(coll);
     outmode.newResults(this, coll, runInContext());
@@ -224,16 +235,16 @@ public class MapReduce {
 
   DBObject getObject(ScriptableObject no) {
     if (no instanceof NativeArray) {
-        BasicDBList ret = new BasicDBList();
-        NativeArray noArray = (NativeArray) no;
-        for (int i = 0; i < noArray.getLength(); i++) {
-            Object value = noArray.get(i, noArray);
-            if (value instanceof NativeObject || value instanceof NativeArray) {
-                value = getObject((ScriptableObject) value);
-            }
-            ret.add(value);
+      BasicDBList ret = new BasicDBList();
+      NativeArray noArray = (NativeArray) no;
+      for (int i = 0; i < noArray.getLength(); i++) {
+        Object value = noArray.get(i, noArray);
+        if (value instanceof NativeObject || value instanceof NativeArray) {
+          value = getObject((ScriptableObject) value);
         }
-        return ret;
+        ret.add(value);
+      }
+      return ret;
     }
     DBObject ret = new BasicDBObject();
     Object[] propIds = no.getIds();
@@ -241,7 +252,7 @@ public class MapReduce {
       String key = Context.toString(propId);
       Object value = NativeObject.getProperty(no, key);
       if (value instanceof NativeObject || value instanceof NativeArray) {
-          value = getObject((ScriptableObject) value);
+        value = getObject((ScriptableObject) value);
       }
       ret.put(key, value);
     }

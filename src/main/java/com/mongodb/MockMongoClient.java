@@ -2,8 +2,8 @@ package com.mongodb;
 
 import com.github.fakemongo.Fongo;
 import com.mongodb.async.SingleResultCallback;
-import com.mongodb.bulk.*;
 import com.mongodb.bulk.BulkWriteResult;
+import com.mongodb.bulk.DeleteRequest;
 import com.mongodb.bulk.InsertRequest;
 import com.mongodb.bulk.UpdateRequest;
 import com.mongodb.connection.Cluster;
@@ -15,6 +15,7 @@ import com.mongodb.connection.Server;
 import com.mongodb.connection.ServerDescription;
 import com.mongodb.selector.ServerSelector;
 import java.net.UnknownHostException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -89,6 +90,11 @@ public class MockMongoClient extends MongoClient {
 //    if (super.getConnector() != null) return super.getAllAddress();
     if (true) return super.getAllAddress();
     return Collections.emptyList();
+  }
+
+  @Override
+  public List<ServerAddress> getServerAddressList() {
+    return Arrays.asList(new ServerAddress());
   }
 
   @Override

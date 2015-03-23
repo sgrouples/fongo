@@ -1,12 +1,11 @@
 package com.mongodb;
 
-import com.mongodb.client.MongoCursor;
+import com.github.fakemongo.impl.Util;
 import com.mongodb.client.model.FindOptions;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import org.bson.codecs.Decoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -21,32 +20,27 @@ public class FongoDBCursor extends DBCursor {
   private final DBObject query;
   private final DBObject projection;
   private final FindOptions findOptions;
-
-
-  //  private final DBObject filter;
   private final DBObject modifiers;
   private DBObject sort;
-  private Decoder<DBObject> resultDecoder;
-  private DBDecoderFactory decoderFactory;
   private int numSeen;
   private boolean closed;
-  private final List<DBObject> all = new ArrayList<DBObject>();
-  private MongoCursor<DBObject> cursor;
-  // This allows us to easily enable/disable finalizer for cleaning up un-closed cursors
-  @SuppressWarnings("UnusedDeclaration")// IDEs will say it can be converted to a local variable, resist the urge
-
 
   private DBObject currentObject;
   private List<DBObject> objects = null;
   private Iterator<DBObject> iterator;
 
   public FongoDBCursor(FongoDBCollection fongoDBCollection, DBObject query, DBObject projection) {
-    super(fongoDBCollection, query, projection, fongoDBCollection.getReadPreference());
-    this.dbCollection = fongoDBCollection;
+    this(fongoDBCollection, query, projection, new FindOptions(), new BasicDBObject(), null);
+  }
+
+  private FongoDBCursor(FongoDBCollection collection, DBObject query, DBObject projection, FindOptions findOptions, DBObject modifiers, DBObject sort) {
+    super(collection, query, projection, collection.getReadPreference());
+    this.dbCollection = collection;
     this.query = query;
     this.projection = projection;
-    this.findOptions = new FindOptions();
-    this.modifiers = new BasicDBObject();
+    this.findOptions = findOptions;
+    this.modifiers = modifiers;
+    this.sort = sort;
   }
 
   private void fetch() {
@@ -98,6 +92,7 @@ public class FongoDBCursor extends DBCursor {
       throw new IllegalStateException("Cursor has been closed");
     }
     fetch();
+    this.numSeen++;
     return currentObject(iterator.next());
   }
 
@@ -126,7 +121,7 @@ public class FongoDBCursor extends DBCursor {
    */
   @Override
   public DBCursor copy() {
-    return super.copy();
+    return new FongoDBCursor(this.dbCollection, this.query, this.projection, this.findOptions, Util.clone(this.modifiers), Util.clone(this.sort));
   }
 
   @Override

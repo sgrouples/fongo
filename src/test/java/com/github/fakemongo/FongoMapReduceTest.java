@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 public class FongoMapReduceTest {
   private static final Logger LOG = LoggerFactory.getLogger(FongoMapReduceTest.class);
 
-  public final FongoRule fongoRule = new FongoRule(false);
+  public final FongoRule fongoRule = new FongoRule(!false);
 
   public final ExpectedException exception = ExpectedException.none();
 
@@ -152,9 +152,9 @@ public class FongoMapReduceTest {
         String reduce = "function(key, values){    var res = [];    values.forEach(function(v){ res = res.concat(v); });    return {mergedArray: res};  };";
         coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
-
         List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-        assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2,\"c\",6]}}, { \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4,\"d\",8,\"e\",10]}}]"), results);
+        assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2.0,\"c\",6.0]}}, " +
+            "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4.0,\"d\",8.0,\"e\",10.0]}}]"), results);
     }
 
   @Test

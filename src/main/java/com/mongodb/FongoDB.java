@@ -31,7 +31,7 @@ public class FongoDB extends DB {
 
   private final Map<String, FongoDBCollection> collMap = Collections.synchronizedMap(new HashMap<String, FongoDBCollection>());
   private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
-  private final Fongo fongo;
+  final Fongo fongo;
 
   private MongoCredential mongoCredential;
 
@@ -83,10 +83,17 @@ public class FongoDB extends DB {
     return aggregator.computeResult();
   }
 
-  private DBObject doMapReduce(String collection, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
+  private MapReduceOutput doMapReduce(String collection, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
     FongoDBCollection coll = doGetCollection(collection);
-    MapReduce mapReduce = new MapReduce(this.fongo, coll, map, reduce, finalize, out, query, sort, limit);
-    return mapReduce.computeResult();
+    MapReduceCommand mapReduceCommand = new MapReduceCommand(coll, map, reduce, null, null, query);
+    mapReduceCommand.setSort(sort);
+    if (limit != null) {
+      mapReduceCommand.setLimit(limit.intValue());
+    }
+    mapReduceCommand.setFinalize(finalize);
+    mapReduceCommand.setOutputDB((String) out.get("db"));
+    return coll.mapReduce(mapReduceCommand);
+//    return null;
   }
 
   private List<DBObject> doGeoNearCollection(String collection, DBObject near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
@@ -354,6 +361,15 @@ public class FongoDB extends DB {
     return new CommandResult(result, fongo.getServerAddress());
   }
 
+  public WriteConcernException writeConcernException(int code, String err) {
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    return new WriteConcernException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
+  }
+
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
     CommandResult result = notOkErrorResult(err, errmsg);
     result.put("code", code);
@@ -395,6 +411,10 @@ public class FongoDB extends DB {
   }
 
   private CommandResult runFindAndModify(DBObject cmd, String key) {
+    if (!cmd.containsField("remove") && !cmd.containsField("update")) {
+      return notOkErrorResult(null, "need remove or update");
+    }
+
     DBObject result = findAndModify(
         (String) cmd.get(key),
         (DBObject) cmd.get("query"),
@@ -410,7 +430,7 @@ public class FongoDB extends DB {
   }
 
   private CommandResult runMapReduce(DBObject cmd, String key) {
-    DBObject result = doMapReduce(
+    MapReduceOutput result = doMapReduce(
         (String) cmd.get(key),
         (String) cmd.get("map"),
         (String) cmd.get("reduce"),
@@ -423,11 +443,11 @@ public class FongoDB extends DB {
       return notOkErrorResult("can't mapReduce");
     }
     CommandResult okResult = okResult();
-    if (result instanceof List) {
+    if (result.results() instanceof List) {
       // INLINE case.
-      okResult.put("results", result);
+      okResult.put("results", result.results());
     } else {
-      okResult.put("result", result);
+      okResult.put("result", result.getCommand());
     }
     return okResult;
   }

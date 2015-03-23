@@ -1,13 +1,18 @@
 package com.github.fakemongo;
 
+import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.ImmutableList;
+import static com.google.common.collect.ImmutableList.copyOf;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
+import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.FongoDB;
-import com.mongodb.FongoDBCollection;
 import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
+import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
 
 /**
@@ -15,37 +20,35 @@ import org.junit.Test;
  */
 public class FongoMapReduceOutputModesTest {
 
-  private Fongo fongo;
-  private FongoDB db;
+  @Rule
+  public FongoRule fongoRule = new FongoRule(!true);
 
-  private FongoDBCollection users;
-  private FongoDBCollection typeHeights;
-  private FongoDBCollection userLogins;
-  private FongoDBCollection joinUsersLogins;
+  private DBCollection users;
+  private DBCollection typeHeights;
+  private DBCollection userLogins;
+  private DBCollection joinUsersLogins;
 
   @Before
   public void setUp() {
-    fongo = new Fongo("test");
-    db = (FongoDB) fongo.getDB("test");
-    users = (FongoDBCollection) db.getCollection("users");
-    userLogins = (FongoDBCollection) db.getCollection("userLogins");
-    typeHeights = (FongoDBCollection) db.getCollection("typeHeights");
-    joinUsersLogins = (FongoDBCollection) db.getCollection("joinUsersLogins");
+    DB db = fongoRule.getDB();
+    users = db.getCollection("users");
+    userLogins = db.getCollection("userLogins");
+    typeHeights = db.getCollection("typeHeights");
+    joinUsersLogins = db.getCollection("joinUsersLogins");
   }
 
   @Test
   public void inline() {
-    BasicDBObject user1 = new BasicDBObject().append("_id", "idUser1")
+    BasicDBObject user1 = new BasicDBObject("_id", "idUser1")
         .append("type", "neutral").append("height", "100");
-    BasicDBObject user2 = new BasicDBObject().append("_id", "idUser2")
+    BasicDBObject user2 = new BasicDBObject("_id", "idUser2")
         .append("type", "neutral").append("height", "150");
-    BasicDBObject user3 = new BasicDBObject().append("_id", "idUser3")
+    BasicDBObject user3 = new BasicDBObject("_id", "idUser3")
         .append("type", "human").append("height", "200");
+    BasicDBObject user4 = new BasicDBObject("_id", "idUser4")
+        .append("type", "human").append("height", "400");
 
-    users.drop();
-    users.insert(user1);
-    users.insert(user2);
-    users.insert(user3);
+    users.insert(user1, user2, user3, user4);
 
     String map = "function () {" +
         "emit(this.type, this);" +
@@ -61,14 +64,14 @@ public class FongoMapReduceOutputModesTest {
     MapReduceOutput result = users.mapReduce(map, reduce, typeHeights.getName(),
         MapReduceCommand.OutputType.INLINE, new BasicDBObject());
 
-    Iterable<DBObject> actual = result.results();
+    ImmutableList<DBObject> actual = copyOf(result.results());
     Assertions.assertThat(actual).contains(new BasicDBObject()
             .append("_id", "neutral")
-            .append("value", new BasicDBObject().append("sum", "100150"))
+            .append("value", new BasicDBObject("sum", "100150"))
     );
     Assertions.assertThat(actual).contains(new BasicDBObject()
             .append("_id", "human")
-            .append("value", new BasicDBObject().append("sum", "200"))
+            .append("value", new BasicDBObject("sum", "200400"))
     );
   }
 
@@ -81,9 +84,7 @@ public class FongoMapReduceOutputModesTest {
         .append("_id", "neutral")
         .append("value", new BasicDBObject().append("sum", "XX"));
 
-    typeHeights.drop();
-    typeHeights.insert(existingNeutral);
-    typeHeights.insert(existingCat);
+    typeHeights.insert(existingNeutral, existingCat);
 
     BasicDBObject user1 = new BasicDBObject().append("_id", "idUser1")
         .append("type", "neutral").append("height", "100");
@@ -91,11 +92,10 @@ public class FongoMapReduceOutputModesTest {
         .append("type", "neutral").append("height", "150");
     BasicDBObject user3 = new BasicDBObject().append("_id", "idUser3")
         .append("type", "human").append("height", "200");
+    BasicDBObject user4 = new BasicDBObject("_id", "idUser4")
+        .append("type", "human").append("height", "400");
 
-    users.drop();
-    users.insert(user1);
-    users.insert(user2);
-    users.insert(user3);
+    users.insert(user1, user2, user3, user4);
 
     String map = "function () {" +
         "emit(this.type, this);" +
@@ -111,14 +111,13 @@ public class FongoMapReduceOutputModesTest {
     users.mapReduce(map, reduce, typeHeights.getName(),
         MapReduceCommand.OutputType.REPLACE, new BasicDBObject());
 
-    Iterable<DBObject> actual = typeHeights.find();
+    List<DBObject> actual = typeHeights.find().toArray();
     Assertions.assertThat(actual).contains(new BasicDBObject()
             .append("_id", "neutral")
-            .append("value", new BasicDBObject().append("sum", "100150"))
-    );
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+            .append("value", new BasicDBObject().append("sum", "100150")),
+        new BasicDBObject()
             .append("_id", "human")
-            .append("value", new BasicDBObject().append("sum", "200"))
+            .append("value", new BasicDBObject().append("sum", "200400"))
     );
     Assertions.assertThat(actual).doesNotContain(existingCat);
     Assertions.assertThat(actual).doesNotContain(existingNeutral);
@@ -133,9 +132,7 @@ public class FongoMapReduceOutputModesTest {
         .append("_id", "neutral")
         .append("value", new BasicDBObject().append("sum", "XX"));
 
-    typeHeights.drop();
-    typeHeights.insert(existingNeutral);
-    typeHeights.insert(existingCat);
+    typeHeights.insert(existingNeutral, existingCat);
 
     BasicDBObject user1 = new BasicDBObject().append("_id", "idUser1")
         .append("type", "neutral").append("height", "100");
@@ -143,11 +140,10 @@ public class FongoMapReduceOutputModesTest {
         .append("type", "neutral").append("height", "150");
     BasicDBObject user3 = new BasicDBObject().append("_id", "idUser3")
         .append("type", "human").append("height", "200");
+    BasicDBObject user4 = new BasicDBObject("_id", "idUser4")
+        .append("type", "human").append("height", "400");
 
-    users.drop();
-    users.insert(user1);
-    users.insert(user2);
-    users.insert(user3);
+    users.insert(user1, user2, user3, user4);
 
     String map = "function () {" +
         "emit(this.type, this);" +
@@ -163,14 +159,13 @@ public class FongoMapReduceOutputModesTest {
     users.mapReduce(map, reduce, typeHeights.getName(),
         MapReduceCommand.OutputType.MERGE, new BasicDBObject());
 
-    Iterable<DBObject> actual = typeHeights.find();
+    Iterable<DBObject> actual = typeHeights.find().toArray();
     Assertions.assertThat(actual).contains(new BasicDBObject()
             .append("_id", "neutral")
-            .append("value", new BasicDBObject().append("sum", "100150"))
-    );
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+            .append("value", new BasicDBObject().append("sum", "100150")),
+        new BasicDBObject()
             .append("_id", "human")
-            .append("value", new BasicDBObject().append("sum", "200"))
+            .append("value", new BasicDBObject().append("sum", "200400"))
     );
     Assertions.assertThat(actual).contains(existingCat);
     Assertions.assertThat(actual).doesNotContain(existingNeutral);
@@ -193,10 +188,7 @@ public class FongoMapReduceOutputModesTest {
         .append("_id", "idUser3")
         .append("login", "wordpress");
 
-    userLogins.drop();
-    userLogins.insert(user1Login);
-    userLogins.insert(user2Login);
-    userLogins.insert(user3Login);
+    userLogins.insert(user1Login, user2Login, user3Login);
 
     BasicDBObject user1 = new BasicDBObject().append("_id", "idUser1")
         .append("type", "neutral").append("height", "100");
@@ -205,10 +197,7 @@ public class FongoMapReduceOutputModesTest {
     BasicDBObject user3 = new BasicDBObject().append("_id", "idUser3")
         .append("type", "human").append("height", "200");
 
-    users.drop();
-    users.insert(user1);
-    users.insert(user2);
-    users.insert(user3);
+    users.insert(user1, user2, user3);
 
     String mapUsers = "function () {" +
         "emit(this._id, this);" +
@@ -263,10 +252,7 @@ public class FongoMapReduceOutputModesTest {
         .append("_id", "idUser3")
         .append("login", "wordpress");
 
-    userLogins.drop();
-    userLogins.insert(user1Login);
-    userLogins.insert(user2Login);
-    userLogins.insert(user3Login);
+    userLogins.insert(user1Login, user2Login, user3Login);
 
     BasicDBObject user1 = new BasicDBObject().append("_id", "idUser1")
         .append("type", "neutral").append("height", "100");
@@ -275,10 +261,7 @@ public class FongoMapReduceOutputModesTest {
     BasicDBObject user3 = new BasicDBObject().append("_id", "idUser3")
         .append("type", "human").append("height", "200");
 
-    users.drop();
-    users.insert(user1);
-    users.insert(user2);
-    users.insert(user3);
+    users.insert(user1, user2, user3);
 
     String mapUsers = "function () {" +
         "emit(this._id, this);" +

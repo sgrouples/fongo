@@ -17,6 +17,7 @@ import java.util.List;
 import org.assertj.core.api.Assertions;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeFalse;
@@ -85,17 +86,12 @@ public class FongoIndexTest {
    * Same index = do not recreate.
    */
   @Test
-  public void testCreateSameIndexButUnique() {
+  public void testCreateSameIndexWithDifferentsOptions() {
     DBCollection collection = fongoRule.newCollection("coll");
     collection.createIndex(new BasicDBObject("n", 1), "n_1");
+    ExpectedMongoException.expect(exception, MongoCommandException.class);
+    ExpectedMongoException.expectCode(exception, 85);
     collection.createIndex(new BasicDBObject("n", 1), "n_1", true);
-    List<DBObject> indexes = collection.getIndexInfo();
-    assertEquals(
-        Arrays.asList(
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("name", "_id_").append("ns", "db.coll"),
-            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("name", "n_1").append("ns", "db.coll")
-        ), indexes
-    );
   }
 
   @Test
@@ -804,7 +800,6 @@ public class FongoIndexTest {
 
   @Test
   public void should_not_handled_hashed_index_on_array_after() throws Exception {
-//    ExpectedMongoException.expectCode(exception, 16766, WriteConcernException.class);
     ExpectedMongoException.expectCode(exception, 16766, MongoException.class);
     DBCollection collection = fongoRule.newCollection();
     collection.createIndex(new BasicDBObject("date", "hashed"));

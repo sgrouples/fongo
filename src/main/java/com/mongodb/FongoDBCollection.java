@@ -4,6 +4,7 @@ import com.github.fakemongo.FongoException;
 import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Filter;
+import com.github.fakemongo.impl.MapReduce;
 import com.github.fakemongo.impl.Tuple2;
 import com.github.fakemongo.impl.UpdateEngine;
 import com.github.fakemongo.impl.Util;
@@ -14,11 +15,14 @@ import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
 import com.mongodb.operation.BaseWriteOperation;
 import com.mongodb.operation.InsertOperation;
+import com.mongodb.operation.MapReduceBatchCursor;
+import com.mongodb.operation.MapReduceStatistics;
 import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import static java.util.Collections.emptyList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
@@ -213,7 +217,7 @@ public class FongoDBCollection extends DBCollection {
       try {
         checkMultiUpdateDocument(o);
       } catch (final IllegalArgumentException e) {
-        this.fongoDb.okErrorResult(9, e.getMessage()).throwOnError();
+        this.fongoDb.notOkErrorResult(9, e.getMessage()).throwOnError();
       }
     }
 
@@ -271,7 +275,7 @@ public class FongoDBCollection extends DBCollection {
   private List idsIn(DBObject query) {
     Object idValue = query != null ? query.get(ID_KEY) : null;
     if (idValue == null || query.keySet().size() > 1) {
-      return Collections.emptyList();
+      return emptyList();
     } else if (idValue instanceof DBObject) {
       DBObject idDbObject = (DBObject) idValue;
       Collection inList = (Collection) idDbObject.get(QueryOperators.IN);
@@ -287,7 +291,7 @@ public class FongoDBCollection extends DBCollection {
         return Arrays.asList(inListArray);
       }
       if (!isNotUpdateCommand(idValue)) {
-        return Collections.emptyList();
+        return emptyList();
       }
     }
     return Collections.singletonList(Util.clone(idValue));
@@ -369,7 +373,7 @@ public class FongoDBCollection extends DBCollection {
 //  }
 
   @Override
-  public void createIndex(final DBObject keys, final DBObject options) {
+  public synchronized void createIndex(final DBObject keys, final DBObject options) {
     DBCollection indexColl = fongoDb.getCollection("system.indexes");
     BasicDBObject rec = new BasicDBObject();
     rec.append("v", 1);
@@ -407,7 +411,7 @@ public class FongoDBCollection extends DBCollection {
       if (!notUnique.isEmpty()) {
         // Duplicate key.
         if (enforceDuplicates(getWriteConcern())) {
-          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
+          fongoDb.notOkErrorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
         }
         return;
       }
@@ -1020,30 +1024,14 @@ public class FongoDBCollection extends DBCollection {
     return new AggregationOutput(aggregator.computeResult());
   }
 
-
-  /**
-   * Method implements aggregation framework.
-   *
-   * @param pipeline       operations to be performed in the aggregation pipeline
-   * @param options        options to apply to the aggregation
-   * @param readPreference {@link ReadPreference} to be used for this operation
-   * @return the aggregation operation's result set
-   * @mongodb.driver.manual core/aggregation-pipeline/ Aggregation
-   * @mongodb.server.release 2.2
-   */
-  // TODO WDEL
-//  @Override
-//  public Cursor aggregate(final List<? extends DBObject> pipeline, final AggregationOptions options,
-//                          final ReadPreference readPreference) {
-//    return aggregate(pipeline, options, readPreference, true);
-//  }
-
-
-  // TODO WDEL
-//  @Override
-//  public List<Cursor> parallelScan(ParallelScanOptions options) {
-//    return Arrays.asList((Cursor) this.createQueryResultIterator(this._idIndex.values().iterator()));
-//  }
+  @Override
+  public List<Cursor> parallelScan(final ParallelScanOptions options) {
+    List<Cursor> cursors = new ArrayList<Cursor>();
+    for (int i = 0; i < options.getNumCursors(); i++) {
+      cursors.add(new FongoDBCursor(this, new BasicDBObject(), new BasicDBObject()));
+    }
+    return cursors;
+  }
 
   // TODO WDEL
 //  @Override
@@ -1134,7 +1122,11 @@ public class FongoDBCollection extends DBCollection {
 
   @Override
   public void dropIndex(final String indexName) {
-    _dropIndex(indexName);
+    if ("*".equalsIgnoreCase(indexName)) {
+      _dropIndexes();
+    } else {
+      _dropIndex(indexName);
+    }
   }
 
 
@@ -1237,7 +1229,7 @@ public class FongoDBCollection extends DBCollection {
       if (!error.isEmpty()) {
         // TODO formatting : E11000 duplicate key error index: test.zip.$city_1_state_1_pop_1  dup key: { : "BARRE", : "MA", : 4546.0 }
         if (enforceDuplicates(concern)) {
-          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
+          fongoDb.notOkErrorResult(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
         }
         return; // silently ignore.
       }
@@ -1245,7 +1237,6 @@ public class FongoDBCollection extends DBCollection {
 
     //     Set<String> queryFields = object.keySet();
     DBObject idFirst = Util.cloneIdFirst(object);
-    Set<String> oldQueryFields = oldObject == null ? Collections.<String>emptySet() : oldObject.keySet();
     try {
       for (IndexAbstract index : indexes) {
         if (index.canHandle(object)) {
@@ -1255,7 +1246,7 @@ public class FongoDBCollection extends DBCollection {
           index.remove(oldObject);
       }
     } catch (MongoException e) {
-      this.fongoDb.okErrorResult(e.getCode(), e.getMessage()).throwOnError();
+      throw this.fongoDb.writeConcernException(e.getCode(), e.getMessage());
     }
     this.fongoDb.addCollection(this);
   }
@@ -1312,5 +1303,72 @@ public class FongoDBCollection extends DBCollection {
   @Override
   public long count() {
     return _idIndex.size();
+  }
+
+  @Override
+  public MapReduceOutput mapReduce(final MapReduceCommand command) {
+    DBObject out = new BasicDBObject();
+    if (command.getOutputDB() != null) {
+      out.put("db", command.getOutputDB());
+    }
+    if (command.getOutputType() != null) {
+      out.put(command.getOutputType().name().toLowerCase(), command.getOutputTarget());
+    }
+    MapReduce mapReduce = new MapReduce(this.fongoDb.fongo, this, command.getMap(), command.getReduce(), command.getFinalize(), out, command.getQuery(), command.getSort(), command.getLimit());
+    final DBObject dbObject = mapReduce.computeResult();
+    // TODO : verify minimal data.
+    return new MapReduceOutput(command.getQuery(), new MapReduceBatchCursor<DBObject>() {
+
+      final Iterator<List<DBObject>> iterator = dbObject instanceof List ? Arrays.asList(((List<DBObject>) dbObject)).iterator() : Collections.<List<DBObject>>emptyList().iterator();
+
+      @Override
+      public MapReduceStatistics getStatistics() {
+        return null;
+      }
+
+      @Override
+      public void close() {
+      }
+
+      @Override
+      public boolean hasNext() {
+        return iterator.hasNext();
+      }
+
+      @Override
+      public List<DBObject> next() {
+        return iterator.next();
+      }
+
+      @Override
+      public void setBatchSize(int batchSize) {
+
+      }
+
+      @Override
+      public int getBatchSize() {
+        return 0;
+      }
+
+      @Override
+      public List<DBObject> tryNext() {
+        return next();
+      }
+
+      @Override
+      public ServerCursor getServerCursor() {
+        return null;
+      }
+
+      @Override
+      public ServerAddress getServerAddress() {
+        return null;
+      }
+
+      @Override
+      public void remove() {
+        throw new IllegalStateException("cannot remove");
+      }
+    });
   }
 }
