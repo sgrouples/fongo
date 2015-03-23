@@ -209,8 +209,7 @@ public class FongoDBCollection extends DBCollection {
       // if 1st key doesn't start with $, then object will be inserted as is, need to check it
       String key = o.keySet().iterator().next();
       if (!key.startsWith("$")) {
-        // TODO WDEL
-//        _checkObject(o, false, false);
+        _checkObject(o, false, false);
       }
     }
 
@@ -272,6 +271,76 @@ public class FongoDBCollection extends DBCollection {
     return updateResult(updatedDocuments, updatedExisting, o.get(ID_KEY));
   }
 
+
+  protected DBObject _checkObject(DBObject o, boolean canBeNull, boolean query) {
+    if (o == null) {
+      if (canBeNull)
+        return null;
+      throw new IllegalArgumentException("can't be null");
+    }
+
+    if (o.isPartialObject() && !query)
+      throw new IllegalArgumentException("can't save partial objects");
+
+    if (!query) {
+      _checkKeys(o);
+    }
+    return o;
+  }
+
+  /**
+   * Checks key strings for invalid characters.
+   */
+  private void _checkKeys(DBObject o) {
+    if (o instanceof LazyDBObject || o instanceof LazyDBList)
+      return;
+
+    for (String s : o.keySet()) {
+      validateKey(s);
+      _checkValue(o.get(s));
+    }
+  }
+
+  /**
+   * Checks key strings for invalid characters.
+   */
+  private void _checkKeys(Map<String, Object> o) {
+    for (Map.Entry<String, Object> cur : o.entrySet()) {
+      validateKey(cur.getKey());
+      _checkValue(cur.getValue());
+    }
+  }
+
+  private void _checkValues(final List list) {
+    for (Object cur : list) {
+      _checkValue(cur);
+    }
+  }
+
+  private void _checkValue(final Object value) {
+    if (value instanceof DBObject) {
+      _checkKeys((DBObject) value);
+    } else if (value instanceof Map) {
+      _checkKeys((Map<String, Object>) value);
+    } else if (value instanceof List) {
+      _checkValues((List) value);
+    }
+  }
+
+  /**
+   * Check for invalid key names
+   *
+   * @param s the string field/key to check
+   * @throws IllegalArgumentException if the key is not valid.
+   */
+  private void validateKey(String s) {
+    if (s.contains("\0"))
+      throw new IllegalArgumentException("Document field names can't have a NULL character. (Bad Key: '" + s + "')");
+    if (s.contains("."))
+      throw new IllegalArgumentException("Document field names can't have a . in them. (Bad Key: '" + s + "')");
+    if (s.startsWith("$"))
+      throw new IllegalArgumentException("Document field names can't start with '$' (Bad Key: '" + s + "')");
+  }
 
   private List idsIn(DBObject query) {
     Object idValue = query != null ? query.get(ID_KEY) : null;
@@ -1049,7 +1118,7 @@ public class FongoDBCollection extends DBCollection {
       WriteResult wr;
       if (req instanceof ReplaceRequest) {
         ReplaceRequest r = (ReplaceRequest) req;
-//          _checkObject(r.getUpdateDocument(), false, false);
+        _checkObject(r.getDocument(), false, false);
         wr = update(r.getQuery(), r.getDocument(), r.isUpsert(), /* r.isMulti()*/ false, writeConcern, null);
         matchedCount += wr.getN();
         if (wr.isUpdateOfExisting()) {
@@ -1152,7 +1221,7 @@ public class FongoDBCollection extends DBCollection {
   private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
     for (String key : updateDocument.keySet()) {
       if (!key.startsWith("$")) {
-        throw new IllegalArgumentException("Update document keys must start with $: " + key);
+        throw new IllegalArgumentException("Invalid BSON field name " + key);
       }
     }
   }

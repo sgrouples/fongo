@@ -10,7 +10,7 @@ import com.mongodb.DBObject;
 import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
 import java.util.List;
-import org.assertj.core.api.Assertions;
+import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -65,11 +65,10 @@ public class FongoMapReduceOutputModesTest {
         MapReduceCommand.OutputType.INLINE, new BasicDBObject());
 
     ImmutableList<DBObject> actual = copyOf(result.results());
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+    assertThat(actual).containsOnly(new BasicDBObject()
             .append("_id", "neutral")
-            .append("value", new BasicDBObject("sum", "100150"))
-    );
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+            .append("value", new BasicDBObject("sum", "100150")),
+        new BasicDBObject()
             .append("_id", "human")
             .append("value", new BasicDBObject("sum", "200400"))
     );
@@ -108,19 +107,26 @@ public class FongoMapReduceOutputModesTest {
         "  return {sum : sum};" +
         "}";
 
-    users.mapReduce(map, reduce, typeHeights.getName(),
+    final MapReduceOutput output = users.mapReduce(map, reduce, typeHeights.getName(),
         MapReduceCommand.OutputType.REPLACE, new BasicDBObject());
 
     List<DBObject> actual = typeHeights.find().toArray();
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+    assertThat(actual).containsOnly(new BasicDBObject()
             .append("_id", "neutral")
             .append("value", new BasicDBObject().append("sum", "100150")),
         new BasicDBObject()
             .append("_id", "human")
             .append("value", new BasicDBObject().append("sum", "200400"))
     );
-    Assertions.assertThat(actual).doesNotContain(existingCat);
-    Assertions.assertThat(actual).doesNotContain(existingNeutral);
+    assertThat(actual).doesNotContain(existingCat);
+    assertThat(actual).doesNotContain(existingNeutral);
+    assertThat(output.results()).containsOnly(new BasicDBObject()
+            .append("_id", "neutral")
+            .append("value", new BasicDBObject().append("sum", "100150")),
+        new BasicDBObject()
+            .append("_id", "human")
+            .append("value", new BasicDBObject().append("sum", "200400"))
+    );
   }
 
   @Test
@@ -156,19 +162,27 @@ public class FongoMapReduceOutputModesTest {
         "  return {sum : sum};" +
         "}";
 
-    users.mapReduce(map, reduce, typeHeights.getName(),
+    final MapReduceOutput output = users.mapReduce(map, reduce, typeHeights.getName(),
         MapReduceCommand.OutputType.MERGE, new BasicDBObject());
 
     Iterable<DBObject> actual = typeHeights.find().toArray();
-    Assertions.assertThat(actual).contains(new BasicDBObject()
+    assertThat(actual).containsOnly(new BasicDBObject()
             .append("_id", "neutral")
             .append("value", new BasicDBObject().append("sum", "100150")),
         new BasicDBObject()
             .append("_id", "human")
-            .append("value", new BasicDBObject().append("sum", "200400"))
+            .append("value", new BasicDBObject().append("sum", "200400")),
+        existingCat
     );
-    Assertions.assertThat(actual).contains(existingCat);
-    Assertions.assertThat(actual).doesNotContain(existingNeutral);
+    assertThat(actual).doesNotContain(existingNeutral);
+    assertThat(output.results()).containsOnly(new BasicDBObject()
+            .append("_id", "neutral")
+            .append("value", new BasicDBObject().append("sum", "100150")),
+        new BasicDBObject()
+            .append("_id", "human")
+            .append("value", new BasicDBObject().append("sum", "200400")),
+        existingCat
+    );
   }
 
   @Test
@@ -223,20 +237,29 @@ public class FongoMapReduceOutputModesTest {
 
     users.mapReduce(mapUsers, reduce, joinUsersLogins.getName(),
         MapReduceCommand.OutputType.REDUCE, new BasicDBObject());
-    userLogins.mapReduce(mapUserLogins, reduce, joinUsersLogins.getName(),
+    final MapReduceOutput output = userLogins.mapReduce(mapUserLogins, reduce, joinUsersLogins.getName(),
         MapReduceCommand.OutputType.REDUCE, new BasicDBObject());
 
     Iterable<DBObject> actual = joinUsersLogins.find();
 
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user1.get("_id"))
-        .append("value", user1.append("login", user1Login.get("login"))));
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user2.get("_id"))
-        .append("value", user2.append("login", user2Login.get("login"))));
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user3.get("_id"))
-        .append("value", user3.append("login", user3Login.get("login"))));
+    assertThat(actual).containsOnly(new BasicDBObject()
+            .append("_id", user1.get("_id"))
+            .append("value", user1.append("login", user1Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user2.get("_id"))
+            .append("value", user2.append("login", user2Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user3.get("_id"))
+            .append("value", user3.append("login", user3Login.get("login"))));
+    assertThat(output.results()).containsOnly(new BasicDBObject()
+            .append("_id", user1.get("_id"))
+            .append("value", user1.append("login", user1Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user2.get("_id"))
+            .append("value", user2.append("login", user2Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user3.get("_id"))
+            .append("value", user3.append("login", user3Login.get("login"))));
   }
 
   @Test
@@ -292,14 +315,14 @@ public class FongoMapReduceOutputModesTest {
 
     Iterable<DBObject> actual = joinUsersLogins.find();
 
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user1.get("_id"))
-        .append("value", user1.append("login", user1Login.get("login"))));
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user2.get("_id"))
-        .append("value", user2.append("login", user2Login.get("login"))));
-    Assertions.assertThat(actual).contains(new BasicDBObject()
-        .append("_id", user3.get("_id"))
-        .append("value", user3.append("login", user3Login.get("login"))));
+    assertThat(actual).containsOnly(new BasicDBObject()
+            .append("_id", user1.get("_id"))
+            .append("value", user1.append("login", user1Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user2.get("_id"))
+            .append("value", user2.append("login", user2Login.get("login"))),
+        new BasicDBObject()
+            .append("_id", user3.get("_id"))
+            .append("value", user3.append("login", user3Login.get("login"))));
   }
 }

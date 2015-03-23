@@ -138,8 +138,7 @@ public class MapReduce {
     public abstract void newResults(MapReduce marReduce, DBCollection coll, List<DBObject> results);
 
     public DBObject createResult(DBCollection coll) {
-      DBObject result = new BasicDBObject("collection", coll.getName()).append("db", coll.getDB().getName());
-      return result;
+      return new BasicDBObject("collection", coll.getName()).append("db", coll.getDB().getName());
     }
   }
 

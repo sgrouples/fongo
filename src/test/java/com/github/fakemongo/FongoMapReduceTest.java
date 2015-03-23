@@ -24,7 +24,7 @@ import org.slf4j.LoggerFactory;
 public class FongoMapReduceTest {
   private static final Logger LOG = LoggerFactory.getLogger(FongoMapReduceTest.class);
 
-  public final FongoRule fongoRule = new FongoRule(!false);
+  public final FongoRule fongoRule = new FongoRule(false);
 
   public final ExpectedException exception = ExpectedException.none();
 
@@ -44,12 +44,12 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit(this.url, 1);  };";
-    String reduce = "function(key, values){    var res = 0;    values.forEach(function(v){ res += 1});    return {count: res};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {count: res};  };";
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"count\" : 2.0}}, { \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"count\" : 3.0}}]"), results);
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"count\" : 2}}, { \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"count\" : 3}}]"), results);
   }
 
   @Test
@@ -67,7 +67,7 @@ public class FongoMapReduceTest {
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3}}]"), results);
   }
 
   @Test
@@ -153,8 +153,8 @@ public class FongoMapReduceTest {
         coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
         List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-        assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2.0,\"c\",6.0]}}, " +
-            "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4.0,\"d\",8.0,\"e\",10.0]}}]"), results);
+        assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2,\"c\",6]}}, " +
+            "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4,\"d\",8,\"e\",10]}}]"), results);
     }
 
   @Test
