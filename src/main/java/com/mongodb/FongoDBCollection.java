@@ -15,8 +15,6 @@ import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
 import com.mongodb.operation.BaseWriteOperation;
 import com.mongodb.operation.InsertOperation;
-import com.mongodb.operation.MapReduceBatchCursor;
-import com.mongodb.operation.MapReduceStatistics;
 import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1437,60 +1435,6 @@ public class FongoDBCollection extends DBCollection {
       out.put(command.getOutputType().name().toLowerCase(), command.getOutputTarget());
     }
     MapReduce mapReduce = new MapReduce(this.fongoDb.fongo, this, command.getMap(), command.getReduce(), command.getFinalize(), out, command.getQuery(), command.getSort(), command.getLimit());
-    final DBObject dbObject = mapReduce.computeResult();
-    // TODO : verify minimal data.
-    return new MapReduceOutput(command.getQuery(), new MapReduceBatchCursor<DBObject>() {
-
-      final Iterator<List<DBObject>> iterator = dbObject instanceof List ? Arrays.asList(((List<DBObject>) dbObject)).iterator() : Collections.<List<DBObject>>emptyList().iterator();
-
-      @Override
-      public MapReduceStatistics getStatistics() {
-        return null;
-      }
-
-      @Override
-      public void close() {
-      }
-
-      @Override
-      public boolean hasNext() {
-        return iterator.hasNext();
-      }
-
-      @Override
-      public List<DBObject> next() {
-        return iterator.next();
-      }
-
-      @Override
-      public void setBatchSize(int batchSize) {
-
-      }
-
-      @Override
-      public int getBatchSize() {
-        return 0;
-      }
-
-      @Override
-      public List<DBObject> tryNext() {
-        return next();
-      }
-
-      @Override
-      public ServerCursor getServerCursor() {
-        return null;
-      }
-
-      @Override
-      public ServerAddress getServerAddress() {
-        return null;
-      }
-
-      @Override
-      public void remove() {
-        throw new IllegalStateException("cannot remove");
-      }
-    });
+    return mapReduce.computeResult();
   }
 }

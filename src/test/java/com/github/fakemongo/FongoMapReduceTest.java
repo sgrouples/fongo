@@ -205,7 +205,7 @@ public class FongoMapReduceTest {
 
     List<DBObject> results = output.getOutputCollection().find().toArray();
 
-    assertEquals(fongoRule.parse("[{ \"_id\" : \"phil\" , \"value\" : 474.0}]"), results);
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"phil\" , \"value\" : 474}]"), results);
   }
 
   /**

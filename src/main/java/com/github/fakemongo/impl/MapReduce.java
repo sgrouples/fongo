@@ -7,7 +7,9 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.FongoMapReduceOutput;
 import com.mongodb.MapReduceCommand;
+import com.mongodb.MapReduceOutput;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.List;
@@ -100,12 +102,9 @@ public class MapReduce {
         return UUID.randomUUID().toString();
       }
 
-      // Return a list of all results.
       @Override
-      public DBObject createResult(DBCollection coll) {
-        BasicDBList list = new BasicDBList();
-        list.addAll(coll.find().toArray());
-        return list;
+      public MapReduceOutput createResult(DBObject query, final DBCollection coll) {
+        return new FongoMapReduceOutput(query, coll.find().toArray());
       }
     };
 
@@ -135,11 +134,12 @@ public class MapReduce {
       // Do nothing.
     }
 
-    public abstract void newResults(MapReduce marReduce, DBCollection coll, List<DBObject> results);
+    public abstract void newResults(MapReduce mapReduce, DBCollection coll, List<DBObject> results);
 
-    public DBObject createResult(DBCollection coll) {
-      return new BasicDBObject("collection", coll.getName()).append("db", coll.getDB().getName());
+    public MapReduceOutput createResult(DBObject query, DBCollection coll) {
+      return new FongoMapReduceOutput(query, coll);
     }
+
   }
 
   public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
@@ -161,14 +161,14 @@ public class MapReduce {
   /**
    * @return null if error.
    */
-  public DBObject computeResult() {
+  public MapReduceOutput computeResult() {
     // Replace, merge or reduce ?
     Outmode outmode = Outmode.valueFor(out);
     DBCollection coll = fongoDB.createCollection(outmode.collectionName(out), new BasicDBObject());
     // Mode replace.
     outmode.initCollection(coll);
     outmode.newResults(this, coll, runInContext());
-    DBObject result = outmode.createResult(coll);
+    MapReduceOutput result = outmode.createResult(this.query, coll);
     LOG.debug("computeResult() : {}", result);
     return result;
   }
