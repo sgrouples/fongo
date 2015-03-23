@@ -40,6 +40,7 @@ import org.bson.types.Binary;
 import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  * fongo override of com.mongodb.DBCollection
@@ -1033,6 +1034,58 @@ public class FongoDBCollection extends DBCollection {
     return cursors;
   }
 
+
+  @Override
+  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
+                                            final WriteConcern writeConcern) {
+
+    List<BulkWriteUpsert> upserts = new ArrayList<BulkWriteUpsert>();
+    int insertedCount = 0;
+    int matchedCount = 0;
+    int removedCount = 0;
+    int modifiedCount = 0;
+    int idx = 0;
+    for (WriteRequest req : writeRequests) {
+      WriteResult wr;
+      if (req instanceof ReplaceRequest) {
+        ReplaceRequest r = (ReplaceRequest) req;
+//          _checkObject(r.getUpdateDocument(), false, false);
+        wr = update(r.getQuery(), r.getDocument(), r.isUpsert(), /* r.isMulti()*/ false, writeConcern, null);
+        matchedCount += wr.getN();
+        if (wr.isUpdateOfExisting()) {
+          upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+        } else {
+          modifiedCount += wr.getN();
+        }
+      } else if (req instanceof UpdateRequest) {
+        UpdateRequest r = (UpdateRequest) req;
+        // See com.mongodb.DBCollectionImpl.Run.executeUpdates()
+        checkMultiUpdateDocument(r.getUpdate());
+
+        wr = update(r.getQuery(), r.getUpdate(), r.isUpsert(), r.isMulti(), writeConcern, null);
+        matchedCount += wr.getN();
+        if (wr.isUpdateOfExisting()) {
+          upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+        } else {
+          modifiedCount += wr.getN();
+        }
+      } else if (req instanceof RemoveRequest) {
+        RemoveRequest r = (RemoveRequest) req;
+        wr = remove(r.getQuery(), writeConcern, null);
+        matchedCount += wr.getN();
+        removedCount += wr.getN();
+      } else if (req instanceof InsertRequest) {
+        InsertRequest r = (InsertRequest) req;
+        wr = insert(r.getDocument());
+        insertedCount += wr.getN();
+      } else {
+        throw new NotImplementedException();
+      }
+      idx++;
+    }
+    return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
+  }
+
   // TODO WDEL
 //  @Override
 //  BulkWriteResult executeBulkWriteOperation(boolean ordered, List<WriteRequest> requests, WriteConcern writeConcern, DBEncoder encoder) {
@@ -1229,7 +1282,7 @@ public class FongoDBCollection extends DBCollection {
       if (!error.isEmpty()) {
         // TODO formatting : E11000 duplicate key error index: test.zip.$city_1_state_1_pop_1  dup key: { : "BARRE", : "MA", : 4546.0 }
         if (enforceDuplicates(concern)) {
-          fongoDb.notOkErrorResult(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
+          throw fongoDb.duplicateKeyException(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }");
         }
         return; // silently ignore.
       }

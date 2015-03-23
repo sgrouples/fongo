@@ -2,7 +2,6 @@ package com.mongodb;
 
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
-import com.github.fakemongo.impl.MapReduce;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -370,6 +369,15 @@ public class FongoDB extends DB {
     return new WriteConcernException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
   }
 
+  public WriteConcernException duplicateKeyException(int code, String err) {
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    return new DuplicateKeyException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
+  }
+
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
     CommandResult result = notOkErrorResult(err, errmsg);
     result.put("code", code);
@@ -451,4 +459,6 @@ public class FongoDB extends DB {
     }
     return okResult;
   }
+
+
 }
