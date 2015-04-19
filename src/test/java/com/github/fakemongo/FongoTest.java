@@ -30,6 +30,7 @@ import com.mongodb.util.JSON;
 import java.net.InetSocketAddress;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
@@ -2182,6 +2183,27 @@ public class FongoTest {
         "{ \"name\" : \"achilles\" , \"school\" : 100 , \"age\" : 8}]}, " +
         "{ \"_id\" : 4 , \"zipcode\" : 63109 , \"students\" : " +
         "[ { \"name\" : \"barney\" , \"school\" : 102 , \"age\" : 7}]}]"), result);
+  }
+
+  /**
+   * https://github.com/fakemongo/fongo/issues/104
+   */
+  @Test
+  public void query_elemMatch_with_not() {
+    // "find({ \"applications.messages\" : { \"$not\" : { \"$elemMatch\" : { \"$or\" : [ { \"_class\" : \"domain.FooMessage\"}]}}}}, null).skip(0).limit(0)";
+    // find({ "applications.messages" : { "$not" : { "$elemMatch" : { "$or" : [ { "_class" : "domain.FooMessage"}]}}}}, null).skip(0).limit(0)
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(fongoRule.parseList("[{ \"_id\" : { \"$oid\" : \"55337db0c830ea4e35252b9a\"} , " +
+        "\"_class\" : \"domain.Vacancy\" , " +
+        "\"applications\" : [ { \"_id\" :  null  , \"messages\" : [ { \"_class\" : \"domain.FooMessage\"}]}]}]"));
+
+    // When
+//    final DBCursor dbObjects = collection.find(fongoRule.parseDBObject("{ \"applications.messages\" : { \"$not\" : { \"$elemMatch\" : { \"$or\" : [ { \"_class\" : \"domain.FooMessage\"}]}}}}"));
+    final DBCursor dbObjects = collection.find(fongoRule.parseDBObject("{ \"applications.messages\" : { \"$elemMatch\" : { \"$or\" : [ { \"_class\" : \"domain.FooMessage\"}]}}}"));
+
+    // Then
+    assertThat(dbObjects.toArray()).isEqualTo(new ArrayList<DBObject>());
   }
 
   @Test
