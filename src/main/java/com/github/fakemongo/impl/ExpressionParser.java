@@ -221,6 +221,11 @@ public class ExpressionParser {
             BasicDBObject dbObject = new BasicDBObject("$$$$fongo$$$$", query);
             Filter filter = buildFilter(dbObject);
             for (Object object : storedList) {
+              if (object instanceof DBObject) {
+                if (buildFilter(query).apply((DBObject) object)) {
+                  return true;
+                }
+              }
               if (filter.apply(new BasicDBObject("$$$$fongo$$$$", object))) {
                 return true;
               }
