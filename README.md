@@ -20,7 +20,7 @@ Add dependency to your project:
 </dependency>
 ```
 
-[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|1.6.2)
+[Other dependency management](http://search.maven.org/#search|ga|1|g%3A%22com.github.fakemongo%22)
 
 *Alternatively: clone this repo and build the jar: `mvn package` then copy jar to your classpath*
 
