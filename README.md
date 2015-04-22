@@ -15,12 +15,12 @@ Add dependency to your project:
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>1.6.1</version>
+  <version>1.6.2</version>
   <scope>test</scope>
 </dependency>
 ```
 
-[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|1.5.9)
+[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|1.6.2)
 
 *Alternatively: clone this repo and build the jar: `mvn package` then copy jar to your classpath*
 
