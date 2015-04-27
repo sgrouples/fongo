@@ -3042,6 +3042,26 @@ public class FongoTest {
     Assertions.assertThat(dbObjects).isEqualTo(Arrays.asList(new BasicDBObject("_id", 1).append("value", 100), new BasicDBObject("_id", 2).append("value", 100), new BasicDBObject("_id", 3).append("value", 100), new BasicDBObject("_id", 4).append("value", 100), new BasicDBObject("_id", 5).append("value", 100L), new BasicDBObject("_id", 6).append("value", 100D), new BasicDBObject("_id", 7).append("value", 100D), new BasicDBObject("_id", 8).append("value", 100L)));
   }
 
+  /**
+   * see https://github.com/fakemongo/fongo/issues/110
+   */
+  @Test
+  public void should_$and_on_an_array_throw_exception() {
+    // Given
+    DBCollection collection = newCollection();
+
+    DBObject[] sub = new DBObject[0];
+    DBObject query = QueryBuilder.start().or(sub).get();
+//    ExpectedMongoException.expectCommandFailure(exception, 2);
+//    exception.expectMessage("$and/$or/$nor must be a nonempty array");
+
+    // When
+    final long count = collection.count(query);
+
+    // Then
+    assertThat(count).isEqualTo(0);
+  }
+
   static class Seq {
     Object[] data;
 
