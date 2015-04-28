@@ -6,6 +6,8 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.util.JSON;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -14,6 +16,7 @@ import java.io.InputStreamReader;
 import java.net.UnknownHostException;
 import java.util.List;
 import java.util.UUID;
+import org.bson.Document;
 import org.junit.rules.ExternalResource;
 
 /**
@@ -40,9 +43,11 @@ public class FongoRule extends ExternalResource {
 
   private final Fongo fongo;
 
-  private Mongo mongo;
+  private MongoClient mongo;
 
   private DB db;
+
+  private MongoDatabase mongoDatabase;
 
   /**
    * Setup a rule with a real MongoDB.
@@ -92,6 +97,7 @@ public class FongoRule extends ExternalResource {
       mongo = this.fongo.getMongo();
     }
     db = mongo.getDB(dbName);
+    mongoDatabase = mongo.getDatabase(dbName);
   }
 
   @Override
@@ -145,6 +151,10 @@ public class FongoRule extends ExternalResource {
     return db.getCollection(collectionName);
   }
 
+  public MongoCollection<Document> newMongoCollection(final String collectionName) {
+    return mongoDatabase.getCollection(collectionName);
+  }
+
   private Fongo newFongo() {
     return new Fongo("test");
   }
@@ -171,7 +181,20 @@ public class FongoRule extends ExternalResource {
     return this.mongo.getDB(name);
   }
 
+  public MongoDatabase getDatabase(String name) {
+    return this.mongo.getDatabase(name);
+  }
+
+  public MongoDatabase getDatabase() {
+    return this.mongoDatabase;
+  }
+
+  @Deprecated
   public Mongo getMongo() {
+    return this.mongo;
+  }
+
+  public MongoClient getMongoClient() {
     return this.mongo;
   }
 

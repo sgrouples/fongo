@@ -6,6 +6,8 @@ import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.bulk.DeleteRequest;
 import com.mongodb.bulk.InsertRequest;
 import com.mongodb.bulk.UpdateRequest;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.AsyncConnection;
 import com.mongodb.connection.Cluster;
 import com.mongodb.connection.ClusterDescription;
 import com.mongodb.connection.Connection;
@@ -13,6 +15,9 @@ import com.mongodb.connection.ConnectionDescription;
 import com.mongodb.connection.QueryResult;
 import com.mongodb.connection.Server;
 import com.mongodb.connection.ServerDescription;
+import com.mongodb.operation.OperationExecutor;
+import com.mongodb.operation.ReadOperation;
+import com.mongodb.operation.WriteOperation;
 import com.mongodb.selector.ServerSelector;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -68,6 +73,21 @@ public class MockMongoClient extends MongoClient {
   @Override
   public DB getDB(String dbname) {
     return fongo.getDB(dbname);
+  }
+
+  @Override
+  public MongoDatabase getDatabase(final String databaseName) {
+    return new MongoDatabaseImpl(databaseName, MongoClient.getDefaultCodecRegistry(), ReadPreference.primary(), WriteConcern.ACKNOWLEDGED, new OperationExecutor() {
+      @Override
+      public <T> T execute(ReadOperation<T> operation, ReadPreference readPreference) {
+        return fongo.execute(databaseName, operation, readPreference);
+      }
+
+      @Override
+      public <T> T execute(WriteOperation<T> operation) {
+        return fongo.execute(databaseName, operation);
+      }
+    });
   }
 
   @Override
@@ -133,18 +153,8 @@ public class MockMongoClient extends MongoClient {
               }
 
               @Override
-              public void insertAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts, SingleResultCallback<WriteConcernResult> callback) {
-
-              }
-
-              @Override
               public WriteConcernResult update(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
                 return null;
-              }
-
-              @Override
-              public void updateAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates, SingleResultCallback<WriteConcernResult> callback) {
-
               }
 
               @Override
@@ -153,28 +163,14 @@ public class MockMongoClient extends MongoClient {
               }
 
               @Override
-              public void deleteAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes, SingleResultCallback<WriteConcernResult> callback) {
-
-              }
-
-              @Override
               public BulkWriteResult insertCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
                 return null;
               }
 
-              @Override
-              public void insertCommandAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts, SingleResultCallback<BulkWriteResult> callback) {
-
-              }
 
               @Override
               public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
                 return null;
-              }
-
-              @Override
-              public void updateCommandAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates, SingleResultCallback<BulkWriteResult> callback) {
-
               }
 
               @Override
@@ -183,18 +179,8 @@ public class MockMongoClient extends MongoClient {
               }
 
               @Override
-              public void deleteCommandAsync(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes, SingleResultCallback<BulkWriteResult> callback) {
-
-              }
-
-              @Override
               public <T> T command(String database, BsonDocument command, boolean slaveOk, FieldNameValidator fieldNameValidator, Decoder<T> commandResultDecoder) {
                 return null;
-              }
-
-              @Override
-              public <T> void commandAsync(String database, BsonDocument command, boolean slaveOk, FieldNameValidator fieldNameValidator, Decoder<T> commandResultDecoder, SingleResultCallback<T> callback) {
-
               }
 
               @Override
@@ -203,27 +189,12 @@ public class MockMongoClient extends MongoClient {
               }
 
               @Override
-              public <T> void queryAsync(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder, SingleResultCallback<QueryResult<T>> callback) {
-
-              }
-
-              @Override
               public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
                 return null;
               }
 
               @Override
-              public <T> void getMoreAsync(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder, SingleResultCallback<QueryResult<T>> callback) {
-
-              }
-
-              @Override
               public void killCursor(List<Long> cursors) {
-
-              }
-
-              @Override
-              public void killCursorAsync(List<Long> cursors, SingleResultCallback<Void> callback) {
 
               }
 
@@ -239,10 +210,19 @@ public class MockMongoClient extends MongoClient {
             };
           }
 
+          /**
+           * <p>Gets a connection to this server asynchronously.  The connection should be released after the caller is done with it.</p>
+           * <p/>
+           * <p> Implementations of this method will likely pool the underlying connection, so the effect of closing the returned connection will
+           * be to return the connection to the pool. </p>
+           *
+           * @param callback the callback to execute when the connection is available or an error occurs
+           */
           @Override
-          public void getConnectionAsync(SingleResultCallback<Connection> callback) {
+          public void getConnectionAsync(SingleResultCallback<AsyncConnection> callback) {
 
           }
+
         };
       }
 
@@ -262,4 +242,19 @@ public class MockMongoClient extends MongoClient {
       }
     };
   }
+
+  OperationExecutor createOperationExecutor() {
+    return new OperationExecutor() {
+      @Override
+      public <T> T execute(final ReadOperation<T> operation, final ReadPreference readPreference) {
+        return null;
+      }
+
+      @Override
+      public <T> T execute(final WriteOperation<T> operation) {
+        return null;
+      }
+    };
+  }
+
 }
