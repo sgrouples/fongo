@@ -1,6 +1,8 @@
 package com.github.fakemongo;
 
 import com.mongodb.DB;
+import com.mongodb.DBCollection;
+import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.MockMongoClient;
 import com.mongodb.MongoClient;
@@ -11,6 +13,7 @@ import com.mongodb.WriteConcern;
 import com.mongodb.WriteConcernResult;
 import com.mongodb.binding.ConnectionSource;
 import com.mongodb.binding.ReadBinding;
+import com.mongodb.binding.WriteBinding;
 import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.bulk.DeleteRequest;
 import com.mongodb.bulk.InsertRequest;
@@ -35,6 +38,7 @@ import com.mongodb.operation.ParallelCollectionScanOperation;
 import com.mongodb.operation.ReadOperation;
 import com.mongodb.operation.UserExistsOperation;
 import com.mongodb.operation.WriteOperation;
+import com.mongodb.util.JSON;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -205,108 +209,7 @@ public class Fongo {
 
       @Override
       public ConnectionSource getReadConnectionSource() {
-        return new ConnectionSource() {
-          @Override
-          public ServerDescription getServerDescription() {
-            return null;
-          }
-
-          @Override
-          public Connection getConnection() {
-            return new Connection() {
-              @Override
-              public Connection retain() {
-                return null;
-              }
-
-              @Override
-              public ConnectionDescription getDescription() {
-                return new ConnectionDescription(new ServerId(new ClusterId(), new ServerAddress()));
-              }
-
-              @Override
-              public WriteConcernResult insert(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
-                return null;
-              }
-
-              @Override
-              public WriteConcernResult update(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
-                return null;
-              }
-
-              @Override
-              public WriteConcernResult delete(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
-                return null;
-              }
-
-              @Override
-              public BulkWriteResult insertCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
-                return null;
-              }
-
-              @Override
-              public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
-                return null;
-              }
-
-              @Override
-              public BulkWriteResult deleteCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
-                return null;
-              }
-
-              @Override
-              public <T> T command(String database, BsonDocument command, boolean slaveOk, FieldNameValidator fieldNameValidator, Decoder<T> commandResultDecoder) {
-                LOG.info("command() database:{}, command:{}", database, command);
-                if (command.containsKey("count")) {
-                  final BsonValue query = command.get("query");
-
-                  return (T) new BsonDocument().append("n", new BsonInt64(0L));
-                }
-                return null;
-              }
-
-              @Override
-              public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
-                return null;
-              }
-
-              @Override
-              public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
-                return null;
-              }
-
-              @Override
-              public void killCursor(List<Long> cursors) {
-
-              }
-
-              @Override
-              public int getCount() {
-                return 0;
-              }
-
-              @Override
-              public void release() {
-
-              }
-            };
-          }
-
-          @Override
-          public ConnectionSource retain() {
-            return null;
-          }
-
-          @Override
-          public int getCount() {
-            return 0;
-          }
-
-          @Override
-          public void release() {
-
-          }
-        };
+        return new MockConnectionSource();
       }
 
       @Override
@@ -327,7 +230,27 @@ public class Fongo {
   }
 
   public <T> T execute(final String databaseName, final WriteOperation<T> operation) {
-    return null;
+    return operation.execute(new WriteBinding() {
+      @Override
+      public ConnectionSource getWriteConnectionSource() {
+        return new MockConnectionSource();
+      }
+
+      @Override
+      public WriteBinding retain() {
+        return null;
+      }
+
+      @Override
+      public int getCount() {
+        return 0;
+      }
+
+      @Override
+      public void release() {
+
+      }
+    });
   }
 
 
@@ -336,4 +259,122 @@ public class Fongo {
     return "Fongo (" + this.name + ")";
   }
 
+  private class MockConnectionSource implements ConnectionSource {
+    @Override
+    public ServerDescription getServerDescription() {
+      return null;
+    }
+
+    @Override
+    public Connection getConnection() {
+      return new Connection() {
+        @Override
+        public Connection retain() {
+          return null;
+        }
+
+        @Override
+        public ConnectionDescription getDescription() {
+          return new ConnectionDescription(new ServerId(new ClusterId(), new ServerAddress()));
+        }
+
+        @Override
+        public WriteConcernResult insert(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
+          LOG.info("insert() namespace:{} inserts:{}", namespace, inserts);
+          final DBCollection collection = getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
+          for (InsertRequest insert : inserts) {
+            // TODO : more clever way
+            final DBObject parse = (DBObject) JSON.parse(insert.getDocument().toString());
+            collection.insert(parse, writeConcern);
+            LOG.info("insert() namespace:{} insert:{}, parse:{}", namespace, insert.getDocument(), parse.getClass());
+//            insert.getDocument()
+          }
+          return WriteConcernResult.acknowledged(inserts.size(), false, null);
+        }
+
+        @Override
+        public WriteConcernResult update(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
+          LOG.info("update() namespace:{} updates:{}", namespace, updates);
+          return null;
+        }
+
+        @Override
+        public WriteConcernResult delete(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
+          LOG.info("delete() namespace:{} deletes:{}", namespace, deletes);
+          return null;
+        }
+
+        @Override
+        public BulkWriteResult insertCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
+          LOG.info("insertCommand() namespace:{} inserts:{}", namespace, inserts);
+          return null;
+        }
+
+        @Override
+        public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
+          LOG.info("updateCommand() namespace:{} updates:{}", namespace, updates);
+          return null;
+        }
+
+        @Override
+        public BulkWriteResult deleteCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
+          LOG.info("deleteCommand() namespace:{} deletes:{}", namespace, deletes);
+          return null;
+        }
+
+        @Override
+        public <T> T command(String database, BsonDocument command, boolean slaveOk, FieldNameValidator fieldNameValidator, Decoder<T> commandResultDecoder) {
+          final DB db = getDB(database);
+          LOG.info("command() database:{}, command:{}", database, command);
+          if (command.containsKey("count")) {
+            final DBCollection dbCollection = db.getCollection(command.get("count").asString().getValue());
+            final BsonValue query = command.get("query");
+
+            return (T) new BsonDocument().append("n", new BsonInt64(dbCollection.count()));
+          }
+          return null;
+        }
+
+        @Override
+        public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
+          return null;
+        }
+
+        @Override
+        public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
+          return null;
+        }
+
+        @Override
+        public void killCursor(List<Long> cursors) {
+
+        }
+
+        @Override
+        public int getCount() {
+          return 0;
+        }
+
+        @Override
+        public void release() {
+
+        }
+      };
+    }
+
+    @Override
+    public ConnectionSource retain() {
+      return null;
+    }
+
+    @Override
+    public int getCount() {
+      return 0;
+    }
+
+    @Override
+    public void release() {
+
+    }
+  }
 }

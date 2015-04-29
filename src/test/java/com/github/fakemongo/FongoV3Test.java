@@ -14,7 +14,7 @@ import org.junit.rules.ExpectedException;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 
-@Ignore
+//@Ignore
 public class FongoV3Test {
 
   public final FongoRule fongoRule = new FongoRule(false);
@@ -46,7 +46,7 @@ public class FongoV3Test {
   }
 
   @Test
-  public void get_collection_and_count_works() {
+  public void insertOne_and_count_works() {
     // Given
     final MongoCollection<Document> collection = newCollection();
     collection.insertOne(new Document("i", 1));
@@ -57,6 +57,7 @@ public class FongoV3Test {
   }
 
   @Test
+  @Ignore
   public void insertOne_can_be_retrieved() {
     // Given
     final MongoCollection<Document> collection = newCollection();
