@@ -5,6 +5,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.result.DeleteResult;
 import java.util.ArrayList;
 import static java.util.Arrays.asList;
 import java.util.List;
@@ -199,7 +200,42 @@ public class FongoV3Test {
 
     // Then
     assertThat(toList(collection.find(new Document("_id", 2)))).containsExactly(new Document("_id", 2).append("a", 5));
+  }
 
+  @Test
+  public void deleteOne_remove_one() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(new Document("_id", 1));
+    collection.insertOne(new Document("_id", 2).append("b", 5));
+    collection.insertOne(new Document("_id", 3).append("b", 5));
+    collection.insertOne(new Document("_id", 4));
+    collection.insertOne(new Document("_id", 5).append("b", 6));
+
+    // When
+    final DeleteResult deleteResult = collection.deleteOne(new Document("b", 5));
+
+    // Then
+    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(deleteResult.getDeletedCount()).isEqualTo(1L);
+  }
+
+  @Test
+  public void deleteMany_remove_many() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(new Document("_id", 1));
+    collection.insertOne(new Document("_id", 2).append("b", 5));
+    collection.insertOne(new Document("_id", 3).append("b", 5));
+    collection.insertOne(new Document("_id", 4));
+    collection.insertOne(new Document("_id", 5).append("b", 6));
+
+    // When
+    final DeleteResult deleteResult = collection.deleteMany(new Document("b", 5));
+
+    // Then
+    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(deleteResult.getDeletedCount()).isEqualTo(2L);
   }
 
   private List<Document> toList(final FindIterable<Document> collection) {

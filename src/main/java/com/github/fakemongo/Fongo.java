@@ -318,7 +318,21 @@ public class Fongo {
         @Override
         public WriteConcernResult delete(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
           LOG.info("delete() namespace:{} deletes:{}", namespace, deletes);
-          return null;
+          final DBCollection collection = dbCollection(namespace);
+          int count = 0;
+          for (DeleteRequest delete : deletes) {
+            final DBObject parse = dbObject(delete.getFilter());
+            if (delete.isMulti()) {
+              final WriteResult writeResult = collection.remove(parse, writeConcern);
+              count += writeResult.getN();
+            } else {
+              final DBObject dbObject = collection.findAndRemove(parse);
+              if (dbObject != null) {
+                count++;
+              }
+            }
+          }
+          return WriteConcernResult.acknowledged(count, count != 0, null);
         }
 
         @Override
