@@ -72,32 +72,22 @@ public class MockMongoClient extends MongoClient {
 
   @Override
   public DB getDB(String dbname) {
-    return fongo.getDB(dbname);
+    return this.fongo.getDB(dbname);
   }
 
   @Override
   public MongoDatabase getDatabase(final String databaseName) {
-    return new MongoDatabaseImpl(databaseName, MongoClient.getDefaultCodecRegistry(), ReadPreference.primary(), WriteConcern.ACKNOWLEDGED, new OperationExecutor() {
-      @Override
-      public <T> T execute(ReadOperation<T> operation, ReadPreference readPreference) {
-        return fongo.execute(databaseName, operation, readPreference);
-      }
-
-      @Override
-      public <T> T execute(WriteOperation<T> operation) {
-        return fongo.execute(databaseName, operation);
-      }
-    });
+    return new FongoMongoDatabase(databaseName, this.fongo);
   }
 
   @Override
   public void dropDatabase(String dbName) {
-    fongo.dropDatabase(dbName);
+    this.fongo.dropDatabase(dbName);
   }
 
   @Override
   public MongoOptions getMongoOptions() {
-    return options;
+    return this.options;
   }
 
   @Override
@@ -139,7 +129,7 @@ public class MockMongoClient extends MongoClient {
               @Override
               public Connection retain() {
 
-                return null;
+                return this;
               }
 
               @Override
