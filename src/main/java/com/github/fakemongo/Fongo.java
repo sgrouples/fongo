@@ -364,6 +364,13 @@ public class Fongo {
             final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
             return (T) new BsonDocument().append("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip)));
+          } else if (command.containsKey("findandmodify")) {
+            final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
+            final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
+            final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
+
+            final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, null, false, false);
+            return (T) bsonDocument(andModify);
           }
           return null;
         }
@@ -421,6 +428,14 @@ public class Fongo {
           // TODO : performance killer.
           return Document.parse(dbObject.toString());
         }
+
+        private BsonDocument bsonDocument(DBObject dbObject) {
+          if (dbObject == null) {
+            return null;
+          }
+          return BsonDocument.parse(dbObject.toString());
+        }
+
       };
     }
 

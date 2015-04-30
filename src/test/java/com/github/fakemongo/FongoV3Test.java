@@ -6,6 +6,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.result.DeleteResult;
+import com.mongodb.client.result.UpdateResult;
 import java.util.ArrayList;
 import static java.util.Arrays.asList;
 import java.util.List;
@@ -196,10 +197,13 @@ public class FongoV3Test {
     collection.insertOne(new Document("_id", 4));
 
     // When
-    collection.updateOne(new Document("_id", 2), new Document("a", 5));
+    final UpdateResult updateResult = collection.updateOne(new Document("_id", 2), new Document("$set", new Document("b", 8)));
 
     // Then
-    assertThat(toList(collection.find(new Document("_id", 2)))).containsExactly(new Document("_id", 2).append("a", 5));
+    assertThat(toList(collection.find(new Document("_id", 2)))).containsExactly(new Document("_id", 2).append("b", 8));
+    assertThat(updateResult.getMatchedCount()).isEqualTo(1);
+//    assertThat(updateResult.getModifiedCount()).isEqualTo(1);
+    assertThat(updateResult.getUpsertedId()).isNull();
   }
 
   @Test
@@ -236,6 +240,43 @@ public class FongoV3Test {
     // Then
     assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 4), new Document("_id", 5).append("b", 6));
     assertThat(deleteResult.getDeletedCount()).isEqualTo(2L);
+  }
+
+  @Test
+  public void findOneAndDelete_remove_one() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(new Document("_id", 1));
+    collection.insertOne(new Document("_id", 2).append("b", 5));
+    collection.insertOne(new Document("_id", 3).append("b", 5));
+    collection.insertOne(new Document("_id", 4));
+    collection.insertOne(new Document("_id", 5).append("b", 6));
+
+    // When
+    final Object deleted = collection.findOneAndDelete(new Document("b", 5));
+
+    // Then
+    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(deleted).isEqualTo(new Document("_id", 2).append("b", 5));
+  }
+
+  @Test
+  public void findOneAndReplace_replace_the_first() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(new Document("_id", 1));
+    collection.insertOne(new Document("_id", 2).append("b", 5));
+    collection.insertOne(new Document("_id", 3).append("b", 5));
+    collection.insertOne(new Document("_id", 4));
+    collection.insertOne(new Document("_id", 5).append("b", 6));
+
+    // When
+    final Object deleted = collection.findOneAndReplace(new Document("b", 5), new Document("_id", 2).append("b", 8));
+
+    // Then
+    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 2).append("b", 8),
+        new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(deleted).isEqualTo(new Document("_id", 2).append("b", 5));
   }
 
   private List<Document> toList(final FindIterable<Document> collection) {
