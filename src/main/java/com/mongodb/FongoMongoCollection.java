@@ -6,7 +6,6 @@ package com.mongodb;
 import com.github.fakemongo.Fongo;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.CountOptions;
-import com.mongodb.client.model.FindOneAndDeleteOptions;
 import com.mongodb.util.JSON;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
@@ -55,7 +54,8 @@ public class FongoMongoCollection<TDocument> extends MongoCollectionImpl<TDocume
 
     return dbCollection.getCount(query, null, limit, skip);
   }
-//
+
+  //
 //  @Override
 //  public <TResult> DistinctIterable<TResult> distinct(String fieldName, Class<TResult> tResultClass) {
 //    return new DistinctIterableImpl<TDocument, TResult>(getNamespace(), getDocumentClass(), tResultClass, getCodecRegistry(), getReadPreference(), fongo, fieldName){
@@ -66,10 +66,6 @@ public class FongoMongoCollection<TDocument> extends MongoCollectionImpl<TDocume
 //    };
 //  }
 
-  @Override
-  public TDocument findOneAndDelete(Bson filter, FindOneAndDeleteOptions options) {
-    return super.findOneAndDelete(filter, options);
-  }
 
   private DBObject dbObject(Bson bson) {
     if (bson == null) {

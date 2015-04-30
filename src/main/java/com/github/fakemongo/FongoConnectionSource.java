@@ -174,7 +174,8 @@ public class FongoConnectionSource implements ConnectionSource {
         LOG.info("query() namespace:{} queryDocument:{}, fields:{}", namespace, queryDocument, fields);
         final DBCollection collection = dbCollection(namespace);
 
-        final List<DBObject> objects = collection.find(dbObject(queryDocument.getDocument("$query"))).limit(numberToReturn).skip(skip).toArray();
+        final List<DBObject> objects = collection.find(dbObject(queryDocument.getDocument("$query")), dbObject(fields))
+            .limit(numberToReturn).skip(skip).toArray();
         return new QueryResult(namespace, documents(objects), 1, fongo.getServerAddress());
       }
 
@@ -203,6 +204,9 @@ public class FongoConnectionSource implements ConnectionSource {
 
 
       private DBObject dbObject(BsonDocument document) {
+        if (document == null) {
+          return null;
+        }
         return (DBObject) JSON.parse(document.toString());
       }
 

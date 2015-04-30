@@ -193,6 +193,19 @@ public class FongoV3Test {
   }
 
   @Test
+  public void find_with_criteria_and_projection() {
+    // Given
+    final MongoCollection<Document> collection = newCollection();
+    collection.insertMany(asList(docId(1).append("b", 2).append("c", 3), docId(2).append("b", 3)));
+
+    // When
+    final List<Document> documents = toList(collection.find(docId(1)).projection(new Document("b", 1)));
+
+    // Then
+    assertThat(documents).containsExactly(docId(1).append("b", 2));
+  }
+
+  @Test
   public void updateOne_simple() {
     // Given
     MongoCollection collection = newCollection();
