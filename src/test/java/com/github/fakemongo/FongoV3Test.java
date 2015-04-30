@@ -1,9 +1,10 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
-import com.mongodb.client.FindIterable;
+import com.mongodb.client.DistinctIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
@@ -101,12 +102,16 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2));
     final List<Document> documents = toList(collection.find());
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 1), new Document("_id", 2));
+    assertThat(documents).containsExactly(docId(1), docId(2));
+  }
+
+  private Document docId(int value) {
+    return new Document("_id", value);
   }
 
   @Test
@@ -115,11 +120,11 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2)));
+    collection.insertMany(asList(docId(1), docId(2)));
     final List<Document> documents = toList(collection.find());
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 1), new Document("_id", 2));
+    assertThat(documents).containsExactly(docId(1), docId(2));
   }
 
   @Test
@@ -128,11 +133,11 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2)));
+    collection.insertMany(asList(docId(1), docId(2)));
     final List<Document> documents = toList(collection.find().limit(1));
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 1));
+    assertThat(documents).containsExactly(docId(1));
   }
 
   @Test
@@ -141,11 +146,11 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2)));
+    collection.insertMany(asList(docId(1), docId(2)));
     final List<Document> documents = toList(collection.find().skip(1));
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 2));
+    assertThat(documents).containsExactly(docId(2));
   }
 
   @Test
@@ -154,7 +159,7 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2)));
+    collection.insertMany(asList(docId(1), docId(2)));
     final List<Document> documents = toList(collection.find().skip(2).limit(1));
 
     // Then
@@ -167,40 +172,40 @@ public class FongoV3Test {
     final MongoCollection<Document> collection = newCollection();
 
     // When
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2), new Document("_id", 3)));
+    collection.insertMany(asList(docId(1), docId(2), docId(3)));
     final List<Document> documents = toList(collection.find().skip(1).limit(1));
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 2));
+    assertThat(documents).containsExactly(docId(2));
   }
 
   @Test
   public void find_with_criteria() {
     // Given
     final MongoCollection<Document> collection = newCollection();
-    collection.insertMany(asList(new Document("_id", 1), new Document("_id", 2)));
+    collection.insertMany(asList(docId(1), docId(2)));
 
     // When
-    final List<Document> documents = toList(collection.find(new Document("_id", 1)));
+    final List<Document> documents = toList(collection.find(docId(1)));
 
     // Then
-    assertThat(documents).containsExactly(new Document("_id", 1));
+    assertThat(documents).containsExactly(docId(1));
   }
 
   @Test
   public void updateOne_simple() {
     // Given
     MongoCollection collection = newCollection();
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2).append("b", 5));
-    collection.insertOne(new Document("_id", 3));
-    collection.insertOne(new Document("_id", 4));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3));
+    collection.insertOne(docId(4));
 
     // When
-    final UpdateResult updateResult = collection.updateOne(new Document("_id", 2), new Document("$set", new Document("b", 8)));
+    final UpdateResult updateResult = collection.updateOne(docId(2), new Document("$set", new Document("b", 8)));
 
     // Then
-    assertThat(toList(collection.find(new Document("_id", 2)))).containsExactly(new Document("_id", 2).append("b", 8));
+    assertThat(toList(collection.find(docId(2)))).containsExactly(docId(2).append("b", 8));
     assertThat(updateResult.getMatchedCount()).isEqualTo(1);
 //    assertThat(updateResult.getModifiedCount()).isEqualTo(1);
     assertThat(updateResult.getUpsertedId()).isNull();
@@ -210,17 +215,17 @@ public class FongoV3Test {
   public void deleteOne_remove_one() {
     // Given
     MongoCollection collection = newCollection();
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2).append("b", 5));
-    collection.insertOne(new Document("_id", 3).append("b", 5));
-    collection.insertOne(new Document("_id", 4));
-    collection.insertOne(new Document("_id", 5).append("b", 6));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
 
     // When
     final DeleteResult deleteResult = collection.deleteOne(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(deleteResult.getDeletedCount()).isEqualTo(1L);
   }
 
@@ -228,17 +233,17 @@ public class FongoV3Test {
   public void deleteMany_remove_many() {
     // Given
     MongoCollection collection = newCollection();
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2).append("b", 5));
-    collection.insertOne(new Document("_id", 3).append("b", 5));
-    collection.insertOne(new Document("_id", 4));
-    collection.insertOne(new Document("_id", 5).append("b", 6));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
 
     // When
     final DeleteResult deleteResult = collection.deleteMany(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 4), new Document("_id", 5).append("b", 6));
+    assertThat(toList(collection.find())).containsExactly(docId(1), docId(4), docId(5).append("b", 6));
     assertThat(deleteResult.getDeletedCount()).isEqualTo(2L);
   }
 
@@ -246,48 +251,99 @@ public class FongoV3Test {
   public void findOneAndDelete_remove_one() {
     // Given
     MongoCollection collection = newCollection();
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2).append("b", 5));
-    collection.insertOne(new Document("_id", 3).append("b", 5));
-    collection.insertOne(new Document("_id", 4));
-    collection.insertOne(new Document("_id", 5).append("b", 6));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
 
     // When
     final Object deleted = collection.findOneAndDelete(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
-    assertThat(deleted).isEqualTo(new Document("_id", 2).append("b", 5));
+    assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    assertThat(deleted).isEqualTo(docId(2).append("b", 5));
   }
 
   @Test
   public void findOneAndReplace_replace_the_first() {
     // Given
     MongoCollection collection = newCollection();
-    collection.insertOne(new Document("_id", 1));
-    collection.insertOne(new Document("_id", 2).append("b", 5));
-    collection.insertOne(new Document("_id", 3).append("b", 5));
-    collection.insertOne(new Document("_id", 4));
-    collection.insertOne(new Document("_id", 5).append("b", 6));
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
 
     // When
-    final Object deleted = collection.findOneAndReplace(new Document("b", 5), new Document("_id", 2).append("b", 8));
+    final Object deleted = collection.findOneAndReplace(new Document("b", 5), docId(2).append("b", 8));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(new Document("_id", 1), new Document("_id", 2).append("b", 8),
-        new Document("_id", 3).append("b", 5), new Document("_id", 4), new Document("_id", 5).append("b", 6));
-    assertThat(deleted).isEqualTo(new Document("_id", 2).append("b", 5));
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 8),
+        docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    assertThat(deleted).isEqualTo(docId(2).append("b", 5));
   }
 
-  private List<Document> toList(final FindIterable<Document> collection) {
-    final List<Document> documents = new ArrayList<Document>();
-    for (Document document : collection) {
+  @Test
+  public void distinct_must_retrieve_distinct_results() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final DistinctIterable distinctIterable = collection.distinct("b", Integer.class);
+
+    // Then
+    assertThat(toList(distinctIterable)).containsExactly(5, 6);
+  }
+
+  @Test
+  public void distinct_first_must_retrieve_first_distinct_results() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final DistinctIterable distinctIterable = collection.distinct("b", Integer.class);
+
+    // Then
+    assertThat(distinctIterable.first()).isEqualTo(5);
+  }
+
+  @Test
+  public void distinct_filter_must_retrieve_distinct_results() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final DistinctIterable distinctIterable = collection.distinct("b", Integer.class);
+
+    // Then
+    assertThat(toList(distinctIterable.filter(docId(5)))).containsExactly(6);
+  }
+
+  private <T> List<T> toList(final MongoIterable<T> iterable) {
+    final List<T> documents = new ArrayList<T>();
+    for (T document : iterable) {
       documents.add(document);
     }
     return documents;
   }
 
-  public MongoCollection newCollection() {
+  public MongoCollection<Document> newCollection() {
     return fongoRule.newMongoCollection("db");
   }
 }

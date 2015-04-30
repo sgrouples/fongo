@@ -1049,8 +1049,7 @@ public class FongoDBCollection extends DBCollection {
     final DBObject query = filterLists(pQuery);
     Set<Object> results = new LinkedHashSet<Object>();
     Filter filter = expressionParser.buildFilter(query);
-    for (Iterator<DBObject> iter = filterByIndexes(query).iterator(); iter.hasNext(); ) {
-      DBObject value = iter.next();
+    for (DBObject value : filterByIndexes(query)) {
       if (filter.apply(value)) {
         List<Object> keyValues = expressionParser.getEmbeddedValues(key, value);
         for (Object keyValue : keyValues) {

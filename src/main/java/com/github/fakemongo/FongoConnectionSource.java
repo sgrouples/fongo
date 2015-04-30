@@ -24,11 +24,13 @@ import com.mongodb.connection.ServerConnectionState;
 import com.mongodb.connection.ServerDescription;
 import com.mongodb.connection.ServerId;
 import com.mongodb.connection.ServerVersion;
+import com.mongodb.operation.FongoBsonArrayWrapper;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.bson.BsonDocument;
+import org.bson.BsonDocumentWrapper;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
 import org.bson.Document;
@@ -148,14 +150,20 @@ public class FongoConnectionSource implements ConnectionSource {
           final long limit = command.containsKey("limit") ? command.getInt64("limit").longValue() : -1;
           final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
-          return (T) new BsonDocument().append("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip)));
+          return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip)));
         } else if (command.containsKey("findandmodify")) {
           final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
           final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
+          final DBObject update = command.containsKey("update") ? dbObject(command.getDocument("update")) : null;
           final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
 
-          final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, null, false, false);
-          return (T) bsonDocument(andModify);
+          final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, update, false, false);
+          return (T) new BsonDocument("value", new BsonDocumentWrapper(document(andModify), null));
+        } else if (command.containsKey("distinct")) {
+          final DBCollection dbCollection = db.getCollection(command.get("distinct").asString().getValue());
+          final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
+          final List<Object> distincts = dbCollection.distinct(command.getString("key").getValue(), query);
+          return (T) new BsonDocument("values", FongoBsonArrayWrapper.bsonArrayWrapper(distincts));
         }
         // Will throw an exception.
         return null;
@@ -220,6 +228,13 @@ public class FongoConnectionSource implements ConnectionSource {
           return null;
         }
         return BsonDocument.parse(dbObject.toString());
+      }
+
+      private BsonDocument bsonDocument(List<DBObject> dbObjects) {
+        if (dbObjects == null) {
+          return null;
+        }
+        return BsonDocument.parse(dbObjects.toString());
       }
 
     };
