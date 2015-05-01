@@ -7,12 +7,19 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.model.DeleteOneModel;
 import static com.mongodb.client.model.Filters.eq;
 import com.mongodb.client.model.IndexOptions;
+import com.mongodb.client.model.InsertOneModel;
+import static com.mongodb.client.model.Projections.excludeId;
+import com.mongodb.client.model.ReplaceOneModel;
+import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.descending;
+import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import java.util.ArrayList;
+import java.util.Arrays;
 import static java.util.Arrays.asList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,10 +120,6 @@ public class FongoV3Test {
 
     // Then
     assertThat(documents).containsExactly(docId(1), docId(2));
-  }
-
-  private Document docId(int value) {
-    return new Document("_id", value);
   }
 
   @Test
@@ -247,6 +250,19 @@ public class FongoV3Test {
 
     // Then
     assertThat(documents).containsExactly(docId(1).append("b", 2));
+  }
+
+  @Test
+  public void find_projection_excludeId() {
+    // Given
+    final MongoCollection<Document> collection = newCollection();
+    collection.insertMany(asList(docId(1).append("b", 2).append("c", 3), docId(2).append("b", 3)));
+
+    // When
+    final List<Document> documents = toList(collection.find(docId(1)).projection(excludeId()));
+
+    // Then
+    assertThat(documents).containsExactly(new Document("b", 2).append("c", 3));
   }
 
   @Test
@@ -410,6 +426,37 @@ public class FongoV3Test {
     // Then
     assertThat(toList(collection.listIndexes())).containsExactly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()),
         new Document("v", 1).append("key", new Document("b", 1)).append("name", "b").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()));
+  }
+
+  // See http://mongodb.github.io/mongo-java-driver/3.0/driver/getting-started/quick-tour/
+  @Test
+  public void bulkWrite_ordered() {
+    // 2. Ordered bulk operation - order is guaranteed
+    // Given
+    MongoCollection collection = newCollection();
+
+    // When
+    collection.bulkWrite(
+        Arrays.asList(new InsertOneModel<Document>(new Document("_id", 1)),
+            new InsertOneModel<Document>(new Document("_id", 2)),
+            new InsertOneModel<Document>(new Document("_id", 3)),
+            new InsertOneModel<Document>(new Document("_id", 4)),
+            new InsertOneModel<Document>(new Document("_id", 5)),
+            new InsertOneModel<Document>(new Document("_id", 6)),
+            new UpdateOneModel<Document>(new Document("_id", 1),
+                new Document("$set", new Document("x", 2))),
+            new DeleteOneModel<Document>(new Document("_id", 2)),
+            new ReplaceOneModel<Document>(new Document("_id", 3),
+                new Document("_id", 3).append("x", 4))));
+
+
+    // Then
+    assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
+        docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
+  }
+
+  private Document docId(int value) {
+    return new Document("_id", value);
   }
 
   private <T> List<T> toList(final MongoIterable<T> iterable) {

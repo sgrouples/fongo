@@ -146,22 +146,22 @@ public class FongoConnectionSource implements ConnectionSource {
         LOG.info("command() database:{}, command:{}", database, command);
         if (command.containsKey("count")) {
           final DBCollection dbCollection = db.getCollection(command.get("count").asString().getValue());
-          final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
+          final DBObject query = dbObject(command, "query");
           final long limit = command.containsKey("limit") ? command.getInt64("limit").longValue() : -1;
           final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
           return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip)));
         } else if (command.containsKey("findandmodify")) {
           final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
-          final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
-          final DBObject update = command.containsKey("update") ? dbObject(command.getDocument("update")) : null;
+          final DBObject query = dbObject(command, "query");
+          final DBObject update = dbObject(command, "update");
           final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
 
           final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, update, false, false);
           return (T) new BsonDocument("value", new BsonDocumentWrapper(document(andModify), null));
         } else if (command.containsKey("distinct")) {
           final DBCollection dbCollection = db.getCollection(command.get("distinct").asString().getValue());
-          final DBObject query = command.containsKey("query") ? dbObject(command.getDocument("query")) : null;
+          final DBObject query = dbObject(command, "query");
           final List<Object> distincts = dbCollection.distinct(command.getString("key").getValue(), query);
           return (T) new BsonDocument("values", FongoBsonArrayWrapper.bsonArrayWrapper(distincts));
         }
@@ -173,7 +173,7 @@ public class FongoConnectionSource implements ConnectionSource {
       public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
         LOG.info("query() namespace:{} queryDocument:{}, fields:{}", namespace, queryDocument, fields);
         final DBCollection collection = dbCollection(namespace);
-        final DBObject sort = queryDocument.containsKey("$orderby") ? dbObject(queryDocument.getDocument("$orderby")) : null;
+        final DBObject sort = dbObject(queryDocument, "$orderby");
 
         final List<DBObject> objects = collection
             .find(dbObject(queryDocument.getDocument("$query")), dbObject(fields))
@@ -230,6 +230,10 @@ public class FongoConnectionSource implements ConnectionSource {
       private Document document(DBObject dbObject) {
         // TODO : performance killer.
         return Document.parse(dbObject.toString());
+      }
+
+      private DBObject dbObject(BsonDocument queryDocument, String key) {
+        return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
       }
 
       private BsonDocument bsonDocument(DBObject dbObject) {
