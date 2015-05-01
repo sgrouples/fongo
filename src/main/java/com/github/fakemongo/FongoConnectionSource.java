@@ -173,9 +173,14 @@ public class FongoConnectionSource implements ConnectionSource {
       public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
         LOG.info("query() namespace:{} queryDocument:{}, fields:{}", namespace, queryDocument, fields);
         final DBCollection collection = dbCollection(namespace);
+        final DBObject sort = queryDocument.containsKey("$orderby") ? dbObject(queryDocument.getDocument("$orderby")) : null;
 
-        final List<DBObject> objects = collection.find(dbObject(queryDocument.getDocument("$query")), dbObject(fields))
-            .limit(numberToReturn).skip(skip).toArray();
+        final List<DBObject> objects = collection
+            .find(dbObject(queryDocument.getDocument("$query")), dbObject(fields))
+            .sort(sort)
+            .limit(numberToReturn)
+            .skip(skip)
+            .toArray();
         return new QueryResult(namespace, documents(objects), 1, fongo.getServerAddress());
       }
 

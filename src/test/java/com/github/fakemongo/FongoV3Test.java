@@ -2,10 +2,14 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.client.DistinctIterable;
+import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.CountOptions;
+import static com.mongodb.client.model.Filters.eq;
+import com.mongodb.client.model.IndexOptions;
+import static com.mongodb.client.model.Sorts.descending;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import java.util.ArrayList;
@@ -13,6 +17,7 @@ import static java.util.Arrays.asList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.bson.Document;
+import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -138,6 +143,45 @@ public class FongoV3Test {
 
     // Then
     assertThat(documents).containsExactly(docId(1));
+  }
+
+  @Test
+  public void find_first() {
+    // Given
+    final MongoCollection<Document> collection = newCollection();
+
+    // When
+    collection.insertMany(asList(docId(1), docId(2)));
+    final Document first = collection.find().first();
+
+    // Then
+    assertThat(first).isEqualTo(docId(1));
+  }
+
+  @Test
+  public void find_filter() {
+    // Given
+    final MongoCollection<Document> collection = newCollection();
+
+    // When
+    collection.insertMany(asList(docId(1), docId(2)));
+    final FindIterable<Document> documents = collection.find(eq("_id", 1));
+
+    // Then
+    assertThat(toList(documents)).containsExactly(docId(1));
+  }
+
+  @Test
+  public void find_sort() {
+    // Given
+    final MongoCollection<Document> collection = newCollection();
+
+    // When
+    collection.insertMany(asList(docId(1), docId(2)));
+    final FindIterable<Document> documents = collection.find().sort(descending("_id"));
+
+    // Then
+    assertThat(toList(documents)).containsExactly(docId(2), docId(1));
   }
 
   @Test
@@ -346,6 +390,26 @@ public class FongoV3Test {
 
     // Then
     assertThat(toList(distinctIterable.filter(docId(5)))).containsExactly(6);
+  }
+
+  @Test
+  public void createIndex_create_an_index() {
+    Assume.assumeTrue(fongoRule.isRealMongo());
+
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    collection.createIndex(new Document("b", 1), new IndexOptions().name("b").unique(false));
+
+    // Then
+    assertThat(toList(collection.listIndexes())).containsExactly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()),
+        new Document("v", 1).append("key", new Document("b", 1)).append("name", "b").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()));
   }
 
   private <T> List<T> toList(final MongoIterable<T> iterable) {
