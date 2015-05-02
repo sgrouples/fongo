@@ -323,7 +323,7 @@ public class FongoV3Test {
   @Test
   public void findOneAndDelete_remove_one() {
     // Given
-    MongoCollection collection = newCollection();
+    MongoCollection<Document> collection = newCollection();
     collection.insertOne(docId(1));
     collection.insertOne(docId(2).append("b", 5));
     collection.insertOne(docId(3).append("b", 5));
@@ -331,7 +331,7 @@ public class FongoV3Test {
     collection.insertOne(docId(5).append("b", 6));
 
     // When
-    final Object deleted = collection.findOneAndDelete(new Document("b", 5));
+    final Document deleted = collection.findOneAndDelete(new Document("b", 5));
 
     // Then
     assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
@@ -341,7 +341,7 @@ public class FongoV3Test {
   @Test
   public void findOneAndReplace_replace_the_first() {
     // Given
-    MongoCollection collection = newCollection();
+    MongoCollection<Document> collection = newCollection();
     collection.insertOne(docId(1));
     collection.insertOne(docId(2).append("b", 5));
     collection.insertOne(docId(3).append("b", 5));
@@ -349,12 +349,50 @@ public class FongoV3Test {
     collection.insertOne(docId(5).append("b", 6));
 
     // When
-    final Object deleted = collection.findOneAndReplace(new Document("b", 5), docId(2).append("b", 8));
+    final Document deleted = collection.findOneAndReplace(new Document("b", 5), docId(2).append("c", 8));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 8),
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(deleted).isEqualTo(docId(2).append("b", 5));
+  }
+
+  @Test
+  public void findOneAndUpdate_$set_replace_the_first() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", docId(2).append("c", 8)));
+
+    // Then
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+        docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    assertThat(updated).isEqualTo(docId(2).append("b", 5));
+  }
+
+  @Test
+  public void findOneAndUpdate_replace_the_first() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", new Document("c", 8)));
+
+    // Then
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+        docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    assertThat(updated).isEqualTo(docId(2).append("b", 5));
   }
 
   @Test
@@ -460,11 +498,7 @@ public class FongoV3Test {
   }
 
   private <T> List<T> toList(final MongoIterable<T> iterable) {
-    final List<T> documents = new ArrayList<T>();
-    for (T document : iterable) {
-      documents.add(document);
-    }
-    return documents;
+    return iterable.into(new ArrayList<T>());
   }
 
   public MongoCollection<Document> newCollection() {

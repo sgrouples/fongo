@@ -290,7 +290,7 @@ public class Group extends PipelineKeyword {
       } else if (iValue instanceof Long) {
         result = coll.count() * iValue.longValue();
       } else {
-        LOG.warn("type of field not handled for sum: {}", result.getClass());
+        LOG.warn("type of field not handled for sum:{}", result == null ? null : result.getClass());
       }
     }
     return result;
@@ -298,9 +298,6 @@ public class Group extends PipelineKeyword {
 
   /**
    * return Integer if the parameter could be safely cast to an integer
-   *
-   * @param number
-   * @return
    */
   private static Number intOrLong(long number) {
     if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE) {

@@ -5,12 +5,11 @@ import com.mongodb.WriteConcern;
 import org.assertj.core.api.Assertions;
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
+import org.jongo.MongoCursor;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 
-@Ignore("need to migrate jongo")
 public class FongoJongoTest {
 
   @Rule
@@ -51,6 +50,52 @@ public class FongoJongoTest {
 
     // When
     JongoItem result = this.collection.findOne("{_id:#}", jongoItem.getId()).as(JongoItem.class);
+
+    // Then
+    Assertions.assertThat(result).isEqualTo(jongoItem);
+  }
+
+  @Test
+  public void should_findAll_works() {
+    // Given
+    JongoItem jongoItem = new JongoItem();
+    jongoItem.setField("Hello World");
+    jongoItem.setId(new JongoItem.JongoItemId("one", "two"));
+    this.collection.insert(jongoItem);
+
+    // When
+    final MongoCursor<JongoItem> result = this.collection.find("{_id:#}", jongoItem.getId()).as(JongoItem.class);
+
+    // Then
+    Assertions.assertThat((Iterable<JongoItem>) result).containsExactly(jongoItem);
+  }
+
+  @Test
+  public void should_findAndModify_works() {
+    // Given
+    JongoItem jongoItem = new JongoItem();
+    jongoItem.setField("Hello World");
+    jongoItem.setId(new JongoItem.JongoItemId("one", "two"));
+    this.collection.insert(jongoItem);
+
+    // When
+    final JongoItem result = this.collection.findAndModify("{_id:#}", jongoItem.getId()).with("{$set:{field:#}}", "newField").returnNew().as(JongoItem.class);
+
+    // Then
+    jongoItem.setField("newField");
+    Assertions.assertThat(result).isEqualTo(jongoItem);
+  }
+
+  @Test
+  public void should_findAndModify_returnOld_works() {
+    // Given
+    JongoItem jongoItem = new JongoItem();
+    jongoItem.setField("Hello World");
+    jongoItem.setId(new JongoItem.JongoItemId("one", "two"));
+    this.collection.insert(jongoItem);
+
+    // When
+    final JongoItem result = this.collection.findAndModify("{_id:#}", jongoItem.getId()).with("{$set:{field:#}}", "newField").as(JongoItem.class);
 
     // Then
     Assertions.assertThat(result).isEqualTo(jongoItem);

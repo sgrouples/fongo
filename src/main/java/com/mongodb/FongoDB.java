@@ -2,6 +2,7 @@ package com.mongodb;
 
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
+import com.mongodb.connection.BufferProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -475,6 +476,4 @@ public class FongoDB extends DB {
     }
     return okResult;
   }
-
-
 }

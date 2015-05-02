@@ -33,9 +33,11 @@ import org.bson.BsonDocument;
 import org.bson.BsonDocumentWrapper;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
-import org.bson.Document;
 import org.bson.FieldNameValidator;
 import org.bson.codecs.Decoder;
+import org.bson.codecs.DecoderContext;
+import org.bson.codecs.DocumentCodec;
+import org.bson.json.JsonReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -158,7 +160,7 @@ public class FongoConnectionSource implements ConnectionSource {
           final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
 
           final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, update, false, false);
-          return (T) new BsonDocument("value", new BsonDocumentWrapper(document(andModify), null));
+          return (T) new BsonDocument("value", new BsonDocumentWrapper(decode(andModify, new DocumentCodec()), null));
         } else if (command.containsKey("distinct")) {
           final DBCollection dbCollection = db.getCollection(command.get("distinct").asString().getValue());
           final DBObject query = dbObject(command, "query");
@@ -181,7 +183,8 @@ public class FongoConnectionSource implements ConnectionSource {
             .limit(numberToReturn)
             .skip(skip)
             .toArray();
-        return new QueryResult(namespace, documents(objects), 1, fongo.getServerAddress());
+
+        return new QueryResult(namespace, documents(objects, resultDecoder), 1, fongo.getServerAddress());
       }
 
       @Override
@@ -219,17 +222,17 @@ public class FongoConnectionSource implements ConnectionSource {
         return fongo.getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
       }
 
-      private List<Document> documents(final List<DBObject> objects) {
-        final List<Document> list = new ArrayList<Document>(objects.size());
-        for (final DBObject dbObject : objects) {
-          list.add(document(dbObject));
+      private <T> List<T> documents(final List<DBObject> objects, Decoder<T> resultDecoder) {
+        final List<T> list = new ArrayList<T>(objects.size());
+        for (final DBObject object : objects) {
+          list.add(decode(object, resultDecoder));
         }
         return list;
       }
 
-      private Document document(DBObject dbObject) {
+      private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
         // TODO : performance killer.
-        return Document.parse(dbObject.toString());
+        return resultDecoder.decode(new JsonReader(object.toString()), DecoderContext.builder().build());
       }
 
       private DBObject dbObject(BsonDocument queryDocument, String key) {

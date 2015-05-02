@@ -10,6 +10,7 @@ import com.mongodb.WriteConcern;
 import com.mongodb.binding.ConnectionSource;
 import com.mongodb.binding.ReadBinding;
 import com.mongodb.binding.WriteBinding;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.operation.OperationExecutor;
 import com.mongodb.operation.ReadOperation;
 import com.mongodb.operation.WriteOperation;
@@ -74,6 +75,10 @@ public class Fongo implements OperationExecutor {
       }
       return fongoDb;
     }
+  }
+
+  public synchronized MongoDatabase getDatabase(final String databaseName) {
+    return mongo.getDatabase(databaseName);
   }
 
   /**

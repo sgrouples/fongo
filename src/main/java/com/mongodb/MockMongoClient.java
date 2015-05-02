@@ -8,6 +8,7 @@ import com.mongodb.bulk.InsertRequest;
 import com.mongodb.bulk.UpdateRequest;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.connection.AsyncConnection;
+import com.mongodb.connection.BufferProvider;
 import com.mongodb.connection.Cluster;
 import com.mongodb.connection.ClusterDescription;
 import com.mongodb.connection.Connection;
@@ -15,9 +16,8 @@ import com.mongodb.connection.ConnectionDescription;
 import com.mongodb.connection.QueryResult;
 import com.mongodb.connection.Server;
 import com.mongodb.connection.ServerDescription;
+import com.mongodb.internal.connection.PowerOfTwoBufferPool;
 import com.mongodb.operation.OperationExecutor;
-import com.mongodb.operation.ReadOperation;
-import com.mongodb.operation.WriteOperation;
 import com.mongodb.selector.ServerSelector;
 import java.net.UnknownHostException;
 import java.util.Arrays;
@@ -34,6 +34,8 @@ public class MockMongoClient extends MongoClient {
   // this is immutable 
   private final static MongoClientOptions clientOptions = MongoClientOptions.builder().build();
 
+  private volatile BufferProvider bufferProvider;
+
   private Fongo fongo;
   private MongoOptions options;
 
@@ -47,7 +49,6 @@ public class MockMongoClient extends MongoClient {
   }
 
   public MockMongoClient() throws UnknownHostException {
-
   }
 
   @Override
@@ -234,17 +235,15 @@ public class MockMongoClient extends MongoClient {
   }
 
   OperationExecutor createOperationExecutor() {
-    return new OperationExecutor() {
-      @Override
-      public <T> T execute(final ReadOperation<T> operation, final ReadPreference readPreference) {
-        return null;
-      }
-
-      @Override
-      public <T> T execute(final WriteOperation<T> operation) {
-        return null;
-      }
-    };
+    return fongo;
   }
 
+
+  @Override
+  synchronized BufferProvider getBufferProvider() {
+    if (bufferProvider == null) {
+      bufferProvider = new PowerOfTwoBufferPool();
+    }
+    return bufferProvider;
+  }
 }
