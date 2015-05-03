@@ -232,7 +232,7 @@ public class FongoConnectionSource implements ConnectionSource {
 
       private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
         // TODO : performance killer.
-        return resultDecoder.decode(new JsonReader(object.toString()), DecoderContext.builder().build());
+        return resultDecoder.decode(new JsonReader(JSON.serialize(object)), DecoderContext.builder().build());
       }
 
       private DBObject dbObject(BsonDocument queryDocument, String key) {

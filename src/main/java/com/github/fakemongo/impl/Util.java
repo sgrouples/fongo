@@ -51,6 +51,7 @@ public final class Util {
     }
     return value;
   }
+
   /**
    * Can extract field from an object.
    * Handle "field1.field2" in { field1 : {field2 : value2 } }
@@ -62,7 +63,7 @@ public final class Util {
       return null; // NPE ?
     }
     DBObject value = object;
-    for (String path: paths) {
+    for (String path : paths) {
       value = (DBObject) value.get(path);
       if (value == null) {
         break;
@@ -224,12 +225,6 @@ public final class Util {
       return null;
     }
 
-    if (source instanceof BasicDBObject) {
-      @SuppressWarnings("unchecked")
-      T clone = (T) ((BasicDBObject) source).copy();
-      return clone;
-    }
-
     if (source instanceof BasicDBList) {
       @SuppressWarnings("unchecked")
       T clone = (T) ((BasicDBList) source).copy();
@@ -245,6 +240,7 @@ public final class Util {
           clone.add(o);
         }
       }
+      return (T) clone;
     } else if (source instanceof LazyDBList) {
       BasicDBList clone = new BasicDBList();
       for (Object o : ((LazyDBList) source)) {
@@ -255,6 +251,12 @@ public final class Util {
         }
       }
       return (T) clone;
+    }
+
+    if (source instanceof BasicDBObject) {
+      @SuppressWarnings("unchecked")
+      T clone = (T) ((BasicDBObject) source).copy();
+      return clone;
     }
 
     if (source instanceof LazyBSONObject) {
