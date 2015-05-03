@@ -14,8 +14,6 @@ import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
 import static com.mongodb.assertions.Assertions.isTrueArgument;
-import com.mongodb.operation.BaseWriteOperation;
-import com.mongodb.operation.InsertOperation;
 import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -508,16 +506,6 @@ public class FongoDBCollection extends DBCollection {
                         ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
     return __find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder);
   }
-
-  @Override
-  WriteResult executeWriteOperation(final BaseWriteOperation operation) {
-    if (operation instanceof InsertOperation) {
-      InsertOperation insertOperation = (InsertOperation) operation;
-
-    }
-    return null;
-  }
-
 
   @Override
   public DBCursor find() {

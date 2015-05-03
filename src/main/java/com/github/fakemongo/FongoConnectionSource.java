@@ -235,7 +235,7 @@ public class FongoConnectionSource implements ConnectionSource {
         return resultDecoder.decode(new JsonReader(JSON.serialize(object)), DecoderContext.builder().build());
       }
 
-      private DBObject dbObject(BsonDocument queryDocument, String key) {
+      private DBObject dbObject(final BsonDocument queryDocument, final String key) {
         return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
       }
 

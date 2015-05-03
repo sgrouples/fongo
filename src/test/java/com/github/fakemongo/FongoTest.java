@@ -1149,6 +1149,17 @@ public class FongoTest {
     BasicDBObject inserted = new BasicDBObject("_id", 1);
     collection.insert(inserted);
     collection.save(inserted);
+
+    assertThat(collection.find().toArray()).containsOnly(inserted);
+  }
+
+  @Test
+  public void should_save_insert() {
+    DBCollection collection = newCollection();
+    BasicDBObject inserted = new BasicDBObject("_id", 1);
+    collection.save(inserted);
+
+    assertThat(collection.find().toArray()).containsOnly(inserted);
   }
 
   @Test(expected = DuplicateKeyException.class)
