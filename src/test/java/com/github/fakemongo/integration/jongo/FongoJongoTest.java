@@ -100,4 +100,20 @@ public class FongoJongoTest {
     // Then
     Assertions.assertThat(result).isEqualTo(jongoItem);
   }
+
+  @Test
+  public void should_update_upsert_works() {
+    // Given
+    JongoItem jongoItem = new JongoItem();
+    jongoItem.setField("Hello World");
+    jongoItem.setId(new JongoItem.JongoItemId("one", "two"));
+    this.collection.insert(jongoItem);
+
+    // When
+    this.collection.update("{_id:#}", jongoItem.getId()).upsert().with(jongoItem);
+    final JongoItem result = this.collection.findOne().as(JongoItem.class);
+
+    // Then
+    Assertions.assertThat(result).isEqualTo(jongoItem);
+  }
 }

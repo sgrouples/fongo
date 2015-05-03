@@ -155,14 +155,14 @@ public class FongoDBCollection extends DBCollection {
 
   public Object replaceListAndMap(Object value) {
     Object replacementValue = BSON.applyEncodingHooks(value);
-    if (replacementValue instanceof DBObject) {
-      replacementValue = filterLists((DBObject) replacementValue);
-    } else if (replacementValue instanceof List) {
+    if (replacementValue instanceof List) {
       BasicDBList list = new BasicDBList();
       for (Object listItem : (List) replacementValue) {
         list.add(replaceListAndMap(listItem));
       }
       replacementValue = list;
+    } else if (replacementValue instanceof DBObject) {
+      replacementValue = filterLists((DBObject) replacementValue);
     } else if (replacementValue instanceof Object[]) {
       BasicDBList list = new BasicDBList();
       for (Object listItem : (Object[]) replacementValue) {
@@ -1284,6 +1284,7 @@ public class FongoDBCollection extends DBCollection {
           index.remove(oldObject);
       }
     } catch (MongoException e) {
+      LOG.info("", e);
       throw this.fongoDb.writeConcernException(e.getCode(), e.getMessage());
     }
     this.fongoDb.addCollection(this);
