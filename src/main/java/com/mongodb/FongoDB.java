@@ -2,7 +2,6 @@ package com.mongodb;
 
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
-import com.mongodb.connection.BufferProvider;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,8 +31,6 @@ public class FongoDB extends DB {
   private final Map<String, FongoDBCollection> collMap = Collections.synchronizedMap(new HashMap<String, FongoDBCollection>());
   private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
   final Fongo fongo;
-
-  private MongoCredential mongoCredential;
 
   public FongoDB(Fongo fongo, String name) {
     super(fongo.getMongo(), name);
@@ -156,7 +153,7 @@ public class FongoDB extends DB {
   }
 
   @Override
-  public void dropDatabase() throws MongoException {
+  public synchronized void dropDatabase() throws MongoException {
     this.fongo.dropDatabase(this.getName());
     for (FongoDBCollection c : new ArrayList<FongoDBCollection>(collMap.values())) {
       c.drop();
@@ -221,8 +218,7 @@ public class FongoDB extends DB {
       } else {
         doGetCollection(collectionName)._dropIndex(indexName);
       }
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("aggregate")) {
       @SuppressWarnings(
           "unchecked") List<DBObject> result = doAggregateCollection((String) cmd.get("aggregate"), (List<DBObject>) cmd.get("pipeline"));
@@ -239,11 +235,9 @@ public class FongoDB extends DB {
     } else if (cmd.containsField("findandmodify")) {
       return runFindAndModify(cmd, "findandmodify");
     } else if (cmd.containsField("ping")) {
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("validate")) {
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("buildInfo") || cmd.containsField("buildinfo")) {
       CommandResult okResult = okResult();
       okResult.put("version", "2.4.5");
@@ -251,8 +245,7 @@ public class FongoDB extends DB {
       return okResult;
     } else if (cmd.containsField("forceerror")) {
       // http://docs.mongodb.org/manual/reference/command/forceerror/
-      CommandResult result = notOkErrorResult(10038, null, "exception: forced error");
-      return result;
+      return notOkErrorResult(10038, null, "exception: forced error");
     } else if (cmd.containsField("mapreduce")) {
       return runMapReduce(cmd, "mapreduce");
     } else if (cmd.containsField("mapReduce")) {
@@ -276,8 +269,7 @@ public class FongoDB extends DB {
         okResult.put("results", list);
         return okResult;
       } catch (MongoException me) {
-        CommandResult result = errorResult(me.getCode(), me.getMessage());
-        return result;
+        return errorResult(me.getCode(), me.getMessage());
       }
     } else {
       String collectionName = ((Map.Entry<String, DBObject>) cmd.toMap().entrySet().iterator().next()).getKey();
