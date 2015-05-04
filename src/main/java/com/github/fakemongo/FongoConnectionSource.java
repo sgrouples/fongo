@@ -25,6 +25,7 @@ import com.mongodb.connection.ServerDescription;
 import com.mongodb.connection.ServerId;
 import com.mongodb.connection.ServerVersion;
 import com.mongodb.operation.FongoBsonArrayWrapper;
+import com.mongodb.util.JSONCallback;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -216,7 +217,7 @@ public class FongoConnectionSource implements ConnectionSource {
         if (document == null) {
           return null;
         }
-        return (DBObject) JSON.parse(document.toJson(new JsonWriterSettings()));
+        return (DBObject) JSON.parse(document.toJson(new JsonWriterSettings()), new JSONCallback());
       }
 
       private DBCollection dbCollection(MongoNamespace namespace) {
