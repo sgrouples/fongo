@@ -1,5 +1,8 @@
 package com.mongodb;
 
+import com.github.fakemongo.Fongo;
+import com.github.fakemongo.impl.Aggregator;
+import com.github.fakemongo.impl.MapReduce;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -10,9 +13,6 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.github.fakemongo.Fongo;
-import com.github.fakemongo.impl.Aggregator;
-import com.github.fakemongo.impl.MapReduce;
 
 /**
  * fongo override of com.mongodb.DB
@@ -51,15 +51,13 @@ public class FongoDB extends DB {
   }
 
   @Override
-  protected FongoDBCollection doGetCollection(String name) {
-    synchronized (collMap) {
+  protected synchronized FongoDBCollection doGetCollection(String name) {
       FongoDBCollection coll = collMap.get(name);
       if (coll == null) {
         coll = new FongoDBCollection(this, name);
         collMap.put(name, coll);
       }
       return coll;
-    }
   }
 
   private DBObject findAndModify(String collection, DBObject query, DBObject sort, boolean remove, DBObject update, boolean returnNew, DBObject fields, boolean upsert) {
