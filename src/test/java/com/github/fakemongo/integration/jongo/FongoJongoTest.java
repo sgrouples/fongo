@@ -41,6 +41,21 @@ public class FongoJongoTest {
   }
 
   @Test
+  public void should_save_neested_class() {
+    // Given
+    JongoItem jongoItem = new JongoItem();
+    jongoItem.setField("Hello World");
+    jongoItem.setId(new JongoItem.JongoItemId("one", "two"));
+
+    // When
+    this.collection.save(jongoItem);
+    JongoItem result = this.collection.findOne().as(JongoItem.class);
+
+    // Then
+    Assertions.assertThat(result).isEqualTo(jongoItem);
+  }
+
+  @Test
   public void should_retrieve_neested_class() {
     // Given
     JongoItem jongoItem = new JongoItem();

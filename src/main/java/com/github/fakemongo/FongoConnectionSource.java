@@ -38,6 +38,7 @@ import org.bson.codecs.Decoder;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.DocumentCodec;
 import org.bson.json.JsonReader;
+import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -215,7 +216,7 @@ public class FongoConnectionSource implements ConnectionSource {
         if (document == null) {
           return null;
         }
-        return (DBObject) JSON.parse(document.toString());
+        return (DBObject) JSON.parse(document.toJson(new JsonWriterSettings()));
       }
 
       private DBCollection dbCollection(MongoNamespace namespace) {
