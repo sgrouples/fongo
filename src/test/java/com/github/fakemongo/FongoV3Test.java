@@ -18,14 +18,12 @@ import static com.mongodb.client.model.Sorts.descending;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
-import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.asList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.bson.Document;
-import org.bson.codecs.DocumentCodec;
 import org.junit.Assume;
 import org.junit.Rule;
 import org.junit.Test;
@@ -499,24 +497,13 @@ public class FongoV3Test {
   public void should_utf8_works() {
     // Given
     final MongoCollection<Document> mongoCollection = newCollection();
+    final String expected = "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉";
 
     // When
-    mongoCollection.insertOne(new Document("_id", "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉"));
-
-    System.out.println(JSON.serialize(new Document("_id", "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉")));
-    System.out.println(Document.parse(JSON.serialize(new Document("_id", "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉")), new DocumentCodec()));
-    System.out.println("WDEL");
+    mongoCollection.insertOne(new Document("_id", expected));
 
     // Then
-    final Document first = mongoCollection.find().first();
-    char[] wanted = "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉".toCharArray();
-    final char[] result = first.getString("_id").toCharArray();
-    for (int i = 0; i < result.length; i++) {
-      assertThat(result[i]).as(String.valueOf(i) + " " + (int) result[i] + " vs " + (int) wanted[i]).isEqualTo(wanted[i]);
-    }
-    assertThat(first.getString("_id")).isEqualTo("꼢𑡜ᳫ鉠鮻罖᧭䆔瘉");
-    assertThat(first.getString("_id")).isEqualTo("꼢𑡜ᳫ鉠鮻罖᧭䆔瘉");
-    assertThat(mongoCollection.find().first()).isEqualTo(new Document("_id", "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉"));
+    assertThat(mongoCollection.find().first()).isEqualTo(new Document("_id", expected));
   }
 
   private Document docId(int value) {
