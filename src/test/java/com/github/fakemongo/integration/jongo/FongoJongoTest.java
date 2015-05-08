@@ -2,6 +2,7 @@ package com.github.fakemongo.integration.jongo;
 
 import com.github.fakemongo.junit.FongoRule;
 import com.google.common.collect.Lists;
+import com.mongodb.AggregationOptions;
 import com.mongodb.DBCursor;
 import com.mongodb.WriteConcern;
 import java.util.Iterator;
@@ -180,6 +181,20 @@ public class FongoJongoTest {
     assertThat(friends.hasNext()).isTrue();
     friends.next();
     assertThat(friends.hasNext()).isFalse();
+  }
+
+  @Test
+  public void canAggregateWithDefaultOptions() throws Exception {
+    collection.save(new Friend(new ObjectId(), "John"));
+    collection.save(new Friend(new ObjectId(), "Robert"));
+
+    AggregationOptions options = AggregationOptions.builder().build();
+    Iterable<Friend> friends = collection.aggregate("{$match:{}}").options(options).as(Friend.class);
+
+    assertThat(friends.iterator().hasNext()).isTrue();
+    for (Friend friend : friends) {
+      assertThat(friend.getName()).isIn("John", "Robert");
+    }
   }
 
 }

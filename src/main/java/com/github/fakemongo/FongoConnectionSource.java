@@ -33,13 +33,11 @@ import java.util.Collections;
 import java.util.List;
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
-import org.bson.BsonDocumentWrapper;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
 import org.bson.FieldNameValidator;
 import org.bson.codecs.Decoder;
 import org.bson.codecs.DecoderContext;
-import org.bson.codecs.DocumentCodec;
 import org.bson.json.JsonReader;
 import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
@@ -81,11 +79,9 @@ public class FongoConnectionSource implements ConnectionSource {
         LOG.info("insert() namespace:{} inserts:{}", namespace, inserts);
         final DBCollection collection = dbCollection(namespace);
         for (InsertRequest insert : inserts) {
-          // TODO : more clever way
           final DBObject parse = dbObject(insert.getDocument());
           collection.insert(parse, writeConcern);
           LOG.debug("insert() namespace:{} insert:{}, parse:{}", namespace, insert.getDocument(), parse.getClass());
-//            insert.getDocument()
         }
         return WriteConcernResult.acknowledged(inserts.size(), false, null);
       }
@@ -164,7 +160,7 @@ public class FongoConnectionSource implements ConnectionSource {
           final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
 
           final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, update, false, false);
-          return (T) new BsonDocument("value", new BsonDocumentWrapper(decode(andModify, new DocumentCodec()), null));
+          return reencode(commandResultDecoder, "value", andModify);
         } else if (command.containsKey("distinct")) {
           final DBCollection dbCollection = db.getCollection(command.get("distinct").asString().getValue());
           final DBObject query = dbObject(command, "query");
@@ -173,10 +169,20 @@ public class FongoConnectionSource implements ConnectionSource {
         } else if (command.containsKey("aggregate")) {
           final DBCollection dbCollection = db.getCollection(command.get("aggregate").asString().getValue());
           final AggregationOutput aggregate = dbCollection.aggregate(dbObjects(command, "pipeline"));
-          return (T) new BsonDocument("result", FongoBsonArrayWrapper.bsonArrayWrapper(documents(aggregate.results(), new DocumentCodec())));
+          final String resultField = "result";
+          final Iterable<DBObject> results = aggregate.results();
+          return reencode(commandResultDecoder, resultField, results);
         } else {
           throw new FongoException("Not implemented for command : " + JSON.serialize(command));
         }
+      }
+
+      private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, Iterable<DBObject> results) {
+        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, new BsonArray(bsonDocuments(results))).toJson()), DecoderContext.builder().build());
+      }
+
+      private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, DBObject result) {
+        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, bsonDocument(result)).toJson()), DecoderContext.builder().build());
       }
 
       @Override
@@ -190,7 +196,7 @@ public class FongoConnectionSource implements ConnectionSource {
             .skip(skip)
             .toArray();
 
-        return new QueryResult(namespace, documents(objects, resultDecoder), 1, fongo.getServerAddress());
+        return new QueryResult(namespace, decode(objects, resultDecoder), 1, fongo.getServerAddress());
       }
 
       @Override
@@ -228,7 +234,7 @@ public class FongoConnectionSource implements ConnectionSource {
         return fongo.getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
       }
 
-      private <T> List<T> documents(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
+      private <T> List<T> decode(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
         final List<T> list = new ArrayList<T>();
         for (final DBObject object : objects) {
           list.add(decode(object, resultDecoder));
@@ -271,6 +277,16 @@ public class FongoConnectionSource implements ConnectionSource {
         return BsonDocument.parse(dbObjects.toString());
       }
 
+      private List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {
+        if (dbObjects == null) {
+          return null;
+        }
+        List<BsonDocument> list = new ArrayList<BsonDocument>();
+        for (DBObject dbObject : dbObjects) {
+          list.add(bsonDocument(dbObject));
+        }
+        return list;
+      }
     };
   }
 
