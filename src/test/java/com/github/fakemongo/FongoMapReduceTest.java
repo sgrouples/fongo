@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import static org.junit.Assert.assertEquals;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import org.assertj.core.api.Assertions;
 import org.junit.Rule;
 import org.junit.Test;
@@ -117,7 +117,7 @@ public class FongoMapReduceTest {
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
     Map<String, DBObject> byId = new HashMap<String, DBObject>();
     for (DBObject res : results) {
-      byId.put(JSON.serialize(res.get("_id")), res);
+      byId.put(FongoJSON.serialize(res.get("_id")), res);
     }
     List<DBObject> expected = fongoRule.parse("[" +
         "{\"_id\":{\"date\":\"1\"}, \"value\":" +
@@ -129,7 +129,7 @@ public class FongoMapReduceTest {
     for (DBObject e : expected) {
       List<DBObject> values = (List<DBObject>)(((DBObject) e.get("value")).get("value"));
       DBObject id = (DBObject) e.get("_id");
-      DBObject actual = byId.get(JSON.serialize(id));
+      DBObject actual = byId.get(FongoJSON.serialize(id));
       List<DBObject> actualValues = (List<DBObject>)(((DBObject) actual.get("value")).get("value"));
       Assertions.assertThat(actualValues).containsAll(values);
       Assertions.assertThat(actualValues.size()).isEqualTo(values.size());

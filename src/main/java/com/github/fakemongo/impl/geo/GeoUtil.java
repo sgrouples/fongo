@@ -7,7 +7,7 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Envelope;
 import com.vividsolutions.jts.geom.Geometry;
@@ -58,7 +58,7 @@ public final class GeoUtil {
       if (geometry == null) {
         LOG.warn("Can't extract geometry from this indexKey :{} (object:{}), coordinates:{}", indexKey, object, coordinates);
 
-        throw new MongoException(16755, "insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: " + JSON.serialize(object));
+        throw new MongoException(16755, "insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: " + FongoJSON.serialize(object));
       }
     }
 
@@ -184,7 +184,7 @@ public final class GeoUtil {
       if (dbObject.containsField("type")) {
         // GeoJSON
         try {
-          GeoJsonObject object = new ObjectMapper().readValue(JSON.serialize(value), GeoJsonObject.class);
+          GeoJsonObject object = new ObjectMapper().readValue(FongoJSON.serialize(value), GeoJsonObject.class);
           if (object instanceof Point) {
             Point point = (Point) object;
             coordinate = new Coordinate(point.getCoordinates().getLatitude(), point.getCoordinates().getLongitude());
@@ -241,7 +241,7 @@ public final class GeoUtil {
       return toGeometry((DBObject) dbObject.get("$geometry"));
     } else if (dbObject.containsField("type")) {
       try {
-        GeoJsonObject geoJsonObject = new ObjectMapper().readValue(JSON.serialize(dbObject), GeoJsonObject.class);
+        GeoJsonObject geoJsonObject = new ObjectMapper().readValue(FongoJSON.serialize(dbObject), GeoJsonObject.class);
         if (geoJsonObject instanceof Point) {
           Point point = (Point) geoJsonObject;
           return createGeometryPoint(toCoordinate(point.getCoordinates()));
@@ -253,7 +253,7 @@ public final class GeoUtil {
           return GEOMETRY_FACTORY.createMultiPolygon(toJtsPolygons(polygon.getCoordinates()));
         }
       } catch (IOException e) {
-        LOG.warn("cannot handle " + JSON.serialize(dbObject));
+        LOG.warn("cannot handle " + FongoJSON.serialize(dbObject));
       }
     } else {
       Coordinate coordinate = coordinate(dbObject);
@@ -262,7 +262,7 @@ public final class GeoUtil {
       }
     }
     if (illegalForUnknownGeometry) {
-      throw new IllegalArgumentException("can't handle " + JSON.serialize(dbObject));
+      throw new IllegalArgumentException("can't handle " + FongoJSON.serialize(dbObject));
     }
     return null;
   }

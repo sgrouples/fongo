@@ -9,7 +9,7 @@ import com.mongodb.DBRef;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.LazyDBObject;
 import com.mongodb.QueryOperators;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import java.math.BigDecimal;
@@ -1080,7 +1080,7 @@ public class ExpressionParser {
 
       try {
         Scriptable scope = cx.initStandardObjects();
-        String json = JSON.serialize(o);
+        String json = FongoJSON.serialize(o);
         String expr = "obj=" + json + ";\n" + expression.replace("this.", "obj.") + ";\n";
         try {
           return (Boolean) cx.evaluateString(scope, expr, "<$where>", 0, null);

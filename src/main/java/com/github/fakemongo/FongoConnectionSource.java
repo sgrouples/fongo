@@ -27,7 +27,7 @@ import com.mongodb.connection.ServerId;
 import com.mongodb.connection.ServerVersion;
 import com.mongodb.operation.FongoBsonArrayWrapper;
 import com.mongodb.util.FongoJSONCallback;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -173,16 +173,16 @@ public class FongoConnectionSource implements ConnectionSource {
           final Iterable<DBObject> results = aggregate.results();
           return reencode(commandResultDecoder, resultField, results);
         } else {
-          throw new FongoException("Not implemented for command : " + JSON.serialize(command));
+          throw new FongoException("Not implemented for command : " + FongoJSON.serialize(command));
         }
       }
 
       private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, Iterable<DBObject> results) {
-        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, new BsonArray(bsonDocuments(results))).toJson()), DecoderContext.builder().build());
+        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, new BsonArray(bsonDocuments(results))).toJson()), decoderContext());
       }
 
       private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, DBObject result) {
-        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, bsonDocument(result)).toJson()), DecoderContext.builder().build());
+        return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, bsonDocument(result)).toJson()), decoderContext());
       }
 
       @Override
@@ -227,7 +227,7 @@ public class FongoConnectionSource implements ConnectionSource {
         if (document == null) {
           return null;
         }
-        return (DBObject) JSON.parse(document.toJson(new JsonWriterSettings()), new FongoJSONCallback());
+        return (DBObject) FongoJSON.parse(document.toJson(new JsonWriterSettings()), new FongoJSONCallback());
       }
 
       private DBCollection dbCollection(MongoNamespace namespace) {
@@ -244,7 +244,12 @@ public class FongoConnectionSource implements ConnectionSource {
 
       private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
         // TODO : performance killer.
-        return resultDecoder.decode(new JsonReader(JSON.serialize(object)), DecoderContext.builder().build());
+        final String json = FongoJSON.serialize(object);
+        return resultDecoder.decode(new JsonReader(json), decoderContext());
+      }
+
+      private DecoderContext decoderContext() {
+        return DecoderContext.builder().build();
       }
 
       private DBObject dbObject(final BsonDocument queryDocument, final String key) {

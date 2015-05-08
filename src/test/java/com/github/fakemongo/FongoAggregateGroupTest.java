@@ -4,7 +4,7 @@ import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.util.List;
 import org.assertj.core.util.Lists;
 import static org.junit.Assert.assertEquals;
@@ -46,7 +46,7 @@ public class FongoAggregateGroupTest {
     // Then
     List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     assertNotNull(resultAggregate);
-    assertEquals(JSON.parse("[\n" +
+    assertEquals(FongoJSON.parse("[\n" +
         "               { \"_id\" : \"main: pie\", \"count\" : 2 },\n" +
         "               { \"_id\" : \"dessert: pie\", \"count\" : 2 }\n" +
         "             ]"), resultAggregate);

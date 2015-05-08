@@ -26,7 +26,7 @@ import com.mongodb.QueryBuilder;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.net.InetSocketAddress;
 import java.sql.Time;
 import java.sql.Timestamp;
@@ -372,11 +372,11 @@ public class FongoTest {
   @Test
   public void testFindElemMatch() {
     DBCollection collection = newCollection();
-    collection.insert((DBObject) JSON.parse("{ _id:1, array: [ { value1:1, value2:0 }, { value1:2, value2:2 } ] }"));
-    collection.insert((DBObject) JSON.parse("{ _id:2, array: [ { value1:1, value2:0 }, { value1:1, value2:2 } ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:1, array: [ { value1:1, value2:0 }, { value1:2, value2:2 } ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:2, array: [ { value1:1, value2:0 }, { value1:1, value2:2 } ] }"));
 
-    DBCursor cursor = collection.find((DBObject) JSON.parse("{ array: { $elemMatch: { value1: 1, value2: { $gt: 1 } } } }"));
-    assertEquals(Arrays.asList((DBObject) JSON.parse("{ _id:2, array: [ { value1:1, value2:0 }, { value1:1, value2:2 } ] }")
+    DBCursor cursor = collection.find((DBObject) FongoJSON.parse("{ array: { $elemMatch: { value1: 1, value2: { $gt: 1 } } } }"));
+    assertEquals(Arrays.asList((DBObject) FongoJSON.parse("{ _id:2, array: [ { value1:1, value2:0 }, { value1:1, value2:2 } ] }")
     ), cursor.toArray());
   }
 
@@ -385,11 +385,11 @@ public class FongoTest {
   public void should_elemMatch_from_manual_works() {
     DBCollection collection = newCollection();
 
-    collection.insert((DBObject) JSON.parse("{ _id: 1, results: [ 82, 85, 88 ] }"));
-    collection.insert((DBObject) JSON.parse("{ _id: 2, results: [ 75, 88, 89 ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id: 1, results: [ 82, 85, 88 ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id: 2, results: [ 75, 88, 89 ] }"));
 
-    DBCursor cursor = collection.find((DBObject) JSON.parse("{ results: { $elemMatch: { $gte: 80, $lt: 85 } } }"));
-    assertEquals(Arrays.asList((DBObject) JSON.parse("{ \"_id\" : 1, \"results\" : [ 82, 85, 88 ] }")
+    DBCursor cursor = collection.find((DBObject) FongoJSON.parse("{ results: { $elemMatch: { $gte: 80, $lt: 85 } } }"));
+    assertEquals(Arrays.asList((DBObject) FongoJSON.parse("{ \"_id\" : 1, \"results\" : [ 82, 85, 88 ] }")
     ), cursor.toArray());
   }
 
@@ -398,13 +398,13 @@ public class FongoTest {
   public void should_elemMatch_array_of_embedded_documents() {
     DBCollection collection = newCollection();
 
-    collection.insert((DBObject) JSON.parse("{ _id: 1, results: [ { product: \"abc\", score: 10 }, { product: \"xyz\", score: 5 } ] }"));
-    collection.insert((DBObject) JSON.parse("{ _id: 2, results: [ { product: \"abc\", score: 8 }, { product: \"xyz\", score: 7 } ] }"));
-    collection.insert((DBObject) JSON.parse("{ _id: 3, results: [ { product: \"abc\", score: 7 }, { product: \"xyz\", score: 8 } ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id: 1, results: [ { product: \"abc\", score: 10 }, { product: \"xyz\", score: 5 } ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id: 2, results: [ { product: \"abc\", score: 8 }, { product: \"xyz\", score: 7 } ] }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id: 3, results: [ { product: \"abc\", score: 7 }, { product: \"xyz\", score: 8 } ] }"));
 
 
-    DBCursor cursor = collection.find((DBObject) JSON.parse("{ results: { $elemMatch: { product: \"xyz\", score: { $gte: 8 } } } }"));
-    assertEquals(Arrays.asList((DBObject) JSON.parse("{ \"_id\" : 3, \"results\" : [ { \"product\" : \"abc\", \"score\" : 7 }, { \"product\" : \"xyz\", \"score\" : 8 } ] }")
+    DBCursor cursor = collection.find((DBObject) FongoJSON.parse("{ results: { $elemMatch: { product: \"xyz\", score: { $gte: 8 } } } }"));
+    assertEquals(Arrays.asList((DBObject) FongoJSON.parse("{ \"_id\" : 3, \"results\" : [ { \"product\" : \"abc\", \"score\" : 7 }, { \"product\" : \"xyz\", \"score\" : 8 } ] }")
     ), cursor.toArray());
   }
 
@@ -414,10 +414,10 @@ public class FongoTest {
   public void testCommandTextSearch() {
     // Given
     DBCollection collection = newCollection();
-    collection.insert((DBObject) JSON.parse("{ _id:1, textField: \"aaa bbb\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:2, textField: \"ccc ddd\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:3, textField: \"eee fff\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:4, textField: \"aaa eee\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:1, textField: \"aaa bbb\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:2, textField: \"ccc ddd\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:3, textField: \"eee fff\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:4, textField: \"aaa eee\" }"));
 
     collection.createIndex(new BasicDBObject("textField", "text"));
 
@@ -434,7 +434,7 @@ public class FongoTest {
     ServerAddress serverAddress = new ServerAddress(new InetSocketAddress(ServerAddress.defaultHost(), ServerAddress.defaultPort()));
     String host = serverAddress.getHost() + ":" + serverAddress.getPort();
     DBObject expected = new BasicDBObject("serverUsed", host).append("ok", 1.0);
-    expected.put("results", JSON.parse("[ "
+    expected.put("results", FongoJSON.parse("[ "
             + "{ \"score\" : 0.75 , "
             + "\"obj\" : { \"_id\" : 1 , \"textField\" : \"aaa bbb\"}}]"
     ));
@@ -458,10 +458,10 @@ public class FongoTest {
   @Ignore("TODO : FIXME WITH REAL $text QUERY")
   public void testCommandTextSearchShouldNotWork() {
     DBCollection collection = newCollection();
-    collection.insert((DBObject) JSON.parse("{ _id:1, textField: \"aaa bbb\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:2, textField: \"ccc ddd\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:3, textField: \"eee fff\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:4, textField: \"aaa eee\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:1, textField: \"aaa bbb\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:2, textField: \"ccc ddd\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:3, textField: \"eee fff\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:4, textField: \"aaa eee\" }"));
 
     collection.createIndex(new BasicDBObject("textField", "text"));
 
@@ -3051,6 +3051,19 @@ public class FongoTest {
 
     // Then
     Assertions.assertThat(dbObjects).isEqualTo(Arrays.asList(new BasicDBObject("_id", 1).append("value", 100), new BasicDBObject("_id", 2).append("value", 100), new BasicDBObject("_id", 3).append("value", 100), new BasicDBObject("_id", 4).append("value", 100), new BasicDBObject("_id", 5).append("value", 100L), new BasicDBObject("_id", 6).append("value", 100D), new BasicDBObject("_id", 7).append("value", 100D), new BasicDBObject("_id", 8).append("value", 100L)));
+  }
+
+  @Test
+  public void should_utf8_works() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", "ꂁ瞹\u243C\uEDCF鞯థ䭫蘇妙\u0010"));
+
+    // When
+    List<DBObject> dbObjects = collection.find().toArray();
+
+    // Then
+    Assertions.assertThat(dbObjects).isEqualTo(Arrays.asList(new BasicDBObject("_id", "ꂁ瞹\u243C\uEDCF鞯థ䭫蘇妙\u0010")));
   }
 
   /**

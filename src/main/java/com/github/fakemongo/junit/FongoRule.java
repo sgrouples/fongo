@@ -8,7 +8,7 @@ import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -140,7 +140,7 @@ public class FongoRule extends ExternalResource {
 
   @SuppressWarnings("unchecked")
   public <T> T parse(String json) {
-    return (T) JSON.parse(json);
+    return (T) FongoJSON.parse(json);
   }
 
   public DBCollection newCollection() {

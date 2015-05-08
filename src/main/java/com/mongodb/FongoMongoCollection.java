@@ -6,7 +6,7 @@ package com.mongodb;
 import com.github.fakemongo.Fongo;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.CountOptions;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.conversions.Bson;
@@ -72,6 +72,6 @@ public class FongoMongoCollection<TDocument> extends MongoCollectionImpl<TDocume
       return null;
     }
     // TODO Performance killer
-    return (DBObject) JSON.parse(bson.toBsonDocument(Document.class, super.getCodecRegistry()).toString());
+    return (DBObject) FongoJSON.parse(bson.toBsonDocument(Document.class, super.getCodecRegistry()).toString());
   }
 }

@@ -10,7 +10,7 @@ import com.mongodb.FongoDBCollection;
 import com.mongodb.FongoMapReduceOutput;
 import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -282,7 +282,7 @@ public class MapReduce {
     sb.append("var $$$fongoVars$$$ = new Object();\n");
     // For each object, execute in javascript the function.
     for (DBObject object : objects) {
-      String json = JSON.serialize(object);
+      String json = FongoJSON.serialize(object);
       sb.append("$$$fongoVars$$$ = ").append(json).append(";\n");
       sb.append("$$$fongoVars$$$['fongoExecute'] = fongoMapFunction;\n");
       sb.append("$$$fongoVars$$$.fongoExecute();\n");
@@ -319,15 +319,15 @@ public class MapReduce {
     sb.append("var reduce = ").append(reduce).append("\n");
     sb.append("var $$$fongoOuts$$$ = new Array();\n");
     for (DBObject object : objects) {
-      String objectJson = JSON.serialize(object);
-      String objectValueJson = JSON.serialize(object.get("value"));
+      String objectJson = FongoJSON.serialize(object);
+      String objectValueJson = FongoJSON.serialize(object.get("value"));
       DBObject existing = coll.findOne(new BasicDBObject().append(FongoDBCollection.ID_KEY,
           object.get(FongoDBCollection.ID_KEY)));
       if (existing == null || existing.get("value") == null) {
         sb.append("$$$fongoOuts$$$[$$$fongoOuts$$$.length] = ").append(objectJson).append(";\n");
       } else {
-        String id = JSON.serialize(object.get(FongoDBCollection.ID_KEY));
-        String existingValueJson = JSON.serialize(existing.get("value"));
+        String id = FongoJSON.serialize(object.get(FongoDBCollection.ID_KEY));
+        String existingValueJson = FongoJSON.serialize(existing.get("value"));
         sb.append("$$$fongoId$$$ = ").append(id).append(";\n");
         sb.append("$$$fongoValues$$$ = [ ").append(existingValueJson).append(", ").append(objectValueJson).append("];\n");
         sb.append("$$$fongoReduced$$$ = { _id : $$$fongoId$$$, value : reduce($$$fongoId$$$, $$$fongoValues$$$)};")

@@ -499,7 +499,7 @@ public class FongoV3Test {
   public void should_utf8_works() {
     // Given
     final MongoCollection<Document> mongoCollection = newCollection();
-    final String expected = "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉";
+    final String expected = "\u0010";
 
     // When
     mongoCollection.insertOne(new Document("_id", expected));
