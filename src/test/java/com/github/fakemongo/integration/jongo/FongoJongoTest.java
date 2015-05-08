@@ -1,11 +1,17 @@
 package com.github.fakemongo.integration.jongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.Lists;
+import com.mongodb.DBCursor;
 import com.mongodb.WriteConcern;
+import java.util.Iterator;
 import org.assertj.core.api.Assertions;
+import static org.assertj.core.api.Assertions.assertThat;
+import org.bson.types.ObjectId;
 import org.jongo.Jongo;
 import org.jongo.MongoCollection;
 import org.jongo.MongoCursor;
+import org.jongo.QueryModifier;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -131,4 +137,49 @@ public class FongoJongoTest {
     // Then
     Assertions.assertThat(result).isEqualTo(jongoItem);
   }
+
+  @Test
+  public void should_canBindPrimitiveArrayParameter() {
+    // Given
+    collection.insert("{value:42, other:true}");
+
+    // When
+
+    // Then
+    assertThat(collection.count("{value:{$in:#}}", new int[]{42, 34})).isEqualTo(1);
+  }
+
+
+  @Test
+  public void canUseListWithANullElement() throws Exception {
+
+    collection.insert("{name:null}");
+    collection.insert("{name:'John'}");
+
+    long nb = collection.count("{name:{$in:#}}", Lists.newArrayList(1, null));
+
+    assertThat(nb).isEqualTo(1);
+  }
+
+  @Test
+  public void canUseQueryModifier() throws Exception {
+        /* given */
+    collection.save(new Friend(new ObjectId(), "John"));
+    collection.save(new Friend(new ObjectId(), "Robert"));
+
+        /* when */
+    Iterator<Friend> friends = collection.find()
+        .with(new QueryModifier() {
+          public void modify(DBCursor cursor) {
+            cursor.addSpecial("$maxScan", 1);
+          }
+        })
+        .as(Friend.class);
+
+        /* then */
+    assertThat(friends.hasNext()).isTrue();
+    friends.next();
+    assertThat(friends.hasNext()).isFalse();
+  }
+
 }

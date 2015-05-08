@@ -596,7 +596,8 @@ public class ExpressionParser {
     } else {
       Object queryComp = typecast("query value", queryValue, Object.class);
       if (comparableFilter && !(storedValue instanceof Comparable)) {
-        if (queryComp.equals(storedValue)) {
+        // Handle null
+        if (queryComp == storedValue || queryComp.equals(storedValue)) {
           return 0;
         }
         return null;
@@ -1106,7 +1107,13 @@ public class ExpressionParser {
 
     @Override
     public Filter createFilter(final List<String> path, final DBObject refExpression) {
-      Collection queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
+      final Collection queryList;
+      final Object expression = refExpression.get(command);
+      if (expression.getClass().isArray()) {
+        queryList = Util.toCollection(expression);
+      } else {
+        queryList = typecast(command + " clause", expression, Collection.class);
+      }
       final Set querySet = new HashSet(queryList);
       return new Filter() {
         @Override
@@ -1116,7 +1123,7 @@ public class ExpressionParser {
             return !direction;
           } else {
             for (Object storedValue : storedList) {
-              if (compare(refExpression.get(command), storedValue, querySet) == direction) {
+              if (compare(expression, storedValue, querySet) == direction) {
                 return direction;
               }
             }

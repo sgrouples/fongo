@@ -47,7 +47,12 @@ public class FongoDBCursor extends DBCursor {
     if (this.objects == null) {
       objects = new ArrayList<DBObject>();
 
-      final DBObject q = new BasicDBObject("$query", this.query);
+      final DBObject q;
+      if (this.query != null && this.query.containsField("$query")) {
+        q = Util.clone(query);
+      } else {
+        q = new BasicDBObject("$query", this.query);
+      }
       if (sort != null) {
         q.put("$orderby", sort);
       }

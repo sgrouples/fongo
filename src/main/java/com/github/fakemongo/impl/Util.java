@@ -6,8 +6,10 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.LazyDBList;
 import com.mongodb.gridfs.GridFSFile;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -347,5 +349,14 @@ public final class Util {
    */
   public static boolean isDBObjectEmpty(DBObject projection) {
     return projection == null || projection.keySet().isEmpty();
+  }
+
+  public static Collection toCollection(Object array) {
+    int length = Array.getLength(array);
+    List list = new ArrayList();
+    for (int i = 0; i < length; i++) {
+      list.add(Array.get(array, i));
+    }
+    return list;
   }
 }
