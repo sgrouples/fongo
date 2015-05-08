@@ -3,6 +3,7 @@
  */
 package com.github.fakemongo;
 
+import com.mongodb.AggregationOutput;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -30,6 +31,7 @@ import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentWrapper;
 import org.bson.BsonInt64;
@@ -168,20 +170,22 @@ public class FongoConnectionSource implements ConnectionSource {
           final DBObject query = dbObject(command, "query");
           final List<Object> distincts = dbCollection.distinct(command.getString("key").getValue(), query);
           return (T) new BsonDocument("values", FongoBsonArrayWrapper.bsonArrayWrapper(distincts));
+        } else if (command.containsKey("aggregate")) {
+          final DBCollection dbCollection = db.getCollection(command.get("aggregate").asString().getValue());
+          final AggregationOutput aggregate = dbCollection.aggregate(dbObjects(command, "pipeline"));
+          return (T) new BsonDocument("result", FongoBsonArrayWrapper.bsonArrayWrapper(documents(aggregate.results(), new DocumentCodec())));
+        } else {
+          throw new FongoException("Not implemented for command : " + JSON.serialize(command));
         }
-        // Will throw an exception.
-        return null;
       }
 
       @Override
       public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int numberToReturn, int skip, boolean slaveOk, boolean tailableCursor, boolean awaitData, boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
         LOG.info("query() namespace:{} queryDocument:{}, fields:{}", namespace, queryDocument, fields);
         final DBCollection collection = dbCollection(namespace);
-//        final DBObject sort = dbObject(queryDocument, "$orderby");
 
         final List<DBObject> objects = collection
             .find(dbObject(queryDocument), dbObject(fields))
-//            .sort(sort)
             .limit(numberToReturn)
             .skip(skip)
             .toArray();
@@ -224,8 +228,8 @@ public class FongoConnectionSource implements ConnectionSource {
         return fongo.getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
       }
 
-      private <T> List<T> documents(final List<DBObject> objects, Decoder<T> resultDecoder) {
-        final List<T> list = new ArrayList<T>(objects.size());
+      private <T> List<T> documents(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
+        final List<T> list = new ArrayList<T>();
         for (final DBObject object : objects) {
           list.add(decode(object, resultDecoder));
         }
@@ -239,6 +243,18 @@ public class FongoConnectionSource implements ConnectionSource {
 
       private DBObject dbObject(final BsonDocument queryDocument, final String key) {
         return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
+      }
+
+      private List<DBObject> dbObjects(final BsonDocument queryDocument, final String key) {
+        final BsonArray values = queryDocument.containsKey(key) ? queryDocument.getArray(key) : null;
+        if (values == null) {
+          return null;
+        }
+        List<DBObject> list = new ArrayList<DBObject>();
+        for (BsonValue value : values) {
+          list.add(dbObject((BsonDocument) value));
+        }
+        return list;
       }
 
       private BsonDocument bsonDocument(DBObject dbObject) {

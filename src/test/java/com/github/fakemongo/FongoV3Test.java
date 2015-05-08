@@ -1,6 +1,7 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.DistinctIterable;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoCollection;
@@ -23,6 +24,7 @@ import java.util.Arrays;
 import static java.util.Arrays.asList;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
+import org.assertj.core.util.Lists;
 import org.bson.Document;
 import org.junit.Assume;
 import org.junit.Rule;
@@ -504,6 +506,20 @@ public class FongoV3Test {
 
     // Then
     assertThat(mongoCollection.find().first()).isEqualTo(new Document("_id", expected));
+  }
+
+  @Test
+  public void should_aggregate_works() {
+    // Given
+    final MongoCollection<Document> mongoCollection = newCollection();
+    final String expected = "꼢𑡜ᳫ鉠鮻罖᧭䆔瘉";
+    mongoCollection.insertOne(new Document("_id", expected));
+
+    // When
+    final AggregateIterable<Document> aggregate = mongoCollection.aggregate(Lists.newArrayList(new Document("$match", new Document("_id", expected))));
+
+    // Then
+    assertThat(toList(aggregate)).containsOnly(new Document("_id", expected));
   }
 
   private Document docId(int value) {
