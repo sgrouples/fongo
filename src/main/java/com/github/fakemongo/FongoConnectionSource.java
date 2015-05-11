@@ -7,6 +7,7 @@ import com.mongodb.AggregationOutput;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
@@ -26,20 +27,21 @@ import com.mongodb.connection.ServerDescription;
 import com.mongodb.connection.ServerId;
 import com.mongodb.connection.ServerVersion;
 import com.mongodb.operation.FongoBsonArrayWrapper;
-import com.mongodb.util.FongoJSONCallback;
-import com.mongodb.util.FongoJSON;
+import com.mongodb.util.JSON;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.bson.BsonArray;
 import org.bson.BsonDocument;
+import org.bson.BsonDocumentReader;
+import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt64;
 import org.bson.BsonValue;
 import org.bson.FieldNameValidator;
 import org.bson.codecs.Decoder;
 import org.bson.codecs.DecoderContext;
+import org.bson.codecs.EncoderContext;
 import org.bson.json.JsonReader;
-import org.bson.json.JsonWriterSettings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -173,7 +175,7 @@ public class FongoConnectionSource implements ConnectionSource {
           final Iterable<DBObject> results = aggregate.results();
           return reencode(commandResultDecoder, resultField, results);
         } else {
-          throw new FongoException("Not implemented for command : " + FongoJSON.serialize(command));
+          throw new FongoException("Not implemented for command : " + JSON.serialize(command));
         }
       }
 
@@ -227,7 +229,8 @@ public class FongoConnectionSource implements ConnectionSource {
         if (document == null) {
           return null;
         }
-        return (DBObject) FongoJSON.parse(document.toJson(new JsonWriterSettings()), new FongoJSONCallback());
+        return MongoClient.getDefaultCodecRegistry().get(DBObject.class).decode(new BsonDocumentReader(document),
+            DecoderContext.builder().build());
       }
 
       private DBCollection dbCollection(MongoNamespace namespace) {
@@ -243,9 +246,9 @@ public class FongoConnectionSource implements ConnectionSource {
       }
 
       private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
-        // TODO : performance killer.
-        final String json = FongoJSON.serialize(object);
-        return resultDecoder.decode(new JsonReader(json), decoderContext());
+        BsonDocument document = new BsonDocument();
+        MongoClient.getDefaultCodecRegistry().get(DBObject.class).encode(new BsonDocumentWriter(document), object, EncoderContext.builder().build());
+        return resultDecoder.decode(new BsonDocumentReader(document), decoderContext());
       }
 
       private DecoderContext decoderContext() {
@@ -273,13 +276,6 @@ public class FongoConnectionSource implements ConnectionSource {
           return null;
         }
         return BsonDocument.parse(dbObject.toString());
-      }
-
-      private BsonDocument bsonDocument(List<DBObject> dbObjects) {
-        if (dbObjects == null) {
-          return null;
-        }
-        return BsonDocument.parse(dbObjects.toString());
       }
 
       private List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {

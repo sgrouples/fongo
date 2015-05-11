@@ -17,6 +17,7 @@ package com.mongodb.util;
 
 // JSON.java
 
+import java.util.UUID;
 import org.bson.BSONCallback;
 
 /**
@@ -51,6 +52,7 @@ public class FongoJSON {
   public static void serialize(final Object object, final StringBuilder buf) {
     final ClassMapBasedObjectSerializer legacy = (ClassMapBasedObjectSerializer) JSONSerializers.getLegacy();
     legacy.addObjectSerializer(String.class, new FongoStringSerializer());
+    legacy.addObjectSerializer(UUID.class, new FongoStringSerializer());
     legacy.serialize(object, buf);
   }
 
@@ -58,7 +60,7 @@ public class FongoJSON {
 
     @Override
     public void serialize(final Object obj, final StringBuilder buf) {
-      FongoJSON.string(buf, (String) obj);
+      FongoJSON.string(buf, obj.toString());
     }
   }
 
