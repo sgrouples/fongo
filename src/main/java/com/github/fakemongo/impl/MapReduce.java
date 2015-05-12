@@ -69,7 +69,7 @@ public class MapReduce {
       public void newResults(MapReduce mr, DBCollection coll, List<DBObject> results) {
         // Upsert == insert the result if not exist.
         for (DBObject result : results) {
-          coll.update(new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY)), result, true,
+          coll.update(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME)), result, true,
               false);
         }
       }
@@ -79,7 +79,7 @@ public class MapReduce {
       public void newResults(MapReduce mr, DBCollection coll, List<DBObject> results) {
         List<DBObject> reduced = mr.reduceOutputStage(coll, results);
         for (DBObject result : reduced) {
-          coll.update(new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY)), result, true,
+          coll.update(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME)), result, true,
               false);
         }
       }
@@ -321,12 +321,12 @@ public class MapReduce {
     for (DBObject object : objects) {
       String objectJson = FongoJSON.serialize(object);
       String objectValueJson = FongoJSON.serialize(object.get("value"));
-      DBObject existing = coll.findOne(new BasicDBObject().append(FongoDBCollection.ID_KEY,
-          object.get(FongoDBCollection.ID_KEY)));
+      DBObject existing = coll.findOne(new BasicDBObject().append(FongoDBCollection.ID_FIELD_NAME,
+          object.get(FongoDBCollection.ID_FIELD_NAME)));
       if (existing == null || existing.get("value") == null) {
         sb.append("$$$fongoOuts$$$[$$$fongoOuts$$$.length] = ").append(objectJson).append(";\n");
       } else {
-        String id = FongoJSON.serialize(object.get(FongoDBCollection.ID_KEY));
+        String id = FongoJSON.serialize(object.get(FongoDBCollection.ID_FIELD_NAME));
         String existingValueJson = FongoJSON.serialize(existing.get("value"));
         sb.append("$$$fongoId$$$ = ").append(id).append(";\n");
         sb.append("$$$fongoValues$$$ = [ ").append(existingValueJson).append(", ").append(objectValueJson).append("];\n");

@@ -3066,6 +3066,20 @@ public class FongoTest {
     Assertions.assertThat(dbObjects).isEqualTo(Arrays.asList(new BasicDBObject("_id", "ꂁ瞹\u243C\uEDCF鞯థ䭫蘇妙\u0010")));
   }
 
+  @Test
+  public void should_not_get_upsertedId_in_UNACKNOWLEDGED_write_concern() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.setWriteConcern(WriteConcern.UNACKNOWLEDGED);
+
+    // When
+    final WriteResult writeResult = collection.insert(new BasicDBObject("_id", "ꂁ瞹\u243C\uEDCF鞯థ䭫蘇妙\u0010"));
+
+    // Then
+    exception.expect(UnsupportedOperationException.class);
+    writeResult.getUpsertedId();
+  }
+
   /**
    * see https://github.com/fakemongo/fongo/issues/110
    */

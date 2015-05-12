@@ -287,6 +287,21 @@ public class FongoV3Test {
   }
 
   @Test
+  public void updateOne_rejectNot$() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3));
+    collection.insertOne(docId(4));
+
+    exception.expectMessage("Invalid BSON field name b");
+    exception.expect(IllegalArgumentException.class);
+    // When
+    collection.updateOne(docId(2), new Document("b", 8));
+  }
+
+  @Test
   public void deleteOne_remove_one() {
     // Given
     MongoCollection collection = newCollection();

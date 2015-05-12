@@ -6,7 +6,7 @@ import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
-import static com.mongodb.FongoDBCollection.ID_KEY;
+import static com.mongodb.FongoDBCollection.ID_FIELD_NAME;
 import com.mongodb.MongoException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -55,12 +55,12 @@ public abstract class IndexAbstract<T extends DBObject> {
 
   private DBObject prepareKeys(DBObject keys) {
     DBObject nKeys = Util.clone(keys);
-    if (!nKeys.containsField(ID_KEY)) {
+    if (!nKeys.containsField(ID_FIELD_NAME)) {
       // Remove _id for projection.
       boolean exclude = true;
-      // To be sure than ID_KEY is not in a compbound index.
+      // To be sure than ID_FIELD_NAME is not in a compbound index.
       for (String key : nKeys.keySet()) {
-        if (key.startsWith(ID_KEY)) {
+        if (key.startsWith(ID_FIELD_NAME)) {
           exclude = false;
           break;
         }

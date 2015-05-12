@@ -312,8 +312,8 @@ public final class Util {
 
     // copy field values into new object
     DBObject newobj = new BasicDBObject();
-    if (source.containsField(FongoDBCollection.ID_KEY)) {
-      newobj.put(FongoDBCollection.ID_KEY, source.get(FongoDBCollection.ID_KEY));
+    if (source.containsField(FongoDBCollection.ID_FIELD_NAME)) {
+      newobj.put(FongoDBCollection.ID_FIELD_NAME, source.get(FongoDBCollection.ID_FIELD_NAME));
     }
 
     Set<Map.Entry<String, Object>> entrySet;
@@ -332,7 +332,7 @@ public final class Util {
     // need to embedded the sub obj
     for (Map.Entry<String, Object> entry : entrySet) {
       String field = entry.getKey();
-      if (!FongoDBCollection.ID_KEY.equals(field)) {
+      if (!FongoDBCollection.ID_FIELD_NAME.equals(field)) {
         Object val = entry.getValue();
         if (val instanceof DBObject) {
           newobj.put(field, Util.clone((DBObject) val));

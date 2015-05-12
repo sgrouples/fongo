@@ -614,7 +614,7 @@ public class Project extends PipelineKeyword {
     // Rename or transform fields
     List<DBObject> objectsResults = new ArrayList<DBObject>(objects.size());
     for (DBObject result : objects) {
-      DBObject renamed = new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY));
+      DBObject renamed = new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME));
       for (Map.Entry<String, ProjectedAbstract> entry : projectedFields.entrySet()) {
         if (Util.containsField(result, entry.getKey())) {
           entry.getValue().unapply(renamed, result, entry.getKey());

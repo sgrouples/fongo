@@ -18,6 +18,7 @@ import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.bulk.DeleteRequest;
 import com.mongodb.bulk.InsertRequest;
 import com.mongodb.bulk.UpdateRequest;
+import static com.mongodb.bulk.WriteRequest.Type.REPLACE;
 import com.mongodb.connection.ClusterId;
 import com.mongodb.connection.Connection;
 import com.mongodb.connection.ConnectionDescription;
@@ -26,6 +27,8 @@ import com.mongodb.connection.ServerConnectionState;
 import com.mongodb.connection.ServerDescription;
 import com.mongodb.connection.ServerId;
 import com.mongodb.connection.ServerVersion;
+import com.mongodb.internal.validator.CollectibleDocumentFieldNameValidator;
+import com.mongodb.internal.validator.UpdateFieldNameValidator;
 import com.mongodb.operation.FongoBsonArrayWrapper;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
@@ -96,7 +99,19 @@ public class FongoConnectionSource implements ConnectionSource {
         boolean isUpdateOfExisting = false;
         BsonValue upsertedId = null;
         int count = 0;
+
         for (UpdateRequest update : updates) {
+          FieldNameValidator validator;
+          if (update.getType() == REPLACE) {
+            validator = new CollectibleDocumentFieldNameValidator();
+          } else {
+            validator = new UpdateFieldNameValidator();
+          }
+          for (String updateName : update.getUpdate().keySet()) {
+            if (!validator.validate(updateName)) {
+              throw new IllegalArgumentException("Invalid BSON field name " + updateName);
+            }
+          }
           final WriteResult writeResult = collection.update(dbObject(update.getFilter()), dbObject(update.getUpdate()));
           if (writeResult.isUpdateOfExisting()) {
             isUpdateOfExisting = true;

@@ -133,7 +133,7 @@ public class Group extends PipelineKeyword {
   public DBCollection apply(DBCollection coll, DBObject object) {
     DBObject group = (DBObject) object.get(getKeyword());
 
-    Object id = ((DBObject) object.get(getKeyword())).removeField(FongoDBCollection.ID_KEY);
+    Object id = ((DBObject) object.get(getKeyword())).removeField(FongoDBCollection.ID_FIELD_NAME);
     LOG.debug("group() for _id : {}", id);
     // Try to group in the mapping.
     Map<DBObject, Mapping> mapping = createMapping(coll, id);
@@ -193,7 +193,7 @@ public class Group extends PipelineKeyword {
         List<DBObject> newCollection = coll.find(criteria).toArray();
         // Delete them from collection (optim for laaaaaarge collection)
         for (DBObject o : newCollection) {
-          coll.remove(new BasicDBObject(FongoDBCollection.ID_KEY, o.get(FongoDBCollection.ID_KEY)));
+          coll.remove(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, o.get(FongoDBCollection.ID_FIELD_NAME)));
         }
         // Generate keyword
         DBObject key = keyForId(id, dbObject);
@@ -222,12 +222,12 @@ public class Group extends PipelineKeyword {
       for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) ((DBObject) id).toMap().entrySet()) {
         subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
       }
-      result.put(FongoDBCollection.ID_KEY, subKey);
+      result.put(FongoDBCollection.ID_FIELD_NAME, subKey);
     } else if (id != null) {
       String field = fieldName(id);
-      result.put(FongoDBCollection.ID_KEY, Util.extractField(dbObject, field));
+      result.put(FongoDBCollection.ID_FIELD_NAME, Util.extractField(dbObject, field));
     } else {
-      result.put(FongoDBCollection.ID_KEY, null);
+      result.put(FongoDBCollection.ID_FIELD_NAME, null);
     }
     LOG.debug("keyForId() id:{}, dbObject:{}, result:{}", id, dbObject, result);
     return result;
@@ -269,7 +269,7 @@ public class Group extends PipelineKeyword {
     Number result = null;
     if (value.toString().startsWith("$")) {
       String field = value.toString().substring(1);
-      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_KEY, 0)).toArray();
+      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_FIELD_NAME, 0)).toArray();
       for (DBObject object : objects) {
         if (Util.containsField(object, field)) {
           if (result == null) {
@@ -319,7 +319,7 @@ public class Group extends PipelineKeyword {
     long count = 1;
     if (value.toString().startsWith("$")) {
       String field = value.toString().substring(1);
-      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_KEY, 0)).toArray();
+      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_FIELD_NAME, 0)).toArray();
       for (DBObject object : objects) {
         LOG.debug("avg object {} ", object);
 

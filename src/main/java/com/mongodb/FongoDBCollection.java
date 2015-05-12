@@ -21,7 +21,6 @@ import java.util.Collection;
 import java.util.Collections;
 import static java.util.Collections.emptyList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -48,8 +47,6 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 public class FongoDBCollection extends DBCollection {
   private final static Logger LOG = LoggerFactory.getLogger(FongoDBCollection.class);
 
-  public static final String ID_KEY = "_id";
-
   public static final String FONGO_SPECIAL_ORDER_BY = "$$$$$FONGO_ORDER_BY$$$$$";
 
   private static final String ID_NAME_INDEX = "_id_";
@@ -69,10 +66,10 @@ public class FongoDBCollection extends DBCollection {
     this.expressionParser = new ExpressionParser();
     this.updateEngine = new UpdateEngine();
     this.objectComparator = expressionParser.buildObjectComparator(true);
-    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), true);
+    this._idIndex = IndexFactory.create(ID_FIELD_NAME, new BasicDBObject(ID_FIELD_NAME, 1), true);
     this.indexes.add(_idIndex);
     if (!this.nonIdCollection) {
-      this.createIndex(new BasicDBObject(ID_KEY, 1), new BasicDBObject("name", ID_NAME_INDEX));
+      this.createIndex(new BasicDBObject(ID_FIELD_NAME, 1), new BasicDBObject("name", ID_NAME_INDEX));
     }
   }
 
@@ -94,21 +91,25 @@ public class FongoDBCollection extends DBCollection {
 
   @Override
   public synchronized WriteResult insert(final List<? extends DBObject> documents, final InsertOptions insertOptions) {
-    for (DBObject obj : documents) {
+    WriteConcern writeConcern = insertOptions.getWriteConcern() != null ? insertOptions.getWriteConcern() : getWriteConcern();
+    for (final DBObject obj : documents) {
       DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, insertOptions.getDbEncoder())));
       if (LOG.isDebugEnabled()) {
         LOG.debug("insert: " + cloned);
       }
       ObjectId id = putIdIfNotPresent(cloned);
       // Save the id field in the caller.
-      if (!(obj instanceof LazyDBObject) && obj.get(ID_KEY) == null) {
-        obj.put(ID_KEY, Util.clone(id));
+      if (!(obj instanceof LazyDBObject) && obj.get(ID_FIELD_NAME) == null) {
+        obj.put(ID_FIELD_NAME, Util.clone(id));
       }
 
-      putSizeCheck(cloned, insertOptions.getWriteConcern());
+      putSizeCheck(cloned, writeConcern);
     }
 //    Don't know why, but there is not more number of inserted results...
 //    return new WriteResult(insertResult(0), concern);
+    if (!writeConcern.isAcknowledged()) {
+      return WriteResult.unacknowledged();
+    }
     return new WriteResult(documents.size(), false, null);
   }
 
@@ -118,10 +119,10 @@ public class FongoDBCollection extends DBCollection {
   }
 
   public ObjectId putIdIfNotPresent(DBObject obj) {
-    Object object = obj.get(ID_KEY);
+    Object object = obj.get(ID_FIELD_NAME);
     if (object == null) {
-      ObjectId id = new ObjectId(new Date());
-      obj.put(ID_KEY, Util.clone(id));
+      ObjectId id = new ObjectId();
+      obj.put(ID_FIELD_NAME, id);
       return id;
     } else if (object instanceof ObjectId) {
       ObjectId id = (ObjectId) object;
@@ -222,20 +223,20 @@ public class FongoDBCollection extends DBCollection {
       LOG.debug("update(" + q + ", " + o + ", " + upsert + ", " + multi + ")");
     }
 
-    if (o.containsField(ID_KEY) && q.containsField(ID_KEY) && objectComparator.compare(o.get(ID_KEY), q.get(ID_KEY)) != 0) {
+    if (o.containsField(ID_FIELD_NAME) && q.containsField(ID_FIELD_NAME) && objectComparator.compare(o.get(ID_FIELD_NAME), q.get(ID_FIELD_NAME)) != 0) {
       LOG.warn("can not change _id of a document query={}, document={}", q, o);
-      throw fongoDb.writeConcernException(16837, "can not change _id of a document " + ID_KEY);
+      throw fongoDb.writeConcernException(16837, "can not change _id of a document " + ID_FIELD_NAME);
     }
 
     int updatedDocuments = 0;
-    boolean idOnlyUpdate = q.containsField(ID_KEY) && q.keySet().size() == 1;
+    boolean idOnlyUpdate = q.containsField(ID_FIELD_NAME) && q.keySet().size() == 1;
     boolean updatedExisting = false;
 
     if (idOnlyUpdate && isNotUpdateCommand(o)) {
-      if (!o.containsField(ID_KEY)) {
-        o.put(ID_KEY, Util.clone(q.get(ID_KEY)));
+      if (!o.containsField(ID_FIELD_NAME)) {
+        o.put(ID_FIELD_NAME, Util.clone(q.get(ID_FIELD_NAME)));
       } else {
-        o.put(ID_KEY, Util.clone(o.get(ID_KEY)));
+        o.put(ID_FIELD_NAME, Util.clone(o.get(ID_FIELD_NAME)));
       }
       @SuppressWarnings("unchecked") Iterator<DBObject> oldObjects = _idIndex.retrieveObjects(q).iterator();
       addToIndexes(Util.clone(o), oldObjects.hasNext() ? oldObjects.next() : null, concern);
@@ -265,7 +266,7 @@ public class FongoDBCollection extends DBCollection {
         updatedExisting = false;
       }
     }
-    return updateResult(updatedDocuments, updatedExisting, o.get(ID_KEY));
+    return updateResult(updatedDocuments, updatedExisting, o.get(ID_FIELD_NAME));
   }
 
 
@@ -340,7 +341,7 @@ public class FongoDBCollection extends DBCollection {
   }
 
   private List idsIn(DBObject query) {
-    Object idValue = query != null ? query.get(ID_KEY) : null;
+    Object idValue = query != null ? query.get(ID_FIELD_NAME) : null;
     if (idValue == null || query.keySet().size() > 1) {
       return emptyList();
     } else if (idValue instanceof DBObject) {
@@ -370,7 +371,7 @@ public class FongoDBCollection extends DBCollection {
 //    List idsIn = idsIn(q);
 //
 //    if (!idsIn.isEmpty()) {
-//      newObject.put(ID_KEY, Util.clone(idsIn.get(0)));
+//      newObject.put(ID_FIELD_NAME, Util.clone(idsIn.get(0)));
 //    } else
 //    {
     BasicDBObject filteredQuery = new BasicDBObject();
@@ -558,16 +559,16 @@ public class FongoDBCollection extends DBCollection {
     List<DBObject> results = new ArrayList<DBObject>();
     List objects = idsIn(ref);
     if (!objects.isEmpty()) {
-//      if (!(ref.get(ID_KEY) instanceof DBObject)) {
+//      if (!(ref.get(ID_FIELD_NAME) instanceof DBObject)) {
       // Special case : find({id:<val}) doesn't handle skip...
       // But : find({_id:{$in:[1,2,3]}).skip(3) will return empty list.
 //        numToSkip = 0;
 //      }
       if (orderby == null) {
-        orderby = new BasicDBObject(ID_KEY, 1);
+        orderby = new BasicDBObject(ID_FIELD_NAME, 1);
       } else {
         // Special case : if order by is wrong (field doesn't exist), the sort must be directed by _id.
-        objectsFromIndex = sortObjects(new BasicDBObject(ID_KEY, 1), objectsFromIndex);
+        objectsFromIndex = sortObjects(new BasicDBObject(ID_FIELD_NAME, 1), objectsFromIndex);
       }
     }
     int seen = 0;
@@ -580,7 +581,7 @@ public class FongoDBCollection extends DBCollection {
           foundCount++;
           DBObject clonedDbo = Util.clone(dbo);
           if (nonIdCollection) {
-            clonedDbo.removeField(ID_KEY);
+            clonedDbo.removeField(ID_FIELD_NAME);
           }
           clonedDbo.removeField(FONGO_SPECIAL_ORDER_BY);
           // TODO WDEL
@@ -779,7 +780,7 @@ public class FongoDBCollection extends DBCollection {
       }
       List<String> projectionPath = Util.split(projectionKey);
 
-      if (!ID_KEY.equals(projectionKey)) {
+      if (!ID_FIELD_NAME.equals(projectionKey)) {
         if (included) {
           inclusionCount++;
         } else if (!project) {
@@ -806,10 +807,10 @@ public class FongoDBCollection extends DBCollection {
     } else {
       ret = new BasicDBObject();
       if (!wasIdExcluded) {
-        ret.append(ID_KEY, Util.clone(result.get(ID_KEY)));
+        ret.append(ID_FIELD_NAME, Util.clone(result.get(ID_FIELD_NAME)));
       } else if (inclusionCount == 0) {
         ret = (BasicDBObject) Util.clone(result);
-        ret.removeField(ID_KEY);
+        ret.removeField(ID_FIELD_NAME);
       }
     }
 
