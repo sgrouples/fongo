@@ -11,16 +11,32 @@ don't want to spin up a `mongod` process.
 ## Usage
 Add dependency to your project:
 
+### If you use 3.X drivers
+
 ```xml
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>1.6.0</version>
+  <version>2.0.0</version>
   <scope>test</scope>
 </dependency>
 ```
 
-[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|1.5.9)
+[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|2.0.0)
+
+### If you use 2.X drivers
+
+```xml
+<dependency>
+  <groupId>com.github.fakemongo</groupId>
+  <artifactId>fongo</artifactId>
+  <version>1.6.2</version>
+  <scope>test</scope>
+</dependency>
+```
+
+[Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|1.6.2)
+
 
 *Alternatively: clone this repo and build the jar: `mvn package` then copy jar to your classpath*
 
@@ -47,12 +63,13 @@ Fongo doesn't implement all MongoDB functionality. Most query and update syntax 
 Gridfs and capped collections are not supported.
 MapReduce is in minimal way but will be enhanced soon.
 
-   `$near` can be used
-   `$geoWithin` can be used with $box for now.
+ * `$near` can be used
+ * `$geoWithin` can be used with $box for now.
 
 ## Implementation Details
 
-Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.13.0*.
+Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.13.0*
+and *3.0.1*.
 It also has a "provided" dependency on sl4j-api for logging. If you don't already have sl4j in your project, you can add a maven dependency to the logback implementation like this:
 
 ```xml
@@ -109,7 +126,7 @@ If you use JUnit in your project, you can use Rule to instanciate a `Fongo` obje
 public FongoRule fongoRule = new FongoRule();
 ```
 
-If you need, you can easely switch to your real MongoDB server (on localhost for now).
+If you need, you can easily switch to your real MongoDB server (on localhost for now).
 
 ```java
 @Rule
@@ -175,6 +192,7 @@ your name to the patch contributors below. Please maintain the same code formatt
 
 ## Changelog
 
+Version 2.0.0 break compatibility with 2.X driver version.
 Version 1.6.0 break compatibility with 2.12.X driver version.
 
 ## Original Author
