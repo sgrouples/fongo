@@ -1,7 +1,8 @@
 package com.mongodb;
 
 import com.github.fakemongo.Fongo;
-import java.util.Collections;
+import java.net.InetSocketAddress;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
@@ -23,10 +24,9 @@ public class FongoMongoTest {
   }
 
   @Test
-  public void mongoAllAdressOverride() {
+  public void mongoAllAddressOverride() {
     MongoClient mongoClient = new Fongo("test").getMongo();
 
-    assertNotNull(mongoClient.getAllAddress());
-    assertEquals(Collections.singletonList(new ServerAddress()), mongoClient.getAllAddress());
+    assertThat(mongoClient.getAllAddress()).containsOnly(new ServerAddress(new InetSocketAddress(ServerAddress.defaultHost(), ServerAddress.defaultPort())));
   }
 }
