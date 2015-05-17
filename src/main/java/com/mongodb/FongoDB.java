@@ -52,12 +52,12 @@ public class FongoDB extends DB {
 
   @Override
   protected synchronized FongoDBCollection doGetCollection(String name) {
-      FongoDBCollection coll = collMap.get(name);
-      if (coll == null) {
-        coll = new FongoDBCollection(this, name);
-        collMap.put(name, coll);
-      }
-      return coll;
+    FongoDBCollection coll = collMap.get(name);
+    if (coll == null) {
+      coll = new FongoDBCollection(this, name);
+      collMap.put(name, coll);
+    }
+    return coll;
   }
 
   private DBObject findAndModify(String collection, DBObject query, DBObject sort, boolean remove, DBObject update, boolean returnNew, DBObject fields, boolean upsert) {
@@ -73,9 +73,9 @@ public class FongoDB extends DB {
     return aggregator.computeResult();
   }
 
-  private DBObject doMapReduce(String collection, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
+  private DBObject doMapReduce(String collection, String map, String reduce, String finalize, Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
     FongoDBCollection coll = doGetCollection(collection);
-    MapReduce mapReduce = new MapReduce(this.fongo, coll, map, reduce, finalize, out, query, sort, limit);
+    MapReduce mapReduce = new MapReduce(this.fongo, coll, map, reduce, finalize, scope, out, query, sort, limit);
     return mapReduce.computeResult();
   }
 
@@ -162,9 +162,9 @@ public class FongoDB extends DB {
       LOG.debug("Fongo got command " + cmd);
     }
     if (cmd.containsField("$eval")) {
-        CommandResult commandResult = okResult();
-        commandResult.append("retval", "null");
-        return commandResult;
+      CommandResult commandResult = okResult();
+      commandResult.append("retval", "null");
+      return commandResult;
     } else if (cmd.containsField("getlasterror") || cmd.containsField("getLastError")) {
       return okResult();
     } else if (cmd.containsField("fsync")) {
@@ -412,6 +412,7 @@ public class FongoDB extends DB {
         (String) cmd.get("map"),
         (String) cmd.get("reduce"),
         (String) cmd.get("finalize"),
+        (Map) cmd.get("scope"),
         (DBObject) cmd.get("out"),
         (DBObject) cmd.get("query"),
         (DBObject) cmd.get("sort"),
