@@ -8,7 +8,6 @@ import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
 import com.mongodb.util.JSON;
 import java.io.IOException;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -277,16 +276,16 @@ public class FongoMapReduceTest {
         "\t\"arrayOfStuff\": [\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Elgin City\",\n" +
-        "\t\t\t\"date\": \"2012-01-06T14:54:21.000Z\"\n" +
+    "\t\t\t\"date\": \"100\"\n" +
         "\t\t},\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Rangers\",\n" +
-        "\t\t\t\"date\": \"2012-02-02T11:01:27.000Z\"\n" +
+        "\t\t\t\"date\": \"200\"\n" +
         "\t\t},\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Arsenal\",\n" +
-        "\t\t\t\"date\": \"2012-02-03T10:56:23.000Z\"\n" +
-        "\t\t}\n" +
+        "\t\t\t\"date\": \"300\"\n" +
+    "\t\t}\n" +
         "\t]\n" +
         "},\n" +
         "{\n" +
@@ -296,15 +295,15 @@ public class FongoMapReduceTest {
         "\t\"arrayOfStuff\": [\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Satriani\",\n" +
-        "\t\t\t\"date\": \"2011-11-01T11:51:46.000Z\"\n" +
+        "\t\t\t\"date\": \"100\"\n" +
         "\t\t\t},\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Vai\",\n" +
-        "\t\t\t\"date\": \"2012-01-01T15:16:21.000Z\"\n" +
+        "\t\t\t\"date\": \"200\"\n" +
         "\t\t},\n" +
         "\t\t{\n" +
         "\t\t\t\"name\": \"Johnson\",\n" +
-        "\t\t\t\"date\": \"2012-03-01T12:11:27.000Z\"\n" +
+        "\t\t\t\"date\": \"300\"\n" +
         "\t\t}\n" +
         "\t]\n" +
         "}]");
@@ -312,7 +311,7 @@ public class FongoMapReduceTest {
     String map = "function() {" +
         "if(this.arrayOfStuff) {" +
         "this.arrayOfStuff.forEach(function(stuff) {" +
-        "if(new Date(stuff.date) > from && new Date(stuff.date) < to) {" +
+        "if(stuff.date > from && stuff.date < to) {" +
         "emit({day: stuff.date}, {count:1});" +
         "}" +
         "});" +
@@ -332,15 +331,13 @@ public class FongoMapReduceTest {
 
     MapReduceCommand cmd = new MapReduceCommand(coll, map, reduce, null, MapReduceCommand.OutputType.INLINE, query);
     Map scope = new HashMap();
-    scope.put("from", 0);
-    scope.put("to", new Date().getTime());
+    scope.put("from", 100);
+    scope.put("to", 301);
     cmd.setScope(scope);
     MapReduceOutput out = coll.mapReduce(cmd);
 
-    System.out.println(out);
-    Assertions.assertThat(out.results()).isEqualTo(fongoRule.parseList("[{\"_id\":{\"day\":\"2012-01-06T14:54:21.000Z\"}, \"value\":{\"count\":1.0}}, " +
-        "{\"_id\":{\"day\":\"2012-02-02T11:01:27.000Z\"}, \"value\":{\"count\":1.0}}, " +
-        "{\"_id\":{\"day\":\"2012-02-03T10:56:23.000Z\"}, \"value\":{\"count\":1.0}}]"));
+    Assertions.assertThat(out.results()).isEqualTo(fongoRule.parseList("[{\"_id\":{\"day\":\"200\"}, \"value\":{\"count\":1.0}}, " +
+        "{\"_id\":{\"day\":\"300\"}, \"value\":{\"count\":1.0}}]"));
   }
 
 }
