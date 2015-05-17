@@ -1342,7 +1342,8 @@ public class FongoDBCollection extends DBCollection {
     if (command.getOutputType() != null) {
       out.put(command.getOutputType().name().toLowerCase(), command.getOutputTarget());
     }
-    MapReduce mapReduce = new MapReduce(this.fongoDb.fongo, this, command.getMap(), command.getReduce(), command.getFinalize(), out, command.getQuery(), command.getSort(), command.getLimit());
+    MapReduce mapReduce = new MapReduce(this.fongoDb.fongo, this, command.getMap(), command.getReduce(),
+        command.getFinalize(), command.getScope(), out, command.getQuery(), command.getSort(), command.getLimit());
     return mapReduce.computeResult();
   }
 }

@@ -6,13 +6,13 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
+import com.mongodb.util.FongoJSON;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import static org.junit.Assert.assertEquals;
-import com.mongodb.util.FongoJSON;
 import org.assertj.core.api.Assertions;
+import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -127,35 +127,35 @@ public class FongoMapReduceTest {
         "{\"value\":[{\"dateval\":\"20\"}, {\"trash_data\":\"100\", \"date\":\"2\", \"dateval\":\"20\"}, " +
         "{\"trash_data\":\"256\", \"date\":\"2\", \"dateval\":\"20\"}]}}]");
     for (DBObject e : expected) {
-      List<DBObject> values = (List<DBObject>)(((DBObject) e.get("value")).get("value"));
+      List<DBObject> values = (List<DBObject>) (((DBObject) e.get("value")).get("value"));
       DBObject id = (DBObject) e.get("_id");
       DBObject actual = byId.get(FongoJSON.serialize(id));
-      List<DBObject> actualValues = (List<DBObject>)(((DBObject) actual.get("value")).get("value"));
+      List<DBObject> actualValues = (List<DBObject>) (((DBObject) actual.get("value")).get("value"));
       Assertions.assertThat(actualValues).containsAll(values);
       Assertions.assertThat(actualValues.size()).isEqualTo(values.size());
     }
     Assertions.assertThat(expected.size()).isEqualTo(results.size());
   }
 
-    // see http://no-fucking-idea.com/blog/2012/04/01/using-map-reduce-with-mongodb/
-    @Test
-    public void testMapReduceWithArray() {
-        DBCollection coll = fongoRule.newCollection();
-        fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5, arr: ['a',2] },\n" +
-                " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13, arr: ['b',4] },\n" +
-                " {url: \"www.google.com\", date: 1, trash_data: 1, arr: ['c',6] },\n" +
-                " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69, arr: ['d',8] },\n" +
-                " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256, arr: ['e',10] }]");
+  // see http://no-fucking-idea.com/blog/2012/04/01/using-map-reduce-with-mongodb/
+  @Test
+  public void testMapReduceWithArray() {
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5, arr: ['a',2] },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13, arr: ['b',4] },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1, arr: ['c',6] },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69, arr: ['d',8] },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256, arr: ['e',10] }]");
 
 
-        String map = "function(){    emit(this.url, this.arr);  };";
-        String reduce = "function(key, values){    var res = [];    values.forEach(function(v){ res = res.concat(v); });    return {mergedArray: res};  };";
-        coll.mapReduce(map, reduce, "result", new BasicDBObject());
+    String map = "function(){    emit(this.url, this.arr);  };";
+    String reduce = "function(key, values){    var res = [];    values.forEach(function(v){ res = res.concat(v); });    return {mergedArray: res};  };";
+    coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
-        List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-        assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2,\"c\",6]}}, " +
-            "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4,\"d\",8,\"e\",10]}}]"), results);
-    }
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2,\"c\",6]}}, " +
+        "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4,\"d\",8,\"e\",10]}}]"), results);
+  }
 
   @Test
   public void should_use_outputdb() {
@@ -262,4 +262,81 @@ public class FongoMapReduceTest {
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
   }
 
+  /**
+   * http://exceptionallyexceptionalexceptions.blogspot.fr/2012/03/mongodb-mapreduce-scope-variables.html
+   */
+  @Test
+  public void should_scope_permit_to_initialize() {
+    DBCollection coll = fongoRule.newCollection();
+
+    fongoRule.insertJSON(coll, "[{\n" +
+        "\t\"_id\": \"4f0c56f1b8eea0b686189c90\",\n" +
+        "\t\"meh\": \"meh\",\n" +
+        "\t\"feh\": \"feh\",\n" +
+        "\t\"arrayOfStuff\": [\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Elgin City\",\n" +
+        "\t\t\t\"date\": \"100\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Rangers\",\n" +
+        "\t\t\t\"date\": \"200\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Arsenal\",\n" +
+        "\t\t\t\"date\": \"300\"\n" +
+        "\t\t}\n" +
+        "\t]\n" +
+        "},\n" +
+        "{\n" +
+        "\t\"_id\": \"4f0c56f1b8eea0b686189c99\",\n" +
+        "\t\"meh\": \"meh meh meh meh\",\n" +
+        "\t\"feh\": \"feh feh feh feh feh feh\",\n" +
+        "\t\"arrayOfStuff\": [\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Satriani\",\n" +
+        "\t\t\t\"date\": \"100\"\n" +
+        "\t\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Vai\",\n" +
+        "\t\t\t\"date\": \"200\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Johnson\",\n" +
+        "\t\t\t\"date\": \"300\"\n" +
+        "\t\t}\n" +
+        "\t]\n" +
+        "}]");
+
+    String map = "function() {" +
+        "if(this.arrayOfStuff) {" +
+        "this.arrayOfStuff.forEach(function(stuff) {" +
+        "if(stuff.date > from && stuff.date < to) {" +
+        "emit({day: stuff.date}, {count:1});" +
+        "}" +
+        "});" +
+        "}" +
+        "};";
+
+    String reduce = "function(key , values) {" +
+        "var total = 0;" +
+        "values.forEach(function(v) {" +
+        "total += v.count;" +
+        "});" +
+        "return {count : total};" +
+        "};";
+
+    DBObject query = new BasicDBObject();
+    query.put("meh", "meh");
+
+    MapReduceCommand cmd = new MapReduceCommand(coll, map, reduce, null, MapReduceCommand.OutputType.INLINE, query);
+    Map scope = new HashMap();
+    scope.put("from", 100);
+    scope.put("to", 301);
+    cmd.setScope(scope);
+    MapReduceOutput out = coll.mapReduce(cmd);
+
+    Assertions.assertThat(out.results()).isEqualTo(fongoRule.parseList("[{\"_id\":{\"day\":\"200\"}, \"value\":{\"count\":1.0}}, " +
+        "{\"_id\":{\"day\":\"300\"}, \"value\":{\"count\":1.0}}]"));
+  }
 }

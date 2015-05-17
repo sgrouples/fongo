@@ -13,6 +13,7 @@ import com.mongodb.MapReduceOutput;
 import com.mongodb.util.FongoJSON;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeArray;
@@ -41,6 +42,8 @@ public class MapReduce {
 
   // TODO
   private final String finalize;
+
+  private final Map<String, Object> scope;
 
   private final DBObject out;
 
@@ -142,7 +145,8 @@ public class MapReduce {
 
   }
 
-  public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
+  public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize,
+                   Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
     if (out.containsField("db")) {
       this.fongoDB = (FongoDB) fongo.getDB((String) out.get("db"));
     } else {
@@ -152,6 +156,7 @@ public class MapReduce {
     this.map = map;
     this.reduce = reduce;
     this.finalize = finalize;
+    this.scope = scope;
     this.out = out;
     this.query = query;
     this.sort = sort;
@@ -177,12 +182,18 @@ public class MapReduce {
     // TODO use Compilable ? http://www.jmdoudoux.fr/java/dej/chap-scripting.htm
     Context cx = Context.enter();
     try {
-      Scriptable scope = cx.initStandardObjects();
+      Scriptable scriptable = cx.initStandardObjects();
+      if (this.scope != null) {
+        for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
+          scriptable.put(entry.getKey(), scriptable, entry.getValue());
+        }
+      }
+
       List<DBObject> objects = this.fongoDBCollection.find(query).sort(sort).limit(limit).toArray();
       List<String> javascriptFunctions = constructJavascriptFunction(objects);
       for (String jsFunction : javascriptFunctions) {
         try {
-          cx.evaluateString(scope, jsFunction, "<map-reduce>", 0, null);
+          cx.evaluateString(scriptable, jsFunction, "<map-reduce>", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
           fongoDB.notOkErrorResult(16722, "JavaScript execution failed: " + e.getMessage()).throwOnError();
@@ -190,7 +201,7 @@ public class MapReduce {
       }
 
       // Get the result into an object.
-      NativeArray outs = (NativeArray) scope.get("$$$fongoOuts$$$", scope);
+      NativeArray outs = (NativeArray) scriptable.get("$$$fongoOuts$$$", scriptable);
       List<DBObject> dbOuts = new ArrayList<DBObject>();
       for (int i = 0; i < outs.getLength(); i++) {
         NativeObject out = (NativeObject) outs.get(i, outs);
@@ -198,7 +209,7 @@ public class MapReduce {
       }
       return dbOuts;
     } finally {
-      cx.exit();
+      Context.exit();
     }
   }
 

@@ -96,7 +96,7 @@ public class FongoDB extends DB {
     return aggregator.computeResult();
   }
 
-  private MapReduceOutput doMapReduce(String collection, String map, String reduce, String finalize, DBObject out, DBObject query, DBObject sort, Number limit) {
+  private MapReduceOutput doMapReduce(String collection, String map, String reduce, String finalize, Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
     FongoDBCollection coll = doGetCollection(collection);
     MapReduceCommand mapReduceCommand = new MapReduceCommand(coll, map, reduce, null, null, query);
     mapReduceCommand.setSort(sort);
@@ -105,8 +105,8 @@ public class FongoDB extends DB {
     }
     mapReduceCommand.setFinalize(finalize);
     mapReduceCommand.setOutputDB((String) out.get("db"));
+    mapReduceCommand.setScope(scope);
     return coll.mapReduce(mapReduceCommand);
-//    return null;
   }
 
   private List<DBObject> doGeoNearCollection(String collection, DBObject near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
@@ -187,7 +187,11 @@ public class FongoDB extends DB {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Fongo got command " + cmd);
     }
-    if (cmd.containsField("getlasterror") || cmd.containsField("getLastError")) {
+    if (cmd.containsField("$eval")) {
+      CommandResult commandResult = okResult();
+      commandResult.append("retval", "null");
+      return commandResult;
+    } else if (cmd.containsField("getlasterror") || cmd.containsField("getLastError")) {
       return okResult();
     } else if (cmd.containsField("fsync")) {
       return okResult();
@@ -452,6 +456,7 @@ public class FongoDB extends DB {
         (String) cmd.get("map"),
         (String) cmd.get("reduce"),
         (String) cmd.get("finalize"),
+        (Map) cmd.get("scope"),
         (DBObject) cmd.get("out"),
         (DBObject) cmd.get("query"),
         (DBObject) cmd.get("sort"),
