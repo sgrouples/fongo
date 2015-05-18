@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import org.bson.BsonArray;
+import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
@@ -162,9 +163,22 @@ public class FongoConnection implements Connection {
       final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
       final DBObject query = dbObject(command, "query");
       final DBObject update = dbObject(command, "update");
-      final Boolean remove = command.containsKey("remove") ? command.getBoolean("remove").getValue() : false;
+      final DBObject fields = dbObject(command, "fields");
+      final DBObject sort = dbObject(command, "sort");
+      final boolean returnNew = BsonBoolean.TRUE.equals(command.getBoolean("new", BsonBoolean.FALSE));
+      final boolean upsert = BsonBoolean.TRUE.equals(command.getBoolean("upsert", BsonBoolean.FALSE));
+      final boolean remove = BsonBoolean.TRUE.equals(command.getBoolean("remove", BsonBoolean.FALSE));
 
-      final DBObject andModify = dbCollection.findAndModify(query, null, null, remove, update, false, false);
+      if (update != null) {
+        final FieldNameValidator validatorUpdate = fieldNameValidator.getValidatorForField("update");
+        for (String updateName : update.keySet()) {
+          if (!validatorUpdate.validate(updateName)) {
+            throw new IllegalArgumentException("Invalid BSON field name " + updateName);
+          }
+        }
+      }
+
+      final DBObject andModify = dbCollection.findAndModify(query, fields, sort, remove, update, returnNew, upsert);
       return reencode(commandResultDecoder, "value", andModify);
     } else if (command.containsKey("distinct")) {
       final DBCollection dbCollection = db.getCollection(command.get("distinct").asString().getValue());

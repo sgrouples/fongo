@@ -10,10 +10,13 @@ import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.DeleteOneModel;
 import static com.mongodb.client.model.Filters.eq;
+import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.client.model.IndexOptions;
 import com.mongodb.client.model.InsertOneModel;
+import com.mongodb.client.model.Projections;
 import static com.mongodb.client.model.Projections.excludeId;
 import com.mongodb.client.model.ReplaceOneModel;
+import com.mongodb.client.model.ReturnDocument;
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.descending;
 import com.mongodb.client.model.UpdateOneModel;
@@ -410,6 +413,105 @@ public class FongoV3Test {
     assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(updated).isEqualTo(docId(2).append("b", 5));
+  }
+
+  @Test
+  public void findOneAndUpdate_sort_replace_the_last() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", new Document("c", 8)),
+        new FindOneAndUpdateOptions().sort(descending("_id")));
+
+    // Then
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5),
+        docId(3).append("b", 5).append("c", 8), docId(4), docId(5).append("b", 6));
+    assertThat(updated).isEqualTo(docId(3).append("b", 5));
+  }
+
+  @Test
+  public void findOneAndUpdate_projection() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", new Document("c", 8)),
+        new FindOneAndUpdateOptions().projection(Projections.include("c")).returnDocument(ReturnDocument.AFTER));
+
+    // Then
+    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+        docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    assertThat(updated).isEqualTo(docId(2).append("c", 8));
+  }
+
+  @Test
+  public void findOneAndUpdate_retrieve_before() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("updateField", 1));
+
+    // When
+    Document document = collection.findOneAndUpdate(eq("updateField", 1), new Document("$set", new Document("updateField", 2)),
+        new FindOneAndUpdateOptions().returnDocument(ReturnDocument.BEFORE));
+
+    // Then
+    assertThat(document.get("updateField")).isEqualTo(1);
+    document = collection.find(eq("updateField", 2)).first();
+    assertThat(document.get("updateField")).isEqualTo(2);
+  }
+
+  @Test
+  public void findOneAndUpdate_retrieve_after() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("updateField", 1));
+
+    // When
+    Document document = collection.findOneAndUpdate(eq("updateField", 1), new Document("$set", new Document("updateField", 3)),
+        new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER));
+
+    // Then
+    assertThat(document.get("updateField")).isEqualTo(3);
+    document = collection.find(eq("updateField", 3)).first();
+    assertThat(document.get("updateField")).isEqualTo(3);
+  }
+
+  @Test
+  public void findOneAndUpdate_upsert() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+
+    // When
+    Document document = collection.findOneAndUpdate(eq("updateField", 1), new Document("$set", new Document("updateField", 3)),
+        new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER).upsert(true));
+
+    // Then
+    assertThat(document.get("updateField")).isEqualTo(3);
+    document = collection.find(eq("updateField", 3)).first();
+    assertThat(document.get("updateField")).isEqualTo(3);
+  }
+
+  @Test
+  public void findOneAndUpdate_throw_exception() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("updateField", 1));
+
+    exception.expect(IllegalArgumentException.class);
+    // When
+    collection.findOneAndUpdate(eq("updateField", 1), new Document("updateField", 3),
+        new FindOneAndUpdateOptions().returnDocument(ReturnDocument.AFTER));
   }
 
   @Test
