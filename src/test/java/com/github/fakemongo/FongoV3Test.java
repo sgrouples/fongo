@@ -1,6 +1,7 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.WriteConcern;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.DistinctIterable;
 import com.mongodb.client.FindIterable;
@@ -323,6 +324,24 @@ public class FongoV3Test {
   }
 
   @Test
+  public void deleteOne_remove_must_throw_exception_with_unacknowledged() {
+    // Given
+    MongoCollection collection = newCollection().withWriteConcern(WriteConcern.UNACKNOWLEDGED);
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final DeleteResult deleteResult = collection.deleteOne(new Document("b", 5));
+
+    // Then
+    exception.expect(UnsupportedOperationException.class);
+    deleteResult.getDeletedCount();
+  }
+
+  @Test
   public void deleteMany_remove_many() {
     // Given
     MongoCollection collection = newCollection();
@@ -503,7 +522,7 @@ public class FongoV3Test {
   }
 
   @Test
-  public void findOneAndUpdate_throw_exception() {
+  public void findOneAndUpdate_throw_exception_if_not_$field() {
     // Given
     MongoCollection<Document> collection = newCollection();
     collection.insertOne(new Document("updateField", 1));
@@ -636,10 +655,10 @@ public class FongoV3Test {
     final AggregateIterable<Document> aggregate = mongoCollection.aggregate(Lists.newArrayList(new Document("$match", new Document("_id", expected))));
 
     // Then
-    assertThat(toList(aggregate)).containsOnly(new Document("_id", expected));
+    assertThat(toList(aggregate)).containsOnly(docId(expected));
   }
 
-  private Document docId(int value) {
+  private Document docId(final Object value) {
     return new Document("_id", value);
   }
 
