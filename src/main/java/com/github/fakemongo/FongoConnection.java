@@ -4,24 +4,38 @@
 package com.github.fakemongo;
 
 import com.mongodb.AggregationOutput;
+import com.mongodb.BulkWriteOperation;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.FongoDBCollection;
+import static com.mongodb.FongoDBCollection.bsonDocument;
+import static com.mongodb.FongoDBCollection.bsonDocuments;
+import static com.mongodb.FongoDBCollection.dbObject;
+import static com.mongodb.FongoDBCollection.dbObjects;
+import static com.mongodb.FongoDBCollection.decode;
+import static com.mongodb.FongoDBCollection.decoderContext;
 import com.mongodb.MongoClient;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteConcernResult;
 import com.mongodb.WriteResult;
 import com.mongodb.bulk.BulkWriteResult;
+import com.mongodb.bulk.BulkWriteUpsert;
 import com.mongodb.bulk.DeleteRequest;
 import com.mongodb.bulk.InsertRequest;
 import com.mongodb.bulk.UpdateRequest;
+import com.mongodb.bulk.WriteRequest;
+import static com.mongodb.bulk.WriteRequest.Type.INSERT;
 import static com.mongodb.bulk.WriteRequest.Type.REPLACE;
+import com.mongodb.connection.BulkWriteBatchCombiner;
 import com.mongodb.connection.ClusterId;
 import com.mongodb.connection.Connection;
 import com.mongodb.connection.ConnectionDescription;
 import com.mongodb.connection.QueryResult;
 import com.mongodb.connection.ServerId;
+import com.mongodb.connection.ServerVersion;
+import com.mongodb.internal.connection.IndexMap;
 import com.mongodb.internal.validator.CollectibleDocumentFieldNameValidator;
 import com.mongodb.internal.validator.UpdateFieldNameValidator;
 import com.mongodb.operation.FongoBsonArrayWrapper;
@@ -33,14 +47,16 @@ import org.bson.BsonArray;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
-import org.bson.BsonDocumentWriter;
 import org.bson.BsonInt64;
+import org.bson.BsonNull;
+import org.bson.BsonObjectId;
+import org.bson.BsonString;
 import org.bson.BsonValue;
+import org.bson.Document;
 import org.bson.FieldNameValidator;
+import org.bson.codecs.Codec;
 import org.bson.codecs.Decoder;
-import org.bson.codecs.DecoderContext;
-import org.bson.codecs.EncoderContext;
-import org.bson.json.JsonReader;
+import org.bson.types.ObjectId;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,9 +67,16 @@ public class FongoConnection implements Connection {
   private final static Logger LOG = LoggerFactory.getLogger(FongoConnection.class);
 
   private final Fongo fongo;
+  private final ConnectionDescription connectionDescription;
 
   public FongoConnection(final Fongo fongo) {
     this.fongo = fongo;
+    this.connectionDescription = new ConnectionDescription(new ServerId(new ClusterId(), fongo.getServerAddress())) {
+      @Override
+      public ServerVersion getServerVersion() {
+        return fongo.getServerVersion();
+      }
+    };
   }
 
   @Override
@@ -64,12 +87,11 @@ public class FongoConnection implements Connection {
 
   @Override
   public ConnectionDescription getDescription() {
-    return new ConnectionDescription(new ServerId(new ClusterId(), fongo.getServerAddress()));
+    return connectionDescription;
   }
 
   @Override
-  public WriteConcernResult insert(MongoNamespace
-                                       namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
+  public WriteConcernResult insert(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
     LOG.info("insert() namespace:{} inserts:{}", namespace, inserts);
     final DBCollection collection = dbCollection(namespace);
     for (InsertRequest insert : inserts) {
@@ -77,7 +99,11 @@ public class FongoConnection implements Connection {
       collection.insert(parse, writeConcern);
       LOG.debug("insert() namespace:{} insert:{}, parse:{}", namespace, insert.getDocument(), parse.getClass());
     }
-    return WriteConcernResult.acknowledged(inserts.size(), false, null);
+    if (writeConcern.isAcknowledged()) {
+      return WriteConcernResult.acknowledged(inserts.size(), false, null);
+    } else {
+      return WriteConcernResult.unacknowledged();
+    }
   }
 
   @Override
@@ -107,7 +133,11 @@ public class FongoConnection implements Connection {
       }
       count += writeResult.getN();
     }
-    return WriteConcernResult.acknowledged(count, isUpdateOfExisting, upsertedId);
+    if (writeConcern.isAcknowledged()) {
+      return WriteConcernResult.acknowledged(count, isUpdateOfExisting, upsertedId);
+    } else {
+      return WriteConcernResult.unacknowledged();
+    }
   }
 
   @Override
@@ -127,25 +157,100 @@ public class FongoConnection implements Connection {
         }
       }
     }
-    return WriteConcernResult.acknowledged(count, count != 0, null);
+    if (writeConcern.isAcknowledged()) {
+      return WriteConcernResult.acknowledged(count, count != 0, null);
+    } else {
+      return WriteConcernResult.unacknowledged();
+    }
   }
 
   @Override
   public BulkWriteResult insertCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<InsertRequest> inserts) {
     LOG.info("insertCommand() namespace:{} inserts:{}", namespace, inserts);
-    return null;
+    final DBCollection collection = dbCollection(namespace);
+    final List<BulkWriteUpsert> list = new ArrayList<BulkWriteUpsert>();
+    int i = 0;
+    for (InsertRequest insert : inserts) {
+      final DBObject parse = dbObject(insert.getDocument());
+      final WriteResult writeResult = collection.insert(parse, writeConcern);
+      if (writeResult.getUpsertedId() != null) {
+        list.add(new BulkWriteUpsert(i, new BsonObjectId((ObjectId) writeResult.getUpsertedId())));
+      }
+      i++;
+      LOG.debug("insertCommand() namespace:{} insert:{}, parse:{}", namespace, insert.getDocument(), parse.getClass());
+    }
+    if (writeConcern.isAcknowledged()) {
+      return BulkWriteResult.acknowledged(WriteRequest.Type.INSERT, inserts.size(), writeConcern.isAcknowledged() ? inserts.size() : null, list);
+    } else {
+      return BulkWriteResult.unacknowledged();
+    }
   }
 
   @Override
   public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
     LOG.info("updateCommand() namespace:{} updates:{}", namespace, updates);
-    return null;
+    final DBCollection collection = dbCollection(namespace);
+
+
+    final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
+    BulkWriteBatchCombiner bulkWriteBatchCombiner = new BulkWriteBatchCombiner(fongo.getServerAddress(), ordered, writeConcern);
+    IndexMap indexMap = IndexMap.create();
+
+    for (UpdateRequest update : updates) {
+      FieldNameValidator validator;
+      if (update.getType() == REPLACE || update.getType() == INSERT) {
+        validator = new CollectibleDocumentFieldNameValidator();
+      } else {
+        validator = new UpdateFieldNameValidator();
+      }
+      for (String updateName : update.getUpdate().keySet()) {
+        if (!validator.validate(updateName)) {
+          throw new IllegalArgumentException("Invalid BSON field name " + updateName);
+        }
+      }
+
+      switch (update.getType()) {
+        case REPLACE:
+          bulkWriteOperation.find(dbObject(update.getFilter())).replaceOne(dbObject(update.getUpdate()));
+          break;
+        case INSERT:
+          bulkWriteOperation.insert(dbObject(update.getUpdate()));
+          break;
+        case UPDATE:
+          bulkWriteOperation.find(dbObject((update.getFilter()))).updateOne(dbObject(update.getUpdate()));
+          break;
+        case DELETE:
+          bulkWriteOperation.find(dbObject((update.getFilter()))).removeOne();
+      }
+      final com.mongodb.BulkWriteResult bulkWriteResult = bulkWriteOperation.execute(writeConcern);
+      indexMap = indexMap.add(1, 0);
+      bulkWriteBatchCombiner.addResult(bulkWriteResult(bulkWriteResult), indexMap);
+    }
+    return bulkWriteBatchCombiner.getResult();
   }
 
   @Override
   public BulkWriteResult deleteCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<DeleteRequest> deletes) {
     LOG.info("deleteCommand() namespace:{} deletes:{}", namespace, deletes);
-    return null;
+    final DBCollection collection = dbCollection(namespace);
+    int count = 0;
+    for (DeleteRequest delete : deletes) {
+      final DBObject parse = dbObject(delete.getFilter());
+      if (delete.isMulti()) {
+        final WriteResult writeResult = collection.remove(parse, writeConcern);
+        count += writeResult.getN();
+      } else {
+        final DBObject dbObject = collection.findAndRemove(parse);
+        if (dbObject != null) {
+          count++;
+        }
+      }
+    }
+    if (writeConcern.isAcknowledged()) {
+      return BulkWriteResult.acknowledged(WriteRequest.Type.DELETE, count, writeConcern.isAcknowledged() ? deletes.size() : null, Collections.<BulkWriteUpsert>emptyList());
+    } else {
+      return BulkWriteResult.unacknowledged();
+    }
   }
 
   @Override
@@ -188,20 +293,41 @@ public class FongoConnection implements Connection {
     } else if (command.containsKey("aggregate")) {
       final DBCollection dbCollection = db.getCollection(command.get("aggregate").asString().getValue());
       final AggregationOutput aggregate = dbCollection.aggregate(dbObjects(command, "pipeline"));
-      final String resultField = "result";
+      final boolean v3 = command.containsKey("cursor");
+      final String resultField = v3 ? "cursor" : "result";
       final Iterable<DBObject> results = aggregate.results();
-      return reencode(commandResultDecoder, resultField, results);
+      if (!v3) {
+        return reencode(commandResultDecoder, resultField, results);
+      } else {
+        // TODO : better way.
+        final Codec<Document> documentCodec = MongoClient.getDefaultCodecRegistry().get(Document.class);
+        final List<Document> each = new ArrayList<Document>();
+        for (DBObject result : results) {
+          final Document decode = documentCodec.decode(new BsonDocumentReader(bsonDocument(result)),
+              decoderContext());
+          each.add(decode);
+        }
+        return (T) new BsonDocument("cursor", new BsonDocument("id", new BsonInt64(0))
+            .append("ns", new BsonString(dbCollection.getFullName()))
+            .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
+      }
     } else {
       throw new FongoException("Not implemented for command : " + JSON.serialize(command));
     }
   }
 
-  private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, Iterable<DBObject> results) {
-    return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, new BsonArray(bsonDocuments(results))).toJson()), decoderContext());
+  private <T> T reencode(final Decoder<T> commandResultDecoder, final String resultField, final Iterable<DBObject> results) {
+    return commandResultDecoder.decode(new BsonDocumentReader(new BsonDocument(resultField, new BsonArray(bsonDocuments(results)))), decoderContext());
   }
 
-  private <T> T reencode(Decoder<T> commandResultDecoder, String resultField, DBObject result) {
-    return commandResultDecoder.decode(new JsonReader(new BsonDocument(resultField, bsonDocument(result)).toJson()), decoderContext());
+  private <T> T reencode(final Decoder<T> commandResultDecoder, final String resultField, final DBObject result) {
+    final BsonValue value;
+    if (result == null) {
+      value = new BsonNull();
+    } else {
+      value = bsonDocument(result);
+    }
+    return commandResultDecoder.decode(new BsonDocumentReader(new BsonDocument(resultField, value)), decoderContext());
   }
 
   @Override
@@ -241,72 +367,15 @@ public class FongoConnection implements Connection {
     LOG.info("release()");
   }
 
-
-  private DBObject dbObject(BsonDocument document) {
-    if (document == null) {
-      return null;
-    }
-    return MongoClient.getDefaultCodecRegistry().get(DBObject.class).decode(new BsonDocumentReader(document),
-        DecoderContext.builder().build());
-  }
-
   private DBCollection dbCollection(MongoNamespace namespace) {
     return fongo.getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
   }
 
-  private <T> List<T> decode(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
-    final List<T> list = new ArrayList<T>();
-    for (final DBObject object : objects) {
-      list.add(decode(object, resultDecoder));
+  private BulkWriteResult bulkWriteResult(com.mongodb.BulkWriteResult bulkWriteResult) {
+    if (!bulkWriteResult.isAcknowledged()) {
+      return BulkWriteResult.unacknowledged();
     }
-    return list;
+    return BulkWriteResult.acknowledged(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount(), bulkWriteResult.getRemovedCount(), bulkWriteResult.getModifiedCount(), FongoDBCollection.translateBulkWriteUpsertsToNew(bulkWriteResult.getUpserts(), null));
   }
 
-  private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
-    final BsonDocument document = bsonDocument(object);
-    return resultDecoder.decode(new BsonDocumentReader(document), decoderContext());
-  }
-
-  private DecoderContext decoderContext() {
-    return DecoderContext.builder().build();
-  }
-
-  private DBObject dbObject(final BsonDocument queryDocument, final String key) {
-    return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
-  }
-
-  private List<DBObject> dbObjects(final BsonDocument queryDocument, final String key) {
-    final BsonArray values = queryDocument.containsKey(key) ? queryDocument.getArray(key) : null;
-    if (values == null) {
-      return null;
-    }
-    List<DBObject> list = new ArrayList<DBObject>();
-    for (BsonValue value : values) {
-      list.add(dbObject((BsonDocument) value));
-    }
-    return list;
-  }
-
-  private BsonDocument bsonDocument(DBObject dbObject) {
-    if (dbObject == null) {
-      return null;
-    }
-
-    final BsonDocument bsonDocument = new BsonDocument();
-    MongoClient.getDefaultCodecRegistry().get(DBObject.class)
-        .encode(new BsonDocumentWriter(bsonDocument), dbObject, EncoderContext.builder().build());
-
-    return bsonDocument;
-  }
-
-  private List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {
-    if (dbObjects == null) {
-      return null;
-    }
-    List<BsonDocument> list = new ArrayList<BsonDocument>();
-    for (DBObject dbObject : dbObjects) {
-      list.add(bsonDocument(dbObject));
-    }
-    return list;
-  }
 }

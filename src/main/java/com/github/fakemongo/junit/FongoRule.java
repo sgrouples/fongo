@@ -1,6 +1,7 @@
 package com.github.fakemongo.junit;
 
 import com.github.fakemongo.Fongo;
+import static com.github.fakemongo.Fongo.DEFAULT_SERVER_VERSION;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -8,6 +9,7 @@ import com.mongodb.Mongo;
 import com.mongodb.MongoClient;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ServerVersion;
 import com.mongodb.util.FongoJSON;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -38,15 +40,10 @@ public class FongoRule extends ExternalResource {
    * Will be true if we use the real MongoDB to test things against real world.
    */
   private final boolean realMongo;
-
   private final String dbName;
-
   private final Fongo fongo;
-
   private MongoClient mongo;
-
   private DB db;
-
   private MongoDatabase mongoDatabase;
 
   /**
@@ -56,31 +53,39 @@ public class FongoRule extends ExternalResource {
    * @param realMongo         set to true if you want to use a real mongoDB.
    * @param mongoClientIfReal real client to use if realMongo si true.
    */
-  public FongoRule(final String dbName, final boolean realMongo, final MongoClient mongoClientIfReal) {
+  public FongoRule(final String dbName, final ServerVersion serverVersion, final boolean realMongo, final MongoClient mongoClientIfReal) {
     this.dbName = dbName;
     this.realMongo = realMongo || "true".equals(System.getProperty("fongo.force.realMongo"));
-    this.fongo = realMongo ? null : newFongo();
+    this.fongo = realMongo ? null : newFongo(serverVersion);
     this.mongo = mongoClientIfReal;
   }
 
   public FongoRule() {
-    this(UUID.randomUUID().toString(), false, null);
+    this(DEFAULT_SERVER_VERSION);
+  }
+
+  public FongoRule(final ServerVersion serverVersion) {
+    this(UUID.randomUUID().toString(), serverVersion, false, null);
   }
 
   public FongoRule(boolean realMongo) {
-    this(UUID.randomUUID().toString(), realMongo, null);
+    this(realMongo, DEFAULT_SERVER_VERSION);
+  }
+
+  public FongoRule(boolean realMongo, ServerVersion serverVersion) {
+    this(UUID.randomUUID().toString(), serverVersion, realMongo, null);
   }
 
   public FongoRule(boolean realMongo, MongoClient mongoClientIfReal) {
-    this(UUID.randomUUID().toString(), realMongo, mongoClientIfReal);
+    this(UUID.randomUUID().toString(), DEFAULT_SERVER_VERSION, realMongo, mongoClientIfReal);
   }
 
   public FongoRule(String dbName, boolean realMongo) {
-    this(dbName, realMongo, null);
+    this(dbName, DEFAULT_SERVER_VERSION, realMongo, null);
   }
 
   public FongoRule(String dbName) {
-    this(dbName, false, null);
+    this(dbName, DEFAULT_SERVER_VERSION, false, null);
   }
 
   public boolean isRealMongo() {
@@ -155,8 +160,8 @@ public class FongoRule extends ExternalResource {
     return mongoDatabase.getCollection(collectionName);
   }
 
-  private Fongo newFongo() {
-    return new Fongo("test");
+  private Fongo newFongo(ServerVersion serverVersion) {
+    return new Fongo("test", serverVersion);
   }
 
   public Fongo getFongo() {

@@ -11,6 +11,7 @@ import com.mongodb.binding.ConnectionSource;
 import com.mongodb.binding.ReadBinding;
 import com.mongodb.binding.WriteBinding;
 import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ServerVersion;
 import com.mongodb.operation.OperationExecutor;
 import com.mongodb.operation.ReadOperation;
 import com.mongodb.operation.WriteOperation;
@@ -45,17 +46,29 @@ import org.slf4j.LoggerFactory;
 public class Fongo implements OperationExecutor {
   private final static Logger LOG = LoggerFactory.getLogger(Fongo.class);
 
+  public static final ServerVersion DEFAULT_SERVER_VERSION = new ServerVersion(3, 0);
+  public static final ServerVersion OLD_SERVER_VERSION = new ServerVersion(0, 0);
+
   private final Map<String, FongoDB> dbMap = Collections.synchronizedMap(new HashMap<String, FongoDB>());
   private final ServerAddress serverAddress;
   private final MongoClient mongo;
   private final String name;
+  private final ServerVersion serverVersion;
 
   /**
    * @param name Used only for a nice toString in case you have multiple instances
    */
-  public Fongo(String name) {
+  public Fongo(final String name) {
+    this(name, DEFAULT_SERVER_VERSION);
+  }
+
+  /**
+   * @param name Used only for a nice toString in case you have multiple instances
+   */
+  public Fongo(final String name, final ServerVersion serverVersion) {
     this.name = name;
     this.serverAddress = new ServerAddress(new InetSocketAddress(ServerAddress.defaultHost(), ServerAddress.defaultPort()));
+    this.serverVersion = serverVersion;
     this.mongo = createMongo();
   }
 
@@ -195,5 +208,9 @@ public class Fongo implements OperationExecutor {
   @Override
   public String toString() {
     return "Fongo (" + this.name + ")";
+  }
+
+  public ServerVersion getServerVersion() {
+    return serverVersion;
   }
 }

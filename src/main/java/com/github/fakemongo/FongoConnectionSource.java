@@ -7,7 +7,6 @@ import com.mongodb.binding.ConnectionSource;
 import com.mongodb.connection.Connection;
 import com.mongodb.connection.ServerConnectionState;
 import com.mongodb.connection.ServerDescription;
-import com.mongodb.connection.ServerVersion;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,7 +24,7 @@ class FongoConnectionSource implements ConnectionSource {
 
   @Override
   public ServerDescription getServerDescription() {
-    return ServerDescription.builder().address(fongo.getServerAddress()).state(ServerConnectionState.CONNECTED).version(new ServerVersion(3, 0)).build();
+    return ServerDescription.builder().address(fongo.getServerAddress()).state(ServerConnectionState.CONNECTED).version(fongo.getServerVersion()).build();
   }
 
   @Override

@@ -1,3 +1,6 @@
+/**
+ * Copyright (C) 2015 Deveryware S.A. All Rights Reserved.
+ */
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
@@ -23,10 +26,12 @@ import static com.mongodb.client.model.Sorts.descending;
 import com.mongodb.client.model.UpdateOneModel;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
+import com.mongodb.connection.ServerVersion;
 import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.asList;
 import java.util.List;
+import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
 import org.bson.Document;
@@ -37,14 +42,18 @@ import org.junit.rules.ExpectedException;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 
-public class FongoV3Test {
-
-  public final FongoRule fongoRule = new FongoRule(false);
+/**
+ *
+ */
+public abstract class AbstractFongoV3Test {
+  public final FongoRule fongoRule = new FongoRule(false, serverVersion());
 
   public final ExpectedException exception = ExpectedException.none();
 
   @Rule
   public TestRule rules = RuleChain.outerRule(exception).around(fongoRule);
+
+  abstract ServerVersion serverVersion();
 
   @Test
   public void getCollection_works() {
@@ -177,7 +186,7 @@ public class FongoV3Test {
     final FindIterable<Document> documents = collection.find(eq("_id", 1));
 
     // Then
-    assertThat(toList(documents)).containsExactly(docId(1));
+    Assertions.assertThat(toList(documents)).containsExactly(docId(1));
   }
 
   @Test
@@ -190,7 +199,7 @@ public class FongoV3Test {
     final FindIterable<Document> documents = collection.find().sort(descending("_id"));
 
     // Then
-    assertThat(toList(documents)).containsExactly(docId(2), docId(1));
+    Assertions.assertThat(toList(documents)).containsExactly(docId(2), docId(1));
   }
 
   @Test
@@ -284,10 +293,11 @@ public class FongoV3Test {
     final UpdateResult updateResult = collection.updateOne(docId(2), new Document("$set", new Document("b", 8)));
 
     // Then
-    assertThat(toList(collection.find(docId(2)))).containsExactly(docId(2).append("b", 8));
+    Assertions.assertThat(toList(collection.find(docId(2)))).containsExactly(docId(2).append("b", 8));
     assertThat(updateResult.getMatchedCount()).isEqualTo(1);
-//    assertThat(updateResult.getModifiedCount()).isEqualTo(1);
     assertThat(updateResult.getUpsertedId()).isNull();
+    Assume.assumeFalse(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
+    assertThat(updateResult.getModifiedCount()).isEqualTo(1);
   }
 
   @Test
@@ -319,7 +329,7 @@ public class FongoV3Test {
     final DeleteResult deleteResult = collection.deleteOne(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    Assertions.assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(deleteResult.getDeletedCount()).isEqualTo(1L);
   }
 
@@ -355,7 +365,7 @@ public class FongoV3Test {
     final DeleteResult deleteResult = collection.deleteMany(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(docId(1), docId(4), docId(5).append("b", 6));
+    Assertions.assertThat(toList(collection.find())).containsExactly(docId(1), docId(4), docId(5).append("b", 6));
     assertThat(deleteResult.getDeletedCount()).isEqualTo(2L);
   }
 
@@ -373,7 +383,7 @@ public class FongoV3Test {
     final Document deleted = collection.findOneAndDelete(new Document("b", 5));
 
     // Then
-    assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
+    Assertions.assertThat(toList(collection.find())).containsExactly(docId(1), docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(deleted).isEqualTo(docId(2).append("b", 5));
   }
 
@@ -391,7 +401,7 @@ public class FongoV3Test {
     final Document deleted = collection.findOneAndReplace(new Document("b", 5), docId(2).append("c", 8));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("c", 8),
+    Assertions.assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(deleted).isEqualTo(docId(2).append("b", 5));
   }
@@ -410,7 +420,7 @@ public class FongoV3Test {
     final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", docId(2).append("c", 8)));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+    Assertions.assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(updated).isEqualTo(docId(2).append("b", 5));
   }
@@ -429,7 +439,7 @@ public class FongoV3Test {
     final Document updated = collection.findOneAndUpdate(new Document("b", 5), new Document("$set", new Document("c", 8)));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+    Assertions.assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(updated).isEqualTo(docId(2).append("b", 5));
   }
@@ -449,7 +459,7 @@ public class FongoV3Test {
         new FindOneAndUpdateOptions().sort(descending("_id")));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5),
+    Assertions.assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5),
         docId(3).append("b", 5).append("c", 8), docId(4), docId(5).append("b", 6));
     assertThat(updated).isEqualTo(docId(3).append("b", 5));
   }
@@ -469,7 +479,7 @@ public class FongoV3Test {
         new FindOneAndUpdateOptions().projection(Projections.include("c")).returnDocument(ReturnDocument.AFTER));
 
     // Then
-    assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
+    Assertions.assertThat(toList(collection.find())).containsOnly(docId(1), docId(2).append("b", 5).append("c", 8),
         docId(3).append("b", 5), docId(4), docId(5).append("b", 6));
     assertThat(updated).isEqualTo(docId(2).append("c", 8));
   }
@@ -547,7 +557,7 @@ public class FongoV3Test {
     final DistinctIterable distinctIterable = collection.distinct("b", Integer.class);
 
     // Then
-    assertThat(toList(distinctIterable)).containsExactly(5, 6);
+    Assertions.assertThat(toList(distinctIterable)).containsExactly(5, 6);
   }
 
   @Test
@@ -581,7 +591,7 @@ public class FongoV3Test {
     final DistinctIterable distinctIterable = collection.distinct("b", Integer.class);
 
     // Then
-    assertThat(toList(distinctIterable.filter(docId(5)))).containsExactly(6);
+    Assertions.assertThat(toList(distinctIterable.filter(docId(5)))).containsExactly(6);
   }
 
   @Test
@@ -600,7 +610,7 @@ public class FongoV3Test {
     collection.createIndex(new Document("b", 1), new IndexOptions().name("b").unique(false));
 
     // Then
-    assertThat(toList(collection.listIndexes())).containsExactly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()),
+    Assertions.assertThat(toList(collection.listIndexes())).containsExactly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()),
         new Document("v", 1).append("key", new Document("b", 1)).append("name", "b").append("ns", collection.getNamespace().getDatabaseName() + "." + collection.getNamespace().getCollectionName()));
   }
 
@@ -627,7 +637,7 @@ public class FongoV3Test {
 
 
     // Then
-    assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
+    Assertions.assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
         docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
   }
 
@@ -655,7 +665,7 @@ public class FongoV3Test {
     final AggregateIterable<Document> aggregate = mongoCollection.aggregate(Lists.newArrayList(new Document("$match", new Document("_id", expected))));
 
     // Then
-    assertThat(toList(aggregate)).containsOnly(docId(expected));
+    Assertions.assertThat(toList(aggregate)).containsOnly(docId(expected));
   }
 
   @Test
@@ -672,6 +682,36 @@ public class FongoV3Test {
 
     // Then
     assertThat(d.get("test")).isInstanceOf(Long.class).isEqualTo(1L);
+  }
+
+  @Test
+  public void should_modifiedCount_retrieve_the_right_value() {
+    Assume.assumeFalse(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
+    // Given
+    MongoCollection<Document> col = newCollection();
+    col.insertOne(new Document("key", "value"));
+
+    // When
+    UpdateResult result = col.updateOne(eq("key", "value"), new Document("$set", new Document("key", "value2")));
+
+    // Then
+    assertThat(result.getModifiedCount()).isEqualTo(1);
+  }
+
+
+  @Test
+  public void should_findOneAndReplace_not_found_do_nothing() {
+    // Given
+    MongoCollection<Document> col = newCollection();
+    final Document document = new Document("_id", 1).append("key", "value");
+    col.insertOne(document);
+
+    // When
+    final Document oneAndReplace = col.findOneAndReplace(eq("key", "other_value"), new Document("key", "value2"));
+
+    // When
+    assertThat(oneAndReplace).isNull();
+    assertThat(toList(col.find())).containsOnly(document);
   }
 
   private Document docId(final Object value) {

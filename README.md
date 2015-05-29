@@ -119,7 +119,7 @@ If you use Spring, you can configure fongo in your XML configuration context:
 
 ## Junit
 
-If you use JUnit in your project, you can use Rule to instanciate a `Fongo` object :
+If you use JUnit in your project, you can use Rule to instantiate a `Fongo` object :
 
 ```java
 @Rule
@@ -135,6 +135,15 @@ public FongoRule fongoRule = new FongoRule(true);
 
 WARNING : In this case, the database WILL BE DROPPED when test is finish.
 So, use a random database name (e.g. UUID), BUT NOT your real database.
+
+You can specify the version of the database with :
+
+```java
+@Rule
+public FongoRule fongoRule = new FongoRule(new ServerVersion(2, 6));
+```
+
+In this case, the drivers didn't handle queries with the same way.
 
 ## Text Search Simulation
 Fongo simulates [text search](http://docs.mongodb.org/manual/reference/command/text/) now.

@@ -29,7 +29,16 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.bson.BSON;
+import org.bson.BsonArray;
+import org.bson.BsonDocument;
+import org.bson.BsonDocumentReader;
+import org.bson.BsonDocumentWriter;
+import org.bson.BsonObjectId;
 import org.bson.BsonValue;
+import org.bson.codecs.Codec;
+import org.bson.codecs.Decoder;
+import org.bson.codecs.DecoderContext;
+import org.bson.codecs.EncoderContext;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
 import org.bson.types.Binary;
@@ -231,6 +240,7 @@ public class FongoDBCollection extends DBCollection {
     int updatedDocuments = 0;
     boolean idOnlyUpdate = q.containsField(ID_FIELD_NAME) && q.keySet().size() == 1;
     boolean updatedExisting = false;
+    Object upsertedId = null;
 
     if (idOnlyUpdate && isNotUpdateCommand(o)) {
       if (!o.containsField(ID_FIELD_NAME)) {
@@ -264,9 +274,10 @@ public class FongoDBCollection extends DBCollection {
 
         updatedDocuments++;
         updatedExisting = false;
+        upsertedId = q.get(ID_FIELD_NAME);
       }
     }
-    return updateResult(updatedDocuments, updatedExisting, o.get(ID_FIELD_NAME));
+    return updateResult(updatedDocuments, updatedExisting, upsertedId);
   }
 
 
@@ -1090,9 +1101,11 @@ public class FongoDBCollection extends DBCollection {
         wr = update(r.getQuery(), r.getDocument(), r.isUpsert(), /* r.isMulti()*/ false, writeConcern, null);
         matchedCount += wr.getN();
         if (wr.isUpdateOfExisting()) {
-          upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-        } else {
           modifiedCount += wr.getN();
+        } else {
+          if (wr.getUpsertedId() != null) {
+            upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+          }
         }
       } else if (req instanceof UpdateRequest) {
         UpdateRequest r = (UpdateRequest) req;
@@ -1102,9 +1115,11 @@ public class FongoDBCollection extends DBCollection {
         wr = update(r.getQuery(), r.getUpdate(), r.isUpsert(), r.isMulti(), writeConcern, null);
         matchedCount += wr.getN();
         if (wr.isUpdateOfExisting()) {
-          upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-        } else {
           modifiedCount += wr.getN();
+        } else {
+          if (wr.getUpsertedId() != null) {
+            upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+          }
         }
       } else if (req instanceof RemoveRequest) {
         RemoveRequest r = (RemoveRequest) req;
@@ -1346,4 +1361,131 @@ public class FongoDBCollection extends DBCollection {
         command.getFinalize(), command.getScope(), out, command.getQuery(), command.getSort(), command.getLimit());
     return mapReduce.computeResult();
   }
+
+  public static DBObject dbObject(BsonDocument document) {
+    if (document == null) {
+      return null;
+    }
+    return MongoClient.getDefaultCodecRegistry().get(DBObject.class).decode(new BsonDocumentReader(document),
+        decoderContext());
+  }
+
+  public static <T> List<T> decode(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
+    final List<T> list = new ArrayList<T>();
+    for (final DBObject object : objects) {
+      list.add(decode(object, resultDecoder));
+    }
+    return list;
+  }
+
+  public static <T> T decode(DBObject object, Decoder<T> resultDecoder) {
+    final BsonDocument document = bsonDocument(object);
+    return resultDecoder.decode(new BsonDocumentReader(document), decoderContext());
+  }
+
+  public static DecoderContext decoderContext() {
+    return DecoderContext.builder().build();
+  }
+
+  public static DBObject dbObject(final BsonDocument queryDocument, final String key) {
+    return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
+  }
+
+  public static List<DBObject> dbObjects(final BsonDocument queryDocument, final String key) {
+    final BsonArray values = queryDocument.containsKey(key) ? queryDocument.getArray(key) : null;
+    if (values == null) {
+      return null;
+    }
+    List<DBObject> list = new ArrayList<DBObject>();
+    for (BsonValue value : values) {
+      list.add(dbObject((BsonDocument) value));
+    }
+    return list;
+  }
+
+  public static BsonDocument bsonDocument(DBObject dbObject) {
+    if (dbObject == null) {
+      return null;
+    }
+
+    final BsonDocument bsonDocument = new BsonDocument();
+    MongoClient.getDefaultCodecRegistry().get(DBObject.class)
+        .encode(new BsonDocumentWriter(bsonDocument), dbObject, EncoderContext.builder().build());
+
+    return bsonDocument;
+  }
+
+  public static List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {
+    if (dbObjects == null) {
+      return null;
+    }
+    List<BsonDocument> list = new ArrayList<BsonDocument>();
+    for (DBObject dbObject : dbObjects) {
+      list.add(bsonDocument(dbObject));
+    }
+    return list;
+  }
+
+
+  static com.mongodb.BulkWriteResult translateBulkWriteResult(final com.mongodb.bulk.BulkWriteResult bulkWriteResult,
+                                                              final Decoder<DBObject> decoder) {
+    if (bulkWriteResult.wasAcknowledged()) {
+      Integer modifiedCount = (bulkWriteResult.isModifiedCountAvailable()) ? bulkWriteResult.getModifiedCount() : null;
+      return new AcknowledgedBulkWriteResult(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount(),
+          bulkWriteResult.getDeletedCount(), modifiedCount,
+          translateBulkWriteUpserts(bulkWriteResult.getUpserts(), decoder));
+    } else {
+      return new UnacknowledgedBulkWriteResult();
+    }
+  }
+
+  public static List<com.mongodb.BulkWriteUpsert> translateBulkWriteUpserts(final List<com.mongodb.bulk.BulkWriteUpsert> upserts,
+                                                                            final Decoder<DBObject> decoder) {
+    List<com.mongodb.BulkWriteUpsert> retVal = new ArrayList<com.mongodb.BulkWriteUpsert>(upserts.size());
+    for (com.mongodb.bulk.BulkWriteUpsert cur : upserts) {
+      retVal.add(new com.mongodb.BulkWriteUpsert(cur.getIndex(), getUpsertedId(cur, decoder)));
+    }
+    return retVal;
+  }
+
+  public static List<com.mongodb.bulk.BulkWriteUpsert> translateBulkWriteUpsertsToNew(final List<com.mongodb.BulkWriteUpsert> upserts,
+                                                                                      final Decoder<BsonValue> decoder) {
+    List<com.mongodb.bulk.BulkWriteUpsert> retVal = new ArrayList<com.mongodb.bulk.BulkWriteUpsert>(upserts.size());
+    for (com.mongodb.BulkWriteUpsert cur : upserts) {
+      retVal.add(new com.mongodb.bulk.BulkWriteUpsert(cur.getIndex(), new BsonObjectId((ObjectId) cur.getId())));
+    }
+    return retVal;
+  }
+
+  public static Object getUpsertedId(final com.mongodb.bulk.BulkWriteUpsert cur, final Decoder<DBObject> decoder) {
+    return decoder.decode(new BsonDocumentReader(new BsonDocument("_id", cur.getId())), decoderContext()).get("_id");
+  }
+
+  public static BulkWriteException translateBulkWriteException(final MongoBulkWriteException e, final Decoder<DBObject> decoder) {
+    return new BulkWriteException(translateBulkWriteResult(e.getWriteResult(), decoder), translateWriteErrors(e.getWriteErrors()),
+        translateWriteConcernError(e.getWriteConcernError()), e.getServerAddress());
+  }
+
+  public static WriteConcernError translateWriteConcernError(final com.mongodb.bulk.WriteConcernError writeConcernError) {
+    return writeConcernError == null ? null : new WriteConcernError(writeConcernError.getCode(), writeConcernError.getMessage(),
+        dbObject(writeConcernError.getDetails()));
+  }
+
+  public static List<BulkWriteError> translateWriteErrors(final List<com.mongodb.bulk.BulkWriteError> errors) {
+    List<BulkWriteError> retVal = new ArrayList<BulkWriteError>(errors.size());
+    for (com.mongodb.bulk.BulkWriteError cur : errors) {
+      retVal.add(new BulkWriteError(cur.getCode(), cur.getMessage(), dbObject(cur.getDetails()), cur.getIndex()));
+    }
+    return retVal;
+  }
+
+  public static List<com.mongodb.bulk.WriteRequest> translateWriteRequestsToNew(final List<com.mongodb.WriteRequest> writeRequests,
+                                                                                final Codec<DBObject> objectCodec) {
+    List<com.mongodb.bulk.WriteRequest> retVal = new ArrayList<com.mongodb.bulk.WriteRequest>(writeRequests.size());
+    for (com.mongodb.WriteRequest cur : writeRequests) {
+      retVal.add(cur.toNew());
+    }
+    return retVal;
+  }
+
 }
