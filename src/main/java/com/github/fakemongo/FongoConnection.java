@@ -263,8 +263,7 @@ public class FongoConnection implements Connection {
   }
 
   private <T> T decode(DBObject object, Decoder<T> resultDecoder) {
-    BsonDocument document = new BsonDocument();
-    MongoClient.getDefaultCodecRegistry().get(DBObject.class).encode(new BsonDocumentWriter(document), object, EncoderContext.builder().build());
+    final BsonDocument document = bsonDocument(object);
     return resultDecoder.decode(new BsonDocumentReader(document), decoderContext());
   }
 
@@ -292,7 +291,12 @@ public class FongoConnection implements Connection {
     if (dbObject == null) {
       return null;
     }
-    return BsonDocument.parse(dbObject.toString());
+
+    final BsonDocument bsonDocument = new BsonDocument();
+    MongoClient.getDefaultCodecRegistry().get(DBObject.class)
+        .encode(new BsonDocumentWriter(bsonDocument), dbObject, EncoderContext.builder().build());
+
+    return bsonDocument;
   }
 
   private List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {

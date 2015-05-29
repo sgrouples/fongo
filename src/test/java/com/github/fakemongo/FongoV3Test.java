@@ -658,6 +658,22 @@ public class FongoV3Test {
     assertThat(toList(aggregate)).containsOnly(docId(expected));
   }
 
+  @Test
+  public void should_get_right_type() {
+    // Given
+    final MongoCollection<Document> mongoCollection = newCollection();
+    Document d = new Document("test", 1l);
+    mongoCollection.insertOne(d);
+    d = mongoCollection.find(new Document("test", 1l)).first();
+    assertThat(d.get("test")).isEqualTo(1L);
+
+    // When
+    d = mongoCollection.findOneAndUpdate(new Document("test", 1l), new Document("$set", new Document("test", 1l)));
+
+    // Then
+    assertThat(d.get("test")).isInstanceOf(Long.class).isEqualTo(1L);
+  }
+
   private Document docId(final Object value) {
     return new Document("_id", value);
   }
