@@ -296,8 +296,9 @@ public abstract class AbstractFongoV3Test {
     Assertions.assertThat(toList(collection.find(docId(2)))).containsExactly(docId(2).append("b", 8));
     assertThat(updateResult.getMatchedCount()).isEqualTo(1);
     assertThat(updateResult.getUpsertedId()).isNull();
-    Assume.assumeFalse(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
-    assertThat(updateResult.getModifiedCount()).isEqualTo(1);
+    if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
+      assertThat(updateResult.getModifiedCount()).isEqualTo(1);
+    }
   }
 
   @Test
@@ -712,6 +713,25 @@ public abstract class AbstractFongoV3Test {
     // When
     assertThat(oneAndReplace).isNull();
     assertThat(toList(col.find())).containsOnly(document);
+  }
+
+  @Test
+  public void should_replaceOne_replace_document() {
+    // Given
+    MongoCollection<Document> col = newCollection();
+    final Document document = new Document("_id", 1).append("key", "value");
+    col.insertOne(document);
+
+    // When
+    final UpdateResult updateResult = col.replaceOne(eq("_id", 1), new Document("key", "value2"));
+
+    // When
+    assertThat(toList(col.find())).containsOnly(new Document("_id", 1).append("key", "value2"));
+    assertThat(updateResult.getMatchedCount()).isEqualTo(1L);
+    assertThat(updateResult.getUpsertedId()).isNull();
+    if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
+      assertThat(updateResult.getModifiedCount()).isEqualTo(0L);
+    }
   }
 
   private Document docId(final Object value) {
