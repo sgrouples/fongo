@@ -8,6 +8,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.github.fakemongo.Fongo;
@@ -24,7 +26,7 @@ public class FongoDB extends DB {
   private final static Logger LOG = LoggerFactory.getLogger(FongoDB.class);
   public static final String SYSTEM_NAMESPACES = "system.namespaces";
 
-  private final Map<String, FongoDBCollection> collMap = Collections.synchronizedMap(new HashMap<String, FongoDBCollection>());
+  private final Map<String, FongoDBCollection> collMap = new ConcurrentHashMap<String, FongoDBCollection>();
   private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
   private final Fongo fongo;
 
@@ -380,7 +382,7 @@ public class FongoDB extends DB {
     this.namespaceDeclarated.remove(collection.getFullName());
   }
 
-  public synchronized void addCollection(FongoDBCollection collection) {
+  public void addCollection(FongoDBCollection collection) {
     this.collMap.put(collection.getName(), collection);
     if (!collection.getName().startsWith("system.")) {
       if (!this.namespaceDeclarated.contains(collection.getFullName())) {

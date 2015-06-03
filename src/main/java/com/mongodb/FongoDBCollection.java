@@ -1169,7 +1169,7 @@ public class FongoDBCollection extends DBCollection {
    * @param object    new object to insert.
    * @param oldObject null if insert, old object if update.
    */
-  private synchronized void addToIndexes(DBObject object, DBObject oldObject, WriteConcern concern) {
+  private void addToIndexes(DBObject object, DBObject oldObject, WriteConcern concern) {
     // Ensure "insert/update" create collection into "fongoDB"
     // First, try to see if index can add the new value.
     for (IndexAbstract index : indexes) {
