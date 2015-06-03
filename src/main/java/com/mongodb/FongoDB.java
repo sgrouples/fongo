@@ -15,6 +15,8 @@ import org.bson.BsonDocument;
 import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,7 +30,7 @@ public class FongoDB extends DB {
   private final static Logger LOG = LoggerFactory.getLogger(FongoDB.class);
   public static final String SYSTEM_NAMESPACES = "system.namespaces";
 
-  private final Map<String, FongoDBCollection> collMap = Collections.synchronizedMap(new HashMap<String, FongoDBCollection>());
+  private final Map<String, FongoDBCollection> collMap = new ConcurrentHashMap<String, FongoDBCollection>();
   private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
   final Fongo fongo;
 
@@ -446,7 +448,7 @@ public class FongoDB extends DB {
     this.namespaceDeclarated.remove(collection.getFullName());
   }
 
-  public synchronized void addCollection(FongoDBCollection collection) {
+  public void addCollection(FongoDBCollection collection) {
     this.collMap.put(collection.getName(), collection);
     if (!collection.getName().startsWith("system.")) {
       if (!this.namespaceDeclarated.contains(collection.getFullName())) {

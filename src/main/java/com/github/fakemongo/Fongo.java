@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Faked out version of com.mongodb.Mongo
@@ -49,7 +50,7 @@ public class Fongo implements OperationExecutor {
   public static final ServerVersion DEFAULT_SERVER_VERSION = new ServerVersion(3, 0);
   public static final ServerVersion OLD_SERVER_VERSION = new ServerVersion(0, 0);
 
-  private final Map<String, FongoDB> dbMap = Collections.synchronizedMap(new HashMap<String, FongoDB>());
+  private final Map<String, FongoDB> dbMap = new ConcurrentHashMap<String, FongoDB>();
   private final ServerAddress serverAddress;
   private final MongoClient mongo;
   private final String name;
