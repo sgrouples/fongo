@@ -33,7 +33,6 @@ import org.bson.BsonArray;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
-import org.bson.BsonObjectId;
 import org.bson.BsonValue;
 import org.bson.codecs.Codec;
 import org.bson.codecs.Decoder;
@@ -1100,9 +1099,8 @@ public class FongoDBCollection extends DBCollection {
         _checkObject(r.getDocument(), false, false);
         wr = update(r.getQuery(), r.getDocument(), r.isUpsert(), /* r.isMulti()*/ false, writeConcern, null);
         matchedCount += wr.getN();
-        if (wr.isUpdateOfExisting()) {
-          modifiedCount += wr.getN();
-        } else {
+        modifiedCount += wr.getN();
+        if (!wr.isUpdateOfExisting()) {
           if (wr.getUpsertedId() != null) {
             upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
           }
@@ -1119,6 +1117,7 @@ public class FongoDBCollection extends DBCollection {
         } else {
           if (wr.getUpsertedId() != null) {
             upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
+//            insertedCount++;
           }
         }
       } else if (req instanceof RemoveRequest) {
@@ -1452,7 +1451,8 @@ public class FongoDBCollection extends DBCollection {
                                                                                       final Decoder<BsonValue> decoder) {
     List<com.mongodb.bulk.BulkWriteUpsert> retVal = new ArrayList<com.mongodb.bulk.BulkWriteUpsert>(upserts.size());
     for (com.mongodb.BulkWriteUpsert cur : upserts) {
-      retVal.add(new com.mongodb.bulk.BulkWriteUpsert(cur.getIndex(), new BsonObjectId((ObjectId) cur.getId())));
+      final BsonDocument document = bsonDocument(new BasicDBObject("_id", cur.getId()));
+      retVal.add(new com.mongodb.bulk.BulkWriteUpsert(cur.getIndex(), document.get("_id")));
     }
     return retVal;
   }

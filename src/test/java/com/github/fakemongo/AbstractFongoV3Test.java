@@ -24,6 +24,7 @@ import com.mongodb.client.model.ReturnDocument;
 import static com.mongodb.client.model.Sorts.ascending;
 import static com.mongodb.client.model.Sorts.descending;
 import com.mongodb.client.model.UpdateOneModel;
+import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.result.DeleteResult;
 import com.mongodb.client.result.UpdateResult;
 import com.mongodb.connection.ServerVersion;
@@ -34,6 +35,7 @@ import java.util.List;
 import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
+import org.bson.BsonString;
 import org.bson.Document;
 import org.junit.Assume;
 import org.junit.Rule;
@@ -730,7 +732,29 @@ public abstract class AbstractFongoV3Test {
     assertThat(updateResult.getMatchedCount()).isEqualTo(1L);
     assertThat(updateResult.getUpsertedId()).isNull();
     if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
-      assertThat(updateResult.getModifiedCount()).isEqualTo(0L);
+      assertThat(updateResult.getModifiedCount()).isEqualTo(1L);
+    }
+  }
+
+  @Test
+  public void should_upsert_when_update() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+
+    //Database is empty. Not present document with (_id: '123')
+    Document query = new Document("_id", "123");
+    Document update = new Document("$set", new Document("name", "Emil"));
+
+    // When
+    final UpdateResult updateResult = collection.updateOne(query, update, new UpdateOptions().upsert(true));
+
+    // Then
+    assertThat(updateResult).isNotNull();
+    assertThat(toList(collection.find())).containsOnly(new Document("_id", "123").append("name", "Emil"));
+    assertThat(updateResult.getUpsertedId()).isEqualTo(new BsonString("123"));
+    assertThat(updateResult.getMatchedCount()).isEqualTo(0);
+    if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
+      assertThat(updateResult.getModifiedCount()).isEqualTo(0);
     }
   }
 

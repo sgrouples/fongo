@@ -4,7 +4,9 @@
 package com.github.fakemongo;
 
 import com.mongodb.AggregationOutput;
+import com.mongodb.BulkUpdateRequestBuilder;
 import com.mongodb.BulkWriteOperation;
+import com.mongodb.BulkWriteRequestBuilder;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -127,11 +129,13 @@ public class FongoConnection implements Connection {
           throw new IllegalArgumentException("Invalid BSON field name " + updateName);
         }
       }
-      final WriteResult writeResult = collection.update(dbObject(update.getFilter()), dbObject(update.getUpdate()));
+      final WriteResult writeResult = collection.update(dbObject(update.getFilter()), dbObject(update.getUpdate()), update.isUpsert(), update.isMulti());
       if (writeResult.isUpdateOfExisting()) {
         isUpdateOfExisting = true;
+        count += writeResult.getN();
+      } else {
+        count++;
       }
-      count += writeResult.getN();
     }
     if (writeConcern.isAcknowledged()) {
       return WriteConcernResult.acknowledged(count, isUpdateOfExisting, upsertedId);
@@ -216,9 +220,24 @@ public class FongoConnection implements Connection {
         case INSERT:
           bulkWriteOperation.insert(dbObject(update.getUpdate()));
           break;
-        case UPDATE:
-          bulkWriteOperation.find(dbObject((update.getFilter()))).updateOne(dbObject(update.getUpdate()));
-          break;
+        case UPDATE: {
+          if (update.isUpsert()) {
+            final BulkUpdateRequestBuilder upsert = bulkWriteOperation.find(dbObject((update.getFilter()))).upsert();
+            if (update.isMulti()) {
+              upsert.update(dbObject(update.getUpdate()));
+            } else {
+              upsert.updateOne(dbObject(update.getUpdate()));
+            }
+          } else {
+            BulkWriteRequestBuilder bulkWriteRequestBuilder = bulkWriteOperation.find(dbObject((update.getFilter())));
+            if (update.isMulti()) {
+              bulkWriteRequestBuilder.update(dbObject(update.getUpdate()));
+            } else {
+              bulkWriteRequestBuilder.updateOne(dbObject(update.getUpdate()));
+            }
+          }
+        }
+        break;
         case DELETE:
           bulkWriteOperation.find(dbObject((update.getFilter()))).removeOne();
       }
@@ -375,7 +394,7 @@ public class FongoConnection implements Connection {
     if (!bulkWriteResult.isAcknowledged()) {
       return BulkWriteResult.unacknowledged();
     }
-    return BulkWriteResult.acknowledged(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount(), bulkWriteResult.getRemovedCount(), bulkWriteResult.getModifiedCount(), FongoDBCollection.translateBulkWriteUpsertsToNew(bulkWriteResult.getUpserts(), null));
+    return BulkWriteResult.acknowledged(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount() - bulkWriteResult.getUpserts().size(), bulkWriteResult.getRemovedCount(), bulkWriteResult.getModifiedCount(), FongoDBCollection.translateBulkWriteUpsertsToNew(bulkWriteResult.getUpserts(), null));
   }
 
 }

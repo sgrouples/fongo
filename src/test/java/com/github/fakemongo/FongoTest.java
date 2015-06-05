@@ -916,11 +916,12 @@ public class FongoTest {
 
     DBObject update = BasicDBObjectBuilder.start().push("$inc").append("n.!", 1).append("n.a.b:false", 1).pop().get();
     final WriteResult result = collection.update(query, update, true, false);
-    assertFalse(result.isUpdateOfExisting());
-    assertTrue(result.getN() == 1);
+    assertThat(result).isNotNull();
+    assertThat(result.isUpdateOfExisting()).isFalse();
+    assertThat(result.getN()).isEqualTo(1);
 
     DBObject expected = queryBuilder.push("n").append("!", 1).push("a").append("b:false", 1).pop().pop().get();
-    assertEquals(expected, collection.findOne());
+    assertThat(collection.findOne()).isEqualTo(expected);
   }
 
   // TODO WDEL
