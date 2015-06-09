@@ -843,4 +843,19 @@ public class FongoIndexTest {
     Assertions.assertThat(collection2.getIndexInfo()).hasSize(2);
   }
 
+  @Test
+  public void should_not_drop_interfer_between_collection() {
+    // Given
+    DBCollection collection1 = fongoRule.newCollection();
+    DBCollection collection2 = fongoRule.newCollection();
+    collection1.createIndex(new BasicDBObject("date", 1));
+    collection2.createIndex(new BasicDBObject("date", 1));
+
+    // When
+    collection1.drop();
+
+    // Then
+    Assertions.assertThat(collection2.getIndexInfo()).hasSize(2);
+    // Assertions.assertThat(collection1.getIndexInfo()).hasSize(0);
+  }
 }
