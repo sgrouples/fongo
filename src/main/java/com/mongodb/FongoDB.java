@@ -127,7 +127,7 @@ public class FongoDB extends DB {
   }
 
   @Override
-  public void dropDatabase() throws MongoException {
+  public synchronized void dropDatabase() throws MongoException {
     this.fongo.dropDatabase(this.getName());
     for (FongoDBCollection c : new ArrayList<FongoDBCollection>(collMap.values())) {
       c.drop();
