@@ -1277,9 +1277,9 @@ public class FongoDBCollection extends DBCollection {
     }
 
     //     Set<String> queryFields = object.keySet();
-    DBObject idFirst = Util.cloneIdFirst(object);
+    final DBObject idFirst = Util.cloneIdFirst(object);
     try {
-      for (IndexAbstract index : indexes) {
+      for (final IndexAbstract index : indexes) {
         if (index.canHandle(object)) {
           index.addOrUpdate(idFirst, oldObject);
         } else if (index.canHandle(oldObject))
