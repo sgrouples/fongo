@@ -145,6 +145,9 @@ public class MockMongoClient extends MongoClient {
     return fongo;
   }
 
+  @Override
+  public void close() {
+  }
 
   @Override
   synchronized BufferProvider getBufferProvider() {

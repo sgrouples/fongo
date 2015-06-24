@@ -3101,6 +3101,14 @@ public class FongoTest {
     assertThat(count).isEqualTo(0);
   }
 
+  /**
+   * see https://github.com/fakemongo/fongo/issues/122
+   */
+  @Test
+  public void should_close_works() {
+    newFongo().getMongo().close();
+  }
+
   static class Seq {
     Object[] data;
 
