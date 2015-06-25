@@ -240,6 +240,16 @@ public class FongoTest {
   }
 
   @Test
+  public void testFindOneNorId() {
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2));
+    collection.insert(new BasicDBObject("_id", 3));
+    DBObject result = collection.findOne(new BasicDBObject("$nor", Util.list(new BasicDBObject("_id", 1), new BasicDBObject("_id", 2))));
+    assertEquals(new BasicDBObject("_id", 3), result);
+  }
+
+  @Test
   public void testFindOneOrId() {
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1));
@@ -3090,15 +3100,55 @@ public class FongoTest {
     DBCollection collection = newCollection();
 
     DBObject[] sub = new DBObject[0];
-    DBObject query = QueryBuilder.start().or(sub).get();
-//    ExpectedMongoException.expectCommandFailure(exception, 2);
-//    exception.expectMessage("$and/$or/$nor must be a nonempty array");
+    DBObject query = QueryBuilder.start().and(sub).get();
+    ExpectedMongoException.expectMongoCommandException(exception, 2);
+    exception.expectMessage("$and/$or/$nor must be a nonempty array");
 
     // When
-    final long count = collection.count(query);
+    collection.count(query);
 
     // Then
-    assertThat(count).isEqualTo(0);
+//    assertThat(count).isEqualTo(0);
+  }
+
+  /**
+   * see https://github.com/fakemongo/fongo/issues/110
+   */
+  @Test
+  public void should_$or_on_an_array_throw_exception() {
+    // Given
+    DBCollection collection = newCollection();
+
+    DBObject[] sub = new DBObject[0];
+    DBObject query = QueryBuilder.start().or(sub).get();
+    ExpectedMongoException.expectMongoCommandException(exception, 2);
+    exception.expectMessage("$and/$or/$nor must be a nonempty array");
+
+    // When
+    collection.count(query);
+
+    // Then
+//    assertThat(count).isEqualTo(0);
+  }
+
+  /**
+   * see https://github.com/fakemongo/fongo/issues/110
+   */
+  @Test
+  public void should_$nor_on_an_array_throw_exception() {
+    // Given
+    DBCollection collection = newCollection();
+
+    DBObject[] sub = new DBObject[0];
+    DBObject query = new BasicDBObject("$nor", sub);
+    ExpectedMongoException.expectMongoCommandException(exception, 2);
+    exception.expectMessage("$and/$or/$nor must be a nonempty array");
+
+    // When
+    collection.count(query);
+
+    // Then
+//    assertThat(count).isEqualTo(0);
   }
 
   /**

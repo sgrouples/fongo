@@ -251,7 +251,7 @@ public class FongoDBCollection extends DBCollection {
       addToIndexes(Util.clone(o), oldObjects.hasNext() ? oldObjects.next() : null, concern);
       updatedDocuments++;
     } else {
-      Filter filter = expressionParser.buildFilter(q);
+      Filter filter = buildFilter(q);
       for (DBObject obj : filterByIndexes(q)) {
         if (filter.apply(obj)) {
           DBObject newObject = Util.clone(obj);
@@ -278,7 +278,6 @@ public class FongoDBCollection extends DBCollection {
     }
     return updateResult(updatedDocuments, updatedExisting, upsertedId);
   }
-
 
   protected DBObject _checkObject(DBObject o, boolean canBeNull, boolean query) {
     if (o == null) {
@@ -421,7 +420,7 @@ public class FongoDBCollection extends DBCollection {
     }
     int updatedDocuments = 0;
     Collection<DBObject> objectsByIndex = filterByIndexes(o);
-    Filter filter = expressionParser.buildFilter(o);
+    Filter filter = buildFilter(o);
     List<DBObject> ids = new ArrayList<DBObject>();
     // Double pass, objectsByIndex can be not "objects"
     for (DBObject object : objectsByIndex) {
@@ -558,7 +557,7 @@ public class FongoDBCollection extends DBCollection {
       ref = (DBObject) ref.get("$query");
     }
 
-    Filter filter = expressionParser.buildFilter(ref);
+    Filter filter = buildFilter(ref);
     int foundCount = 0;
     int upperLimit = Integer.MAX_VALUE;
     if (limit > 0) {
@@ -976,7 +975,7 @@ public class FongoDBCollection extends DBCollection {
                              final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
                              final BsonValue hint) {
     final DBObject query = filterLists(pQuery);
-    Filter filter = query == null ? ExpressionParser.AllFilter : expressionParser.buildFilter(query);
+    Filter filter = query == null ? ExpressionParser.AllFilter : buildFilter(query);
     long count = 0;
     long upperLimit = Long.MAX_VALUE;
     if (limit > 0) {
@@ -1005,7 +1004,7 @@ public class FongoDBCollection extends DBCollection {
     LOG.debug("findAndModify({}, {}, {}, {}, {}, {}, {}", query, fields, sort, remove, update, returnNew, upsert);
     query = filterLists(query);
     update = filterLists(update);
-    Filter filter = expressionParser.buildFilter(query);
+    Filter filter = buildFilter(query);
 
     Iterable<DBObject> objectsToSearch = sortObjects(sort, filterByIndexes(query));
     DBObject beforeObject = null;
@@ -1047,7 +1046,7 @@ public class FongoDBCollection extends DBCollection {
   public synchronized List distinct(final String key, final DBObject pQuery, final ReadPreference readPreference) {
     final DBObject query = filterLists(pQuery);
     Set<Object> results = new LinkedHashSet<Object>();
-    Filter filter = expressionParser.buildFilter(query);
+    Filter filter = buildFilter(query);
     for (DBObject value : filterByIndexes(query)) {
       if (filter.apply(value)) {
         List<Object> keyValues = expressionParser.getEmbeddedValues(key, value);
@@ -1486,6 +1485,17 @@ public class FongoDBCollection extends DBCollection {
       retVal.add(cur.toNew());
     }
     return retVal;
+  }
+
+  private Filter buildFilter(DBObject q) {
+    try {
+      return expressionParser.buildFilter(q);
+    } catch (FongoException e) {
+      if (e.getCode() != null) {
+        this.fongoDb.notOkErrorResult(e.getCode(), e.getMessage()).throwOnError();
+      }
+      throw e;
+    }
   }
 
 }

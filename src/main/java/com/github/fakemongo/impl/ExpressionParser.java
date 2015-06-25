@@ -53,6 +53,7 @@ public class ExpressionParser {
   public static final String SIZE = "$size";
   public static final String NOT = "$not";
   public static final String OR = "$or";
+  public static final String NOR = QueryOperators.NOR;
   public static final String AND = "$and";
   public static final String REGEX = "$regex";
   public static final String REGEX_OPTIONS = "$options";
@@ -491,12 +492,31 @@ public class ExpressionParser {
       @SuppressWarnings(
           "unchecked") Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
       OrFilter orFilter = new OrFilter();
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
+
       for (DBObject query : queryList) {
         orFilter.addFilter(buildFilter(query));
       }
       return orFilter;
+    } else if (NOR.equals(path.get(0))) {
+      @SuppressWarnings(
+          "unchecked") Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
+      OrFilter orFilter = new OrFilter();
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
+
+      for (DBObject query : queryList) {
+        orFilter.addFilter(buildFilter(query));
+      }
+      return new NotFilter(orFilter);
     } else if (AND.equals(path.get(0))) {
       Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
       AndFilter andFilter = new AndFilter();
       for (DBObject query : queryList) {
         andFilter.addFilter(buildFilter(query));
