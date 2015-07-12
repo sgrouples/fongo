@@ -254,6 +254,12 @@ public class FongoDB extends DB {
         CommandResult result = errorResult(me.getCode(), me.getMessage());
         return result;
       }
+    } else if (cmd.containsField("renameCollection")) {
+      final String renameCollection = (String) cmd.get("renameCollection");
+      final String to = (String) cmd.get("to");
+      final boolean dropTarget = (Boolean) cmd.get("dropTarget");
+      this.renameCollection(renameCollection, to, dropTarget);
+      return okResult();
     } else {
       String collectionName = ((Map.Entry<String, DBObject>) cmd.toMap().entrySet().iterator().next()).getKey();
       if (collectionExists(collectionName)) {
@@ -290,6 +296,31 @@ public class FongoDB extends DB {
       command = cmd.keySet().iterator().next();
     }
     return notOkErrorResult(null, "no such cmd: " + command);
+  }
+
+  private void renameCollection(String renameCollection, String to, boolean dropTarget) {
+    String dbRename = renameCollection.substring(0, renameCollection.indexOf('.'));
+    String collectionRename = renameCollection.substring(renameCollection.indexOf('.') + 1);
+    String dbTo = to.substring(0, to.indexOf('.'));
+    String collectionTo = to.substring(to.indexOf('.') + 1);
+    FongoDBCollection rename = (FongoDBCollection) this.fongo.getDB(dbRename).getCollection(collectionRename);
+    FongoDBCollection fongoDBCollection = new FongoDBCollection((FongoDB) fongo.getDB(dbTo), collectionTo);
+    fongoDBCollection.insert(rename.find().toArray());
+
+    for (DBObject index : rename.getIndexInfo()) {
+      if (!index.get("name").equals("_id_")) {
+        System.out.println(index);
+        Boolean unique = (Boolean) index.get("unique");
+        fongoDBCollection.createIndex((DBObject) index.get("key"), (String) index.get("name"), unique == null ? false : unique);
+      }
+    }
+
+//    for (IndexAbstract index : rename.getIndexes()) {
+//      fongoDBCollection.createIndex(index.getKeys(), new BasicDBObject("unique", index.isUnique()));
+//    }
+
+    rename.dropIndexes();
+    rename.remove(new BasicDBObject());
   }
 
   /**
