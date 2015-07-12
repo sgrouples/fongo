@@ -6,7 +6,9 @@ package com.mongodb;
 import com.github.fakemongo.Fongo;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.CountOptions;
+import com.mongodb.client.model.IndexModel;
 import com.mongodb.util.FongoJSON;
+import java.util.List;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.conversions.Bson;
@@ -66,6 +68,14 @@ public class FongoMongoCollection<TDocument> extends MongoCollectionImpl<TDocume
 //    };
 //  }
 
+
+  @Override
+  public List<String> createIndexes(List<IndexModel> indexes) {
+    for (IndexModel indexModel : indexes) {
+      this.dbCollection.createIndex(dbObject(indexModel.getKeys()), indexModel.getOptions().getName(), indexModel.getOptions().isUnique());
+    }
+    return super.createIndexes(indexes);
+  }
 
   private DBObject dbObject(Bson bson) {
     if (bson == null) {

@@ -4,11 +4,13 @@
 package com.github.fakemongo;
 
 import com.mongodb.AggregationOutput;
+import com.mongodb.BasicDBObject;
 import com.mongodb.BulkUpdateRequestBuilder;
 import com.mongodb.BulkWriteOperation;
 import com.mongodb.BulkWriteRequestBuilder;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
+import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
@@ -334,7 +336,32 @@ public class FongoConnection implements Connection {
     } else if (command.containsKey("renameCollection")) {
       ((FongoDB) db).renameCollection(command.getString("renameCollection").getValue(), command.getString("to").getValue(), command.getBoolean("dropTarget", BsonBoolean.FALSE).getValue());
       return (T) new BsonDocument("ok", BsonBoolean.TRUE);
+    } else if (command.containsKey("createIndexes")) {
+      final DBCollection dbCollection = db.getCollection(command.get("createIndexes").asString().getValue());
+      final List<BsonValue> indexes = command.getArray("indexes").getValues();
+      for (BsonValue indexBson : indexes) {
+        final BsonDocument bsonDocument = indexBson.asDocument();
+        DBObject keys = dbObject(bsonDocument.getDocument("key"));
+        String name = bsonDocument.getString("name").getValue();
+        boolean unique = bsonDocument.getBoolean("unique", BsonBoolean.FALSE).getValue();
+
+        dbCollection.createIndex(keys, name, unique);
+      }
+
+      return (T) new BsonDocument("ok", BsonBoolean.TRUE);
+    } else if (command.containsKey("listIndexes")) {
+      final DBCollection dbCollection = db.getCollection(command.get("listIndexes").asString().getValue());
+
+      BasicDBObject cmd = new BasicDBObject();
+      cmd.put("ns", dbCollection.getFullName());
+
+      DBCursor cur = dbCollection.getDB().getCollection("system.indexes").find(cmd);
+
+      return (T) new BsonDocument("cursor", new BsonDocument("id",
+          new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
+          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(cur.toArray())));
     } else {
+      LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(command));
     }
   }

@@ -4,6 +4,7 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.DistinctIterable;
@@ -32,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.asList;
 import java.util.List;
+import java.util.UUID;
 import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
@@ -756,6 +758,26 @@ public abstract class AbstractFongoV3Test {
     if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
       assertThat(updateResult.getModifiedCount()).isEqualTo(0);
     }
+  }
+
+  @Test
+  public void should_rename_a_collection() {
+    // Given
+    final String oldDb = UUID.randomUUID().toString();
+    MongoCollection<Document> collection = fongoRule.getMongoClient().getDatabase(oldDb).getCollection("oldname");
+    MongoNamespace oldNamespace = collection.getNamespace();
+    collection.insertOne(new Document("_id", 1));
+    collection.createIndex(new Document("date", 1));
+
+    // When
+    collection.renameCollection(new MongoNamespace("newdb.newcollection"));
+    MongoCollection<Document> second = fongoRule.getDatabase("newdb").getCollection("newcollection");
+
+    // Then
+    assertThat(second.getNamespace()).isEqualTo(new MongoNamespace("newdb.newcollection"));
+    assertThat(collection.getNamespace()).isEqualTo(oldNamespace);
+    assertThat(toList(fongoRule.getMongoClient().getDatabase("newdb").getCollection("newcollection").find())).containsExactly(new Document("_id", 1));
+    assertThat(toList(fongoRule.getMongoClient().getDatabase("newdb").getCollection("newcollection").listIndexes())).hasSize(2);
   }
 
   private Document docId(final Object value) {
