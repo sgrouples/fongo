@@ -319,7 +319,7 @@ public class FongoDB extends DB {
     return notOkErrorResult(null, "no such cmd: " + command);
   }
 
-  private void renameCollection(String renameCollection, String to, boolean dropTarget) {
+  public void renameCollection(String renameCollection, String to, boolean dropTarget) {
     String dbRename = renameCollection.substring(0, renameCollection.indexOf('.'));
     String collectionRename = renameCollection.substring(renameCollection.indexOf('.') + 1);
     String dbTo = to.substring(0, to.indexOf('.'));

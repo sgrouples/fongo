@@ -10,6 +10,7 @@ import com.mongodb.BulkWriteRequestBuilder;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
 import static com.mongodb.FongoDBCollection.bsonDocument;
 import static com.mongodb.FongoDBCollection.bsonDocuments;
@@ -330,6 +331,9 @@ public class FongoConnection implements Connection {
             .append("ns", new BsonString(dbCollection.getFullName()))
             .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
       }
+    } else if (command.containsKey("renameCollection")) {
+      ((FongoDB) db).renameCollection(command.getString("renameCollection").getValue(), command.getString("to").getValue(), command.getBoolean("dropTarget", BsonBoolean.FALSE).getValue());
+      return (T) new BsonDocument("ok", BsonBoolean.TRUE);
     } else {
       throw new FongoException("Not implemented for command : " + JSON.serialize(command));
     }
