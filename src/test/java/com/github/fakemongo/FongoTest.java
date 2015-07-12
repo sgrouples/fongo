@@ -3159,6 +3159,32 @@ public class FongoTest {
     newFongo().getMongo().close();
   }
 
+  /**
+   * see https://github.com/fakemongo/fongo/issues/125
+   */
+  @Test
+  public void should_rename_a_collection() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.createIndex(new BasicDBObject("date", 1));
+
+    // When
+    collection.rename("second");
+    DBCollection second = collection.getDB().getCollection("second");
+
+    // Then
+    assertThat(second.getName()).isEqualTo("second");
+    assertThat(second.find().toArray()).containsExactly(new BasicDBObject("_id", 1));
+    assertThat(second.getIndexInfo()).hasSize(2);
+    assertThat(collection.getName()).isEqualTo("db");
+    assertThat(collection.getDB().getCollection("db")).isEqualTo(collection);
+    assertThat(collection.getDB().getCollection("db").find().toArray()).isEmpty();
+    if (fongoRule.isRealMongo()) {
+      assertThat(collection.getDB().getCollection("db").getIndexInfo()).isEmpty();
+    }
+  }
+
   static class Seq {
     Object[] data;
 
