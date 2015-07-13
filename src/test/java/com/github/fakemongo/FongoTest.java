@@ -2076,6 +2076,28 @@ public class FongoTest {
     assertThat(result.get(0).get("date")).isEqualTo(12);
   }
 
+
+    @Test
+    public void testBinarySaveWithNestedByteArray() throws Exception {
+      // Given
+      DBCollection collection = newCollection();
+
+      byte[] byteArray = "nestedByteArray".getBytes();
+      DBObject innerField = BasicDBObjectBuilder.start().add("value" , byteArray).get();
+
+      // When
+      collection.insert(BasicDBObjectBuilder.start().add("_id", 1).add("nested", innerField).get());
+
+      // Then
+      List<DBObject> result = collection.find().toArray();
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).keySet()).containsExactly("_id", "nested");
+      assertThat(result.get(0).get("_id")).isEqualTo(1);
+      assertThat(DBObject.class.isAssignableFrom(result.get(0).get("nested").getClass()));
+      assertThat(((DBObject)result.get(0).get("nested")).get("value")).isEqualTo("nestedByteArray".getBytes());
+    }
+
+
   // can not change _id of a document query={ "_id" : "52986f667f6cc746624b0db5"}, document={ "name" : "Robert" , "_id" : { "$oid" : "52986f667f6cc746624b0db5"}}
   // See jongo SaveTest#canSaveWithObjectIdAsString
   @Test
