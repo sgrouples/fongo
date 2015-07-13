@@ -453,9 +453,9 @@ public class FongoDB extends DB {
     this.collMap.put(collection.getName(), collection);
     if (!collection.getName().startsWith("system.")) {
       if (!this.namespaceDeclarated.contains(collection.getFullName())) {
-        this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getFullName()));
+        this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getFullName()).append("options", new BasicDBObject()));
         if (this.namespaceDeclarated.size() == 0) {
-          this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes"));
+          this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes").append("options", new BasicDBObject()));
         }
         this.namespaceDeclarated.add(collection.getFullName());
       }

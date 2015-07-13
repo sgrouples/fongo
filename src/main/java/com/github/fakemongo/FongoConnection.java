@@ -349,6 +349,10 @@ public class FongoConnection implements Connection {
       }
 
       return (T) new BsonDocument("ok", BsonBoolean.TRUE);
+    } else if (command.containsKey("drop")) {
+      final DBCollection dbCollection = db.getCollection(command.get("drop").asString().getValue());
+      dbCollection.drop();
+      return (T) new BsonDocument("ok", BsonBoolean.TRUE);
     } else if (command.containsKey("listIndexes")) {
       final DBCollection dbCollection = db.getCollection(command.get("listIndexes").asString().getValue());
 
@@ -360,9 +364,17 @@ public class FongoConnection implements Connection {
       return (T) new BsonDocument("cursor", new BsonDocument("id",
           new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
           .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(cur.toArray())));
+    } else if (command.containsKey("listCollections")) {
+      List<Document> result = new ArrayList<Document>();
+      for (String name : db.getCollectionNames()) {
+        result.add(new Document("name", name).append("options", new Document()));
+      }
+      return (T) new BsonDocument("cursor", new BsonDocument("id",
+          new BsonInt64(0)).append("ns", new BsonString(db.getName() + ".dontkown"))
+          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(result)));
     } else {
       LOG.warn("Command not implemented: {}", command);
-      throw new FongoException("Not implemented for command : " + JSON.serialize(command));
+      throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));
     }
   }
 

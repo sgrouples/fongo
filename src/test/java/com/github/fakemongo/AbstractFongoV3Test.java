@@ -9,6 +9,7 @@ import com.mongodb.WriteConcern;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.DistinctIterable;
 import com.mongodb.client.FindIterable;
+import com.mongodb.client.ListCollectionsIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
@@ -778,6 +779,39 @@ public abstract class AbstractFongoV3Test {
     assertThat(collection.getNamespace()).isEqualTo(oldNamespace);
     assertThat(toList(fongoRule.getMongoClient().getDatabase("newdb").getCollection("newcollection").find())).containsExactly(new Document("_id", 1));
     assertThat(toList(fongoRule.getMongoClient().getDatabase("newdb").getCollection("newcollection").listIndexes())).hasSize(2);
+  }
+
+  @Test
+  public void should_drop() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("_id", 1));
+    collection.createIndex(new Document("date", 1));
+
+    // When
+    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(2);
+    collection.drop();
+
+    // Then
+    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(1);
+    assertThat(toList(collection.find())).isEmpty();
+//    assertThat(toList(collection.listIndexes())).isEmpty();
+  }
+
+  @Test
+  public void should_listCollection() {
+    // Given
+    final MongoCollection<Document> collection1 = newCollection();
+    final MongoCollection<Document> collection2 = fongoRule.newMongoCollection("collection2");
+    collection1.insertOne(new Document("_id", 1));
+    collection2.insertOne(new Document("_id", 1));
+
+    // When
+    final ListCollectionsIterable<Document> documents = fongoRule.getDatabase().listCollections();
+    // Then
+    assertThat(toList(documents)).containsOnly(new Document("name", "collection2").append("options", new Document()),
+        new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()),
+        new Document("name", "system.indexes").append("options", new Document()));
   }
 
   private Document docId(final Object value) {
