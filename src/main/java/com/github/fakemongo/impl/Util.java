@@ -213,7 +213,7 @@ public final class Util {
       }
     }
     if (source instanceof byte[]) {
-      return new Binary((byte[]) source);
+      return source;
     }
 //    }
 //    if(source instanceof Cloneable) {
