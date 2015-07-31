@@ -3207,6 +3207,18 @@ public class FongoTest {
     }
   }
 
+  @Test
+  public void testFindAllWithEmptyList() {
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("tags", Util.list("mongo", "javascript")));
+
+    // When
+    DBObject result = collection.findOne(new BasicDBObject("tags", new BasicDBObject("$all", Arrays.asList())));
+
+    // then
+    assertNull(result);
+  }
+
   static class Seq {
     Object[] data;
 

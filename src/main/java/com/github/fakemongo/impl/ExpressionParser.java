@@ -192,6 +192,10 @@ public class ExpressionParser {
             return false;
           }
 
+          if (queryList.isEmpty()) {
+            return false;
+          }
+
           for (Object queryObject : queryList) {
             if (queryObject instanceof Pattern) {
               if (!listContainsPattern(storedList, (Pattern) queryObject)) {
