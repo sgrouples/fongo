@@ -15,6 +15,7 @@ import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.DeleteOneModel;
+import com.mongodb.client.model.Filters;
 import static com.mongodb.client.model.Filters.eq;
 import com.mongodb.client.model.FindOneAndUpdateOptions;
 import com.mongodb.client.model.IndexOptions;
@@ -812,6 +813,38 @@ public abstract class AbstractFongoV3Test {
     assertThat(toList(documents)).containsOnly(new Document("name", "collection2").append("options", new Document()),
         new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()),
         new Document("name", "system.indexes").append("options", new Document()));
+  }
+
+  @Test
+  public void $lg_should_work() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3).append("b", 5));
+    collection.insertOne(docId(4));
+    collection.insertOne(docId(5).append("b", 6));
+
+    // When
+    final FindIterable iterable = collection.find(Filters.gt("b", 5));
+
+    // Then
+    Assertions.assertThat(toList(iterable)).containsExactly(docId(5).append("b", 6));
+  }
+
+  @Test
+  public void should_listIndex() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(5).append("b", 6));
+    collection.createIndex(new Document("b", 1), new IndexOptions().name("fongo"))
+
+    // When
+    final FindIterable iterable = collection.listIndexes(Filters.gt("b", 5));
+
+    // Then
+    Assertions.assertThat(toList(iterable)).containsExactly(docId(5).append("b", 6));
   }
 
   private Document docId(final Object value) {
