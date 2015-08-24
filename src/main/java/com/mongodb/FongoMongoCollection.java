@@ -8,6 +8,7 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.model.CountOptions;
 import com.mongodb.client.model.IndexModel;
 import com.mongodb.util.FongoJSON;
+import java.util.ArrayList;
 import java.util.List;
 import org.bson.Document;
 import org.bson.codecs.configuration.CodecRegistry;
@@ -71,10 +72,13 @@ public class FongoMongoCollection<TDocument> extends MongoCollectionImpl<TDocume
 
   @Override
   public List<String> createIndexes(List<IndexModel> indexes) {
+    ArrayList<String> names = new ArrayList<String>(indexes.size());
     for (IndexModel indexModel : indexes) {
       this.dbCollection.createIndex(dbObject(indexModel.getKeys()), indexModel.getOptions().getName(), indexModel.getOptions().isUnique());
+      names.add(indexModel.getOptions().getName());
     }
-    return super.createIndexes(indexes);
+//    return super.createIndexes(indexes);
+    return names;
   }
 
   private DBObject dbObject(Bson bson) {

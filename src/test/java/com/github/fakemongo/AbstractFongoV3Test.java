@@ -6,10 +6,12 @@ package com.github.fakemongo;
 import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
+import com.mongodb.bulk.BulkWriteResult;
 import com.mongodb.client.AggregateIterable;
 import com.mongodb.client.DistinctIterable;
 import com.mongodb.client.FindIterable;
 import com.mongodb.client.ListCollectionsIterable;
+import com.mongodb.client.ListIndexesIterable;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.client.MongoIterable;
@@ -629,7 +631,7 @@ public abstract class AbstractFongoV3Test {
     MongoCollection collection = newCollection();
 
     // When
-    collection.bulkWrite(
+    final BulkWriteResult bulkWriteResult = collection.bulkWrite(
         Arrays.asList(new InsertOneModel<Document>(new Document("_id", 1)),
             new InsertOneModel<Document>(new Document("_id", 2)),
             new InsertOneModel<Document>(new Document("_id", 3)),
@@ -642,8 +644,36 @@ public abstract class AbstractFongoV3Test {
             new ReplaceOneModel<Document>(new Document("_id", 3),
                 new Document("_id", 3).append("x", 4))));
 
+    // Then
+    Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isTrue();
+    Assertions.assertThat(bulkWriteResult.getDeletedCount()).isEqualTo(1);
+    Assertions.assertThat(bulkWriteResult.getInsertedCount()).isEqualTo(6);
+    Assertions.assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(2);
+//    Assertions.assertThat(bulkWriteResult.getModifiedCount()).isEqualTo(2);
+    Assertions.assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
+        docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
+  }
+
+  @Test
+  public void bulkWrite_unacknowledged() {
+    MongoCollection collection = newCollection().withWriteConcern(WriteConcern.UNACKNOWLEDGED);
+
+    // When
+    final BulkWriteResult bulkWriteResult = collection.bulkWrite(
+        Arrays.asList(new InsertOneModel<Document>(new Document("_id", 1)),
+            new InsertOneModel<Document>(new Document("_id", 2)),
+            new InsertOneModel<Document>(new Document("_id", 3)),
+            new InsertOneModel<Document>(new Document("_id", 4)),
+            new InsertOneModel<Document>(new Document("_id", 5)),
+            new InsertOneModel<Document>(new Document("_id", 6)),
+            new UpdateOneModel<Document>(new Document("_id", 1),
+                new Document("$set", new Document("x", 2))),
+            new DeleteOneModel<Document>(new Document("_id", 2)),
+            new ReplaceOneModel<Document>(new Document("_id", 3),
+                new Document("_id", 3).append("x", 4))));
 
     // Then
+    Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isFalse();
     Assertions.assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
         docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
   }
@@ -834,17 +864,19 @@ public abstract class AbstractFongoV3Test {
 
   @Test
   public void should_listIndex() {
+    Assume.assumeTrue(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
     // Given
     MongoCollection collection = newCollection();
     collection.insertOne(docId(1));
     collection.insertOne(docId(5).append("b", 6));
-    collection.createIndex(new Document("b", 1), new IndexOptions().name("fongo"))
+    collection.createIndex(new Document("b", 1), new IndexOptions().name("fongo"));
 
     // When
-    final FindIterable iterable = collection.listIndexes(Filters.gt("b", 5));
+    final ListIndexesIterable iterable = collection.listIndexes();
 
     // Then
-    Assertions.assertThat(toList(iterable)).containsExactly(docId(5).append("b", 6));
+    Assertions.assertThat(toList(iterable)).containsOnly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getFullName()),
+        new Document("v", 1).append("key", new Document("b", 1)).append("name", "fongo").append("ns", collection.getNamespace().getFullName()));
   }
 
   private Document docId(final Object value) {

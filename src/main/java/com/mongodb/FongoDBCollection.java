@@ -1082,9 +1082,10 @@ public class FongoDBCollection extends DBCollection {
 
   @Override
   BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
-                                            final WriteConcern writeConcern) {
+                                            final WriteConcern aWriteConcern) {
     isTrueArgument("writes is not an empty list", !writeRequests.isEmpty());
-
+    WriteConcern writeConcern = aWriteConcern == null ? getWriteConcern() : aWriteConcern;
+    // TODO: unordered
     List<BulkWriteUpsert> upserts = new ArrayList<BulkWriteUpsert>();
     int insertedCount = 0;
     int matchedCount = 0;
@@ -1132,6 +1133,9 @@ public class FongoDBCollection extends DBCollection {
         throw new NotImplementedException();
       }
       idx++;
+    }
+    if (writeConcern.getW() == 0) {
+      return new UnacknowledgedBulkWriteResult();
     }
     return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
   }
