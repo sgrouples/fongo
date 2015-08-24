@@ -2635,6 +2635,31 @@ public class FongoTest {
     assertEquals(0, bulkResult.getUpserts().size()); // 0 upsert
     assertEquals(3, bulkResult.getInsertedCount()); // 3 inserted
     assertEquals(0, bulkResult.getRemovedCount()); // 0 removed
+    Assertions.assertThat(bulkResult.isAcknowledged()).isTrue();
+
+    List<DBObject> dbObjects = collection.find().toArray();
+    assertEquals(dbObjects.size(), 3);
+    assertEquals(dbObjects, Lists.newArrayList(o1, o2, o3));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/134
+  @Test
+  public void test_bulk_insert_unacknowledged() {
+    // Given
+    DBCollection collection = newCollection();
+
+    // When
+    DBObject o1 = new BasicDBObject("_id", 1).append("a", 1);
+    DBObject o2 = new BasicDBObject("_id", 2).append("b", 2);
+    DBObject o3 = new BasicDBObject("_id", 3).append("c", 3);
+    BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
+    bulkWriteOperation.insert(o1);
+    bulkWriteOperation.insert(o2);
+    bulkWriteOperation.insert(o3);
+    BulkWriteResult bulkResult = bulkWriteOperation.execute(WriteConcern.UNACKNOWLEDGED);
+
+    // Then
+    Assertions.assertThat(bulkResult.isAcknowledged()).isFalse();
 
     List<DBObject> dbObjects = collection.find().toArray();
     assertEquals(dbObjects.size(), 3);
