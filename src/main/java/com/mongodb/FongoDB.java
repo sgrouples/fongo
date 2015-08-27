@@ -380,12 +380,21 @@ public class FongoDB extends DB {
     return new CommandResult(result, fongo.getServerAddress());
   }
 
+  private BsonDocument bsonResultNotOk(int code, String err) {
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    return result;
+  }
+
   public CommandResult notOkErrorResult(String err) {
     return notOkErrorResult(err, null);
   }
 
   public CommandResult notOkErrorResult(String err, String errmsg) {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0));
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
     if (err != null) {
       result.put("err", new BsonString(err));
     }
@@ -396,29 +405,17 @@ public class FongoDB extends DB {
   }
 
   public CommandResult notOkErrorResult(int code, String err) {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
-    if (err != null) {
-      result.put("err", new BsonString(err));
-    }
-    result.put("code", new BsonInt32(code));
+    final BsonDocument result = bsonResultNotOk(code, err);
     return new CommandResult(result, fongo.getServerAddress());
   }
 
   public WriteConcernException writeConcernException(int code, String err) {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
-    if (err != null) {
-      result.put("err", new BsonString(err));
-    }
-    result.put("code", new BsonInt32(code));
+    final BsonDocument result = bsonResultNotOk(code, err);
     return new WriteConcernException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
   }
 
   public WriteConcernException duplicateKeyException(int code, String err) {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
-    if (err != null) {
-      result.put("err", new BsonString(err));
-    }
-    result.put("code", new BsonInt32(code));
+    final BsonDocument result = bsonResultNotOk(code, err);
     return new DuplicateKeyException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
   }
 

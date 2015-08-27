@@ -4,6 +4,7 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.MongoBulkWriteException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.bulk.BulkWriteResult;
@@ -674,6 +675,25 @@ public abstract class AbstractFongoV3Test {
 //    Assertions.assertThat(bulkWriteResult.getModifiedCount()).isEqualTo(2);
     Assertions.assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
         docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
+  }
+
+  @Test
+  public void bulkWrite_duplicatedKey() {
+    // 2. Ordered bulk operation - order is guaranteed
+    // Given
+    MongoCollection collection = newCollection();
+
+//    if (serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
+//      exception.expect(DuplicateKeyException.class);
+//    } else {
+    exception.expect(MongoBulkWriteException.class);
+//    }
+    // When
+    final BulkWriteResult bulkWriteResult = collection.bulkWrite(
+        Arrays.asList(new InsertOneModel<Document>(new Document("_id", 1)),
+            new InsertOneModel<Document>(new Document("_id", 2)),
+            new InsertOneModel<Document>(new Document("_id", 2))
+        ));
   }
 
   @Test
