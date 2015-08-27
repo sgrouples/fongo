@@ -41,6 +41,7 @@ import java.util.UUID;
 import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
+import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.bson.Document;
 import org.junit.Assume;
@@ -306,6 +307,27 @@ public abstract class AbstractFongoV3Test {
     assertThat(updateResult.getUpsertedId()).isNull();
     if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
       assertThat(updateResult.getModifiedCount()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  public void updateOne_upsert() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(2).append("b", 5));
+    collection.insertOne(docId(3));
+    collection.insertOne(docId(4));
+
+    // When
+    final UpdateResult updateResult = collection.updateOne(docId(5), new Document("$set", new Document("b", 8)), new UpdateOptions().upsert(true));
+
+    // Then
+    Assertions.assertThat(toList(collection.find(docId(5)))).containsExactly(docId(5).append("b", 8));
+    assertThat(updateResult.getMatchedCount()).isEqualTo(0);
+    assertThat(updateResult.getUpsertedId()).isEqualTo(new BsonInt32(5));
+    if (!serverVersion().equals(Fongo.OLD_SERVER_VERSION)) {
+      assertThat(updateResult.getModifiedCount()).isEqualTo(0);
     }
   }
 
