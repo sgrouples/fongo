@@ -50,6 +50,7 @@ public class FongoRule extends ExternalResource {
    * Setup a rule with a real MongoDB.
    *
    * @param dbName            the dbName to use.
+   * @param serverVersion     version of the server to use for fongo.
    * @param realMongo         set to true if you want to use a real mongoDB.
    * @param mongoClientIfReal real client to use if realMongo si true.
    */

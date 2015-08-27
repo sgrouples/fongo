@@ -63,7 +63,8 @@ public class Fongo implements OperationExecutor {
   }
 
   /**
-   * @param name Used only for a nice toString in case you have multiple instances
+   * @param name          Used only for a nice toString in case you have multiple instances
+   * @param serverVersion version of the server to use for fongo.
    */
   public Fongo(final String name, final ServerVersion serverVersion) {
     this.name = name;
