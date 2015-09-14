@@ -245,3 +245,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Vladimir Shakhov](https://github.com/bogdad)
 * [Guy de Pourtalès](https://github.com/gdepourtales)
 * [Heng-Scheng Chuang](https://github.com/ddchengschengc)
+* [Guillermo Campelo](https://github.com/guicamest)
