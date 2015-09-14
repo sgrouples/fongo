@@ -1,7 +1,19 @@
 package com.github.fakemongo.junit;
 
-import com.github.fakemongo.Fongo;
 import static com.github.fakemongo.Fongo.DEFAULT_SERVER_VERSION;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.UUID;
+
+import org.bson.Document;
+import org.junit.rules.ExternalResource;
+
+import com.github.fakemongo.Fongo;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -11,15 +23,6 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.connection.ServerVersion;
 import com.mongodb.util.FongoJSON;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.UnknownHostException;
-import java.util.List;
-import java.util.UUID;
-import org.bson.Document;
-import org.junit.rules.ExternalResource;
 
 /**
  * Create a Junit Rule to use with annotation
@@ -66,7 +69,7 @@ public class FongoRule extends ExternalResource {
   }
 
   public FongoRule(final ServerVersion serverVersion) {
-    this(UUID.randomUUID().toString(), serverVersion, false, null);
+    this(randomName(), serverVersion, false, null);
   }
 
   public FongoRule(boolean realMongo) {
@@ -74,11 +77,11 @@ public class FongoRule extends ExternalResource {
   }
 
   public FongoRule(boolean realMongo, ServerVersion serverVersion) {
-    this(UUID.randomUUID().toString(), serverVersion, realMongo, null);
+    this(randomName(), serverVersion, realMongo, null);
   }
 
   public FongoRule(boolean realMongo, MongoClient mongoClientIfReal) {
-    this(UUID.randomUUID().toString(), DEFAULT_SERVER_VERSION, realMongo, mongoClientIfReal);
+    this(randomName(), DEFAULT_SERVER_VERSION, realMongo, mongoClientIfReal);
   }
 
   public FongoRule(String dbName, boolean realMongo) {
@@ -135,6 +138,27 @@ public class FongoRule extends ExternalResource {
     }
     return coll;
   }
+  
+  public MongoCollection<Document> insertDocumentsFromFile(String filename) throws IOException {
+	  return insertDocumentsFromFile(newMongoCollection(), filename);
+  }
+  
+  public MongoCollection<Document> insertDocumentsFromFile(MongoCollection<Document> coll, String filename) throws IOException {
+    InputStream is = this.getClass().getResourceAsStream(filename);
+    try {
+      BufferedReader br = new BufferedReader(new InputStreamReader(is));
+      String line = br.readLine();
+      while (line != null) {
+        coll.insertOne(Document.parse(line));
+        line = br.readLine();
+      }
+    } finally {
+      if (is != null) {
+        is.close();
+      }
+    }
+    return coll;
+  }
 
   public List<DBObject> parseList(String json) {
     return parse(json);
@@ -148,19 +172,31 @@ public class FongoRule extends ExternalResource {
   public <T> T parse(String json) {
     return (T) FongoJSON.parse(json);
   }
-
+  
   public DBCollection newCollection() {
-    return newCollection(UUID.randomUUID().toString());
+    return newCollection(randomName());
   }
 
   public DBCollection newCollection(String collectionName) {
     return db.getCollection(collectionName);
+  }
+  
+  public MongoCollection<Document> newMongoCollection() {
+    return newMongoCollection(randomName());
   }
 
   public MongoCollection<Document> newMongoCollection(final String collectionName) {
     return mongoDatabase.getCollection(collectionName);
   }
 
+  public <T> MongoCollection<T> newMongoCollection(final Class<T> documentClass) {
+     return newMongoCollection(randomName(), documentClass);
+  }
+
+  public <T> MongoCollection<T> newMongoCollection(final String collectionName, final Class<T> documentClass) {
+     return mongoDatabase.getCollection(collectionName, documentClass);
+  }
+  
   private Fongo newFongo(ServerVersion serverVersion) {
     return new Fongo("test", serverVersion);
   }
@@ -204,4 +240,7 @@ public class FongoRule extends ExternalResource {
     return this.mongo;
   }
 
+  private static String randomName(){
+	  return UUID.randomUUID().toString();
+  }
 }
