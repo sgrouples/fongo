@@ -1,6 +1,3 @@
-/**
- * Copyright (C) 2015 Deveryware S.A. All Rights Reserved.
- */
 package com.mongodb;
 
 import com.github.fakemongo.Fongo;

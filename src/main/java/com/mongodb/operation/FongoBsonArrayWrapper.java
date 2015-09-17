@@ -1,6 +1,3 @@
-/**
- * Copyright (C) 2015 Deveryware S.A. All Rights Reserved.
- */
 package com.mongodb.operation;
 
 import java.util.List;
