@@ -921,6 +921,24 @@ public abstract class AbstractFongoV3Test {
         new Document("v", 1).append("key", new Document("b", 1)).append("name", "fongo").append("ns", collection.getNamespace().getFullName()));
   }
 
+  @Test
+  public void replaceOne_upsert() {
+    Assume.assumeFalse(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
+
+    // Given
+    MongoCollection collection = newCollection();
+    UpdateOptions options = new UpdateOptions();
+    options.upsert(true);
+    Document initial = docId(1).append("a", 1);
+    collection.replaceOne(initial, initial, options);
+
+    // When
+    final FindIterable iterable = collection.find();
+
+    // Then
+    Assertions.assertThat(toList(iterable)).containsExactly(docId(1).append("a", 1));
+  }
+
   private Document docId(final Object value) {
     return new Document("_id", value);
   }
@@ -932,4 +950,5 @@ public abstract class AbstractFongoV3Test {
   public MongoCollection<Document> newCollection() {
     return fongoRule.newMongoCollection("db");
   }
+
 }

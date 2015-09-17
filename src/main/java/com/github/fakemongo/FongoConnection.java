@@ -243,7 +243,11 @@ public class FongoConnection implements Connection {
 
       switch (update.getType()) {
         case REPLACE:
-          bulkWriteOperation.find(dbObject(update.getFilter())).replaceOne(dbObject(update.getUpdate()));
+          if (update.isUpsert()) {
+            bulkWriteOperation.find(dbObject(update.getFilter())).upsert().replaceOne(dbObject(update.getUpdate()));
+          } else {
+            bulkWriteOperation.find(dbObject(update.getFilter())).replaceOne(dbObject(update.getUpdate()));
+          }
           break;
         case INSERT:
           bulkWriteOperation.insert(dbObject(update.getUpdate()));
