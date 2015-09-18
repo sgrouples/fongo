@@ -1,6 +1,3 @@
-/**
- * Copyright (C) 2015 Deveryware S.A. All Rights Reserved.
- */
 package com.github.fakemongo;
 
 import com.mongodb.binding.ConnectionSource;
