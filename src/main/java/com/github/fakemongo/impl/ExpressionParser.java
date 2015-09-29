@@ -1115,7 +1115,9 @@ public class ExpressionParser {
         public boolean apply(DBObject o) {
           List<Object> storedList = getEmbeddedValues(path, o);
           if (storedList.isEmpty()) {
-            return !direction;
+            // Special case: Querying for null should return positive if the field is absent.
+            // See: http://docs.mongodb.org/manual/faq/developers/#faq-developers-query-for-nulls
+            return querySet.contains(null) ? direction : !direction;
           } else {
             for (Object storedValue : storedList) {
               if (compare(refExpression.get(command), storedValue, querySet) == direction) {
