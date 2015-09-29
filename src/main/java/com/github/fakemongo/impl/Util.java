@@ -210,13 +210,22 @@ public final class Util {
       }
     }
     if (source instanceof byte[]) {
-      return source;
+      return makeCopy((byte[]) source);
     }
 //    }
 //    if(source instanceof Cloneable) {
 //      return ((Cloneable) source).clone();
 //    }
     return source;
+  }
+
+  private static byte[] makeCopy(byte[] source) {
+    if (source == null) {
+      return null;
+    }
+    final byte[] copy = new byte[source.length];
+    System.arraycopy(source, 0, copy, 0, source.length);
+    return copy;
   }
 
   public static <T extends DBObject> T clone(T source) {
