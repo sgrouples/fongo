@@ -308,6 +308,25 @@ public class ExpressionParserTest {
   }
 
   @Test
+  public void testInOperatorWithNullValue() {
+    // Querying for null should return positive if the field is absent.
+    // See: http://docs.mongodb.org/manual/faq/developers/#faq-developers-query-for-nulls
+    DBObject query = new BasicDBObjectBuilder().push("a").add("$in", asList(2, 3, null)).pop().get();
+    List<DBObject> results = doFilter(
+        query,
+        new BasicDBObject("a", asList(1, 3)),
+        new BasicDBObject("a", 1),
+        new BasicDBObject("a", 3),
+        new BasicDBObject("b", 1)
+    );
+    assertEquals(Arrays.<DBObject>asList(
+        new BasicDBObject("a", asList(1, 3)),
+        new BasicDBObject("a", 3),
+        new BasicDBObject("b", 1)
+    ), results);
+  }
+
+  @Test
   public void testInEmbeddedOperator() {
     DBObject query = new BasicDBObject("a.b", new BasicDBObject("$in", asList(2)));
     List<DBObject> results = doFilter(
