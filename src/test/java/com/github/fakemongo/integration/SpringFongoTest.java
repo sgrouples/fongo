@@ -22,14 +22,15 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.config.AbstractMongoConfiguration;
 import org.springframework.data.mongodb.core.MongoOperations;
-import org.springframework.data.geo.Point;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.query.Criteria;
+import static org.springframework.data.mongodb.core.query.Criteria.where;
 import org.springframework.data.mongodb.core.query.Query;
+import static org.springframework.data.mongodb.core.query.Query.query;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.hateoas.Identifiable;
 
@@ -50,7 +51,7 @@ public class SpringFongoTest {
     mongoOperations.save(mainObject);
 
     MainObject foundObject = mongoOperations.findOne(
-        new Query(Criteria.where("referencedObject.$id").is(new ObjectId(referencedObject.getId()))),
+        new Query(where("referencedObject.$id").is(new ObjectId(referencedObject.getId()))),
         MainObject.class);
 
     assertNotNull("should have found an object", foundObject);
@@ -71,13 +72,13 @@ public class SpringFongoTest {
 
     // Then
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("id").is(new ObjectId(object.getId()))),
+        new Query(where("id").is(new ObjectId(object.getId()))),
         GeoSpatialIndexedWrapper.class));
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("geo").is(object.getGeo())),
+        new Query(where("geo").is(object.getGeo())),
         GeoSpatialIndexedWrapper.class));
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("geo").is(new Point(object.getGeo()[0], object.getGeo()[1]))),
+        new Query(where("geo").is(new Point(object.getGeo()[0], object.getGeo()[1]))),
         GeoSpatialIndexedWrapper.class));
   }
 
@@ -150,7 +151,7 @@ public class SpringFongoTest {
     SpringModelMap map = new SpringModelMap(springModelBarcode);
     springModelMapRepository.save(map);
     MongoOperations mongoOperations = (MongoOperations) ctx.getBean("mongoTemplate");
-    Query query = Query.query(Criteria.where("barcode.serial").is(serial).and("barcode.time").is(time));
+    Query query = query(where("barcode.serial").is(serial).and("barcode.time").is(time));
     List<SpringModelMap> receipts = mongoOperations.find(query, SpringModelMap.class);
     assertEquals(1, receipts.size());
   }
