@@ -13,8 +13,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import org.bson.types.BSONTimestamp;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -124,11 +122,11 @@ public class UpdateEngine {
             throw new FongoException("can not update \"" + postPath + "\" field of non-DBObject object");
           }
 
-          BasicDBList listWithSingleItem = new BasicDBList ();
+          BasicDBList listWithSingleItem = new BasicDBList();
           listWithSingleItem.add(listItem);
-          if (filter.apply((DBObject) listItem) || 
-                //Case of a nested $elemMatch
-                  filter.apply(new BasicDBObject (prePath, listWithSingleItem))) {
+          if (filter.apply((DBObject) listItem) ||
+              //Case of a nested $elemMatch
+              filter.apply(new BasicDBObject(prePath, listWithSingleItem))) {
             doSingleKeyUpdate(postPath, (DBObject) listItem, object, query, false);
             break;
           }
@@ -454,7 +452,7 @@ public class UpdateEngine {
                   newList.add(item);
                 }
               }
-            } else {
+            } else if (object != null) {
               for (Object item : currentList) {
                 if (!object.equals(item)) {
                   newList.add(item);

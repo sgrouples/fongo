@@ -94,7 +94,7 @@ public class SpringMongoOperationTest {
     A a = new A("id", Sets.newHashSet(b, b2));
     mongoOperations.insert(a);
     String reference = "ref";
-    String idToPull = "1";
+    String idToPull = null;
 
     // When
     final WriteResult writeResult = mongoOperations.updateFirst(query(where("_id").is(a.id).and("bs").elemMatch(where("reference").is(reference))), new Update().pull("bs.$.ids", idToPull), A.class);
