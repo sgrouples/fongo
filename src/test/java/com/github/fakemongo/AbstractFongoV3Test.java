@@ -1,6 +1,9 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.BasicDBObject;
+import com.mongodb.BulkWriteOperation;
+import com.mongodb.DBCollection;
 import com.mongodb.MongoBulkWriteException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
@@ -715,6 +718,25 @@ public abstract class AbstractFongoV3Test {
     Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isFalse();
     Assertions.assertThat(toList(collection.find().sort(ascending("_id")))).containsExactly(
         docId(1).append("x", 2), docId(3).append("x", 4), docId(4), docId(5), docId(6));
+  }
+
+  @Test
+  public void bulkWrite_matchedCount() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    collection.setWriteConcern(WriteConcern.ACKNOWLEDGED);
+
+    // When
+    final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
+    bulkWriteOperation.find(new BasicDBObject("_id", 1).append("date", "yesterday")).upsert().update(new BasicDBObject("$set", new BasicDBObject("date", "now")));
+    final com.mongodb.BulkWriteResult bulkWriteResult = bulkWriteOperation.execute();
+
+    // Then
+    assertThat(bulkWriteResult.getInsertedCount()).isEqualTo(0);
+    assertThat(bulkWriteResult.getUpserts()).isNotEmpty();
+    assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(0);
+    assertThat(bulkWriteResult.getRemovedCount()).isEqualTo(0);
+    assertThat(bulkWriteResult.getModifiedCount()).isEqualTo(0);
   }
 
   @Test

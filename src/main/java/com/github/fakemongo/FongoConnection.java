@@ -468,7 +468,7 @@ public class FongoConnection implements Connection {
     if (!bulkWriteResult.isAcknowledged()) {
       return BulkWriteResult.unacknowledged();
     }
-    return BulkWriteResult.acknowledged(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount() - bulkWriteResult.getUpserts().size(), bulkWriteResult.getRemovedCount(), bulkWriteResult.getModifiedCount(), FongoDBCollection.translateBulkWriteUpsertsToNew(bulkWriteResult.getUpserts(), null));
+    return BulkWriteResult.acknowledged(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount(), bulkWriteResult.getRemovedCount(), bulkWriteResult.getModifiedCount(), FongoDBCollection.translateBulkWriteUpsertsToNew(bulkWriteResult.getUpserts(), null));
   }
 
 }

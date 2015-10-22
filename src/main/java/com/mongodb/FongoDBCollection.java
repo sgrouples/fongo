@@ -1111,8 +1111,8 @@ public class FongoDBCollection extends DBCollection {
         checkMultiUpdateDocument(r.getUpdate());
 
         wr = update(r.getQuery(), r.getUpdate(), r.isUpsert(), r.isMulti(), writeConcern, null);
-        matchedCount += wr.getN();
         if (wr.isUpdateOfExisting()) {
+          matchedCount += wr.getN();
           modifiedCount += wr.getN();
         } else {
           if (wr.getUpsertedId() != null) {
