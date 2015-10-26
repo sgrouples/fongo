@@ -6,17 +6,20 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import org.bson.Document;
 import org.slf4j.LoggerFactory;
 
 /**
  * Before :
  * <pre>
- * Took 204 ms
- * Took 205 ms with one useless index.
- * Took 6815 ms with no index.
- * Took 12016 ms with index.
- * Took 15782 ms to remove with index.
- * </pre>
+ * Took 163 ms
+ * Took 184 ms with one useless index.
+ * Took 5689 ms with no index.
+ * Took 9674 ms with index.
+ * Took 13220 ms to remove with index.
+ * Took 21751 ms to remove with index (new version). * </pre>
  */
 public class PerfTest {
   public static void main(String[] args) {
@@ -24,6 +27,8 @@ public class PerfTest {
     ch.qos.logback.classic.Logger log = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(FongoDBCollection.class);
     log.setLevel(Level.ERROR);
     log = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(ExpressionParser.class);
+    log.setLevel(Level.ERROR);
+    log = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(FongoConnection.class);
     log.setLevel(Level.ERROR);
 
     System.out.println("Warming jvm");
@@ -34,6 +39,7 @@ public class PerfTest {
       doitFindUniqueIndex(100);
       doitFindNWithIndex(100);
       doitRemoveWithIndex(100);
+      doitRemoveWithIndexNew(100);
     }
     System.out.println("Warming jvm done.");
     long startTime = System.currentTimeMillis();
@@ -55,6 +61,10 @@ public class PerfTest {
     startTime = System.currentTimeMillis();
     doitRemoveWithIndex(10000);
     System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms to remove with index.");
+
+    startTime = System.currentTimeMillis();
+    doitRemoveWithIndexNew(10000);
+    System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms to remove with index (new version).");
   }
 
   public static void doit(int size) {
@@ -124,6 +134,23 @@ public class PerfTest {
         collection.remove(new BasicDBObject("n.a", k % 100));
       }
       db.dropDatabase();
+    }
+  }
+
+  public static void doitRemoveWithIndexNew(int size) {
+    Fongo fongo = new Fongo("fongo");
+    for (int i = 0; i < 1; i++) {
+      MongoDatabase db = fongo.getDatabase("db");
+      MongoCollection<Document> collection = db.getCollection("coll");
+      collection.createIndex(new Document("n", 1));
+      for (int k = 0; k < size; k++) {
+        collection.insertOne(new Document("_id", k).append("n", k % 100));
+      }
+      System.out.println("Start removing things");
+      for (int k = 0; k < size; k++) {
+        collection.deleteOne(new Document("n.a", k % 100));
+      }
+      db.drop();
     }
   }
 }
