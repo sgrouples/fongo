@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -45,7 +46,11 @@ public class FongoMapReduceTest {
 
     String map = "function(){    emit(this.url, 1);  };";
     String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {count: res};  };";
-    coll.mapReduce(map, reduce, "result", new BasicDBObject());
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+    Assertions.assertThat(result.getDuration()).isGreaterThanOrEqualTo(0);
+    Assertions.assertThat(result.getEmitCount()).isEqualTo(2);
+    Assertions.assertThat(result.getOutputCount()).isEqualTo(2);
+    Assertions.assertThat(result.getInputCount()).isEqualTo(5);
 
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();

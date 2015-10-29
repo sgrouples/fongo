@@ -11,8 +11,8 @@ import java.util.List;
  */
 public class FongoMapReduceOutput extends MapReduceOutput {
 
-  public FongoMapReduceOutput(DBObject command, final DBCollection collection) {
-    super(command, collection.find(), null, collection);
+  public FongoMapReduceOutput(final DBObject command, final DBCollection collection, final MapReduceStatistics mapReduceStatistics) {
+    super(command, collection.find(), mapReduceStatistics, collection);
 
   }
 

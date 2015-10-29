@@ -10,6 +10,7 @@ import com.mongodb.FongoDBCollection;
 import com.mongodb.FongoMapReduceOutput;
 import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
+import com.mongodb.operation.MapReduceStatistics;
 import com.mongodb.util.FongoJSON;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,7 +107,7 @@ public class MapReduce {
       }
 
       @Override
-      public MapReduceOutput createResult(DBObject query, final DBCollection coll) {
+      public MapReduceOutput createResult(DBObject query, final DBCollection coll, final MapReduceStatistics ignored) {
         return new FongoMapReduceOutput(query, coll.find().toArray());
       }
     };
@@ -139,8 +140,8 @@ public class MapReduce {
 
     public abstract void newResults(MapReduce mapReduce, DBCollection coll, List<DBObject> results);
 
-    public MapReduceOutput createResult(DBObject query, DBCollection coll) {
-      return new FongoMapReduceOutput(query, coll);
+    public MapReduceOutput createResult(final DBObject query, final DBCollection coll, final MapReduceStatistics mapReduceStatistics) {
+      return new FongoMapReduceOutput(query, coll, mapReduceStatistics);
     }
 
   }
@@ -167,18 +168,34 @@ public class MapReduce {
    * @return null if error.
    */
   public MapReduceOutput computeResult() {
+    final long startTime = System.currentTimeMillis();
     // Replace, merge or reduce ?
     Outmode outmode = Outmode.valueFor(out);
     DBCollection coll = fongoDB.getCollection(outmode.collectionName(out));
     // Mode replace.
     outmode.initCollection(coll);
-    outmode.newResults(this, coll, runInContext());
-    MapReduceOutput result = outmode.createResult(this.query, coll);
+    final MapReduceResult mapReduceResult = runInContext();
+    outmode.newResults(this, coll, mapReduceResult.result);
+
+    final MapReduceStatistics mapReduceStatistics = new MapReduceStatistics(mapReduceResult.inputCount, mapReduceResult.outputCount, mapReduceResult.emitCount, (int) (System.currentTimeMillis() - startTime));
+    final MapReduceOutput result = outmode.createResult(this.query, coll, mapReduceStatistics);
     LOG.debug("computeResult() : {}", result);
     return result;
   }
 
-  private List<DBObject> runInContext() {
+  static class MapReduceResult {
+    final int inputCount, outputCount, emitCount;
+    final List<DBObject> result;
+
+    public MapReduceResult(int inputCount, int outputCount, int emitCount, List<DBObject> result) {
+      this.inputCount = inputCount;
+      this.outputCount = outputCount;
+      this.emitCount = emitCount;
+      this.result = result;
+    }
+  }
+
+  private MapReduceResult runInContext() {
     // TODO use Compilable ? http://www.jmdoudoux.fr/java/dej/chap-scripting.htm
     Context cx = Context.enter();
     try {
@@ -207,7 +224,8 @@ public class MapReduce {
         NativeObject out = (NativeObject) outs.get(i, outs);
         dbOuts.add(getObject(out));
       }
-      return dbOuts;
+      // TODO : verify emitCount
+      return new MapReduceResult(objects.size(), dbOuts.size(), dbOuts.size(), dbOuts);
     } finally {
       Context.exit();
     }
