@@ -16,6 +16,7 @@ import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -570,6 +571,90 @@ public class FongoAggregateTest {
 
     Assertions.assertThat(output.results()).hasSize(1);
     Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/152
+  @Ignore
+  @Test
+  public void should_$cond_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/cond/)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("   [\n" +
+        "      {\n" +
+        "         $project:\n" +
+        "           {\n" +
+        "             item: 1,\n" +
+        "             discount:\n" +
+        "               {\n" +
+        "                 $cond: { if: { $gte: [ \"$qty\", 250 ] }, then: 30, else: 20 }\n" +
+        "               }\n" +
+        "           }\n" +
+        "      }\n" +
+        "   ]\n"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"discount\" : 30 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"discount\" : 20 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"discount\" : 30 }]"));
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/152
+  @Ignore
+  @Test
+  public void should_$cond_in_simple_form_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/cond/)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("[\n" +
+        "      {\n" +
+        "         $project:\n" +
+        "           {\n" +
+        "             item: 1,\n" +
+        "             discount:\n" +
+        "               {\n" +
+        "                 $cond: [ { $gte: [ \"$qty\", 250 ] }, 30, 20 ]\n" +
+        "               }\n" +
+        "           }\n" +
+        "      }\n" +
+        "   ]"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"discount\" : 30 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"discount\" : 20 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"discount\" : 30 }]"));
+  }
+
+  @Test
+  public void should_$ifnull_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/ifNull/#exp._S_ifNull)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", description: \"product 1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", description: null, qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("[\n" +
+        "      {\n" +
+        "         $project: {\n" +
+        "            item: 1,\n" +
+        "            description: { $ifNull: [ \"$description\", \"Unspecified\" ] }\n" +
+        "         }\n" +
+        "      }\n" +
+        "   ]"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"description\" : \"product 1\" }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"description\" : \"Unspecified\" }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"description\" : \"Unspecified\" }\n]"));
   }
 
 

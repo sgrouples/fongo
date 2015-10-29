@@ -38,6 +38,7 @@ public class Project extends PipelineKeyword {
     static {
       projectedAbstractMap.put(ProjectedStrcasecmp.KEYWORD, ProjectedStrcasecmp.class);
       projectedAbstractMap.put(ProjectedCmp.KEYWORD, ProjectedCmp.class);
+      projectedAbstractMap.put(ProjectedCond.KEYWORD, ProjectedCond.class);
       projectedAbstractMap.put(ProjectedSubstr.KEYWORD, ProjectedSubstr.class);
       projectedAbstractMap.put(ProjectedIfNull.KEYWORD, ProjectedIfNull.class);
       projectedAbstractMap.put(ProjectedConcat.KEYWORD, ProjectedConcat.class);
@@ -124,8 +125,8 @@ public class Project extends PipelineKeyword {
         ProjectedAbstract projectedAbstract = ProjectedAbstract.getProjected(value, coll, key);
         if (projectedAbstract != null) {
           // case : {cmp : {$cmp:[$firstname, $lastname]}}
-          projectedAbstract.apply(coll, projectResult, projectedFields, key, value, namespace);
           projectResult.removeField(key);
+          projectedAbstract.apply(coll, projectResult, projectedFields, key, value, namespace);
         } else {
           // case : {biggestCity:  { name: "$biggestCity",  pop: "$biggestPop" }}
           projectResult.removeField(key);
@@ -362,6 +363,52 @@ public class Project extends PipelineKeyword {
     public void unapply(DBObject result, DBObject object, String key) {
       String value = extractValue(object, field1).toString();
       String secondValue = extractValue(object, field2).toString();
+      int strcmp = compare(value, secondValue);
+      result.put(destName, strcmp < 0 ? -1 : strcmp > 1 ? 1 : 0);
+    }
+
+    int compare(String value1, String value2) {
+      return value1.compareTo(value2);
+    }
+  }
+
+  static class ProjectedCond extends ProjectedAbstract<ProjectedCond> {
+    public static final String KEYWORD = "$cond";
+
+    private final DBObject cond;
+    private final Object cThen;
+    private final Object cElse;
+
+    public ProjectedCond(String destName, DBCollection coll, DBObject object) {
+      this(KEYWORD, destName, coll, object);
+    }
+
+    public ProjectedCond(String keyword, String destName, DBCollection coll, DBObject object) {
+      super(keyword, destName, object);
+      Object value = object.get(keyword);
+      if ((value instanceof List)) {
+        if (((List) value).size() != 3) {
+          errorResult(coll, 16020, "the " + keyword + " operator requires an array of 3 operands");
+        }
+        List<Object> values = (List<Object>) value;
+        cond = (DBObject) values.get(0);
+        cThen = values.get(1);
+        cElse = values.get(2);
+      } else {
+        cond = null;
+        cElse = cThen = null;
+      }
+    }
+
+    @Override
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+//      createMapping(coll, projectResult, projectedFields, cond, cond, namespace, this);
+    }
+
+    @Override
+    public void unapply(DBObject result, DBObject object, String key) {
+      String value = extractValue(object, cond).toString();
+      String secondValue = extractValue(object, cond).toString();
       int strcmp = compare(value, secondValue);
       result.put(destName, strcmp < 0 ? -1 : strcmp > 1 ? 1 : 0);
     }
