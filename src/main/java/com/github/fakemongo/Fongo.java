@@ -13,6 +13,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Faked out version of com.mongodb.Mongo
@@ -34,7 +35,7 @@ import java.util.Map;
  */
 public class Fongo {
 
-  private final Map<String, FongoDB> dbMap = Collections.synchronizedMap(new HashMap<String, FongoDB>());
+  private final Map<String, FongoDB> dbMap = new ConcurrentHashMap<String, FongoDB>();
   private final ServerAddress serverAddress;
   private final MongoClient mongo;
   private final String name;
