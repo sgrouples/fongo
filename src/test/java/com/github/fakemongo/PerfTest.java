@@ -55,6 +55,10 @@ public class PerfTest {
     System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms with no index.");
 
     startTime = System.currentTimeMillis();
+    doitRemoveWithIndex(10000);
+    System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms with removing.");
+
+    startTime = System.currentTimeMillis();
     doitFindNWithIndex(10000);
     System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms with index.");
 
