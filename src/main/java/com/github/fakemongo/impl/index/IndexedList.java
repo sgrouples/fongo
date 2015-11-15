@@ -37,10 +37,15 @@ public class IndexedList<Е> {
   }
 
   private void addIndex(Е element, int position) {
+    final List<Integer> list;
     if (!indexes.containsKey(element)) {
-      indexes.put(element, new ArrayList<Integer>());
+      list = new ArrayList<Integer>();
+      indexes.put(element, list);
     }
-    indexes.get(element).add(position);
+    else
+      list = indexes.get(element);
+
+    list.add(position);
   }
 
   public void remove(Е element) {

@@ -23,6 +23,7 @@ public class PerfTest {
       doitFindN(100);
       doitFindUniqueIndex(100);
       doitFindNWithIndex(100);
+      doitRemoveWithIndex(100);
     }
     System.out.println("Warming jvm done.");
     long startTime = System.currentTimeMillis();
@@ -36,6 +37,10 @@ public class PerfTest {
     startTime = System.currentTimeMillis();
     doitFindN(10000);
     System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms with no index.");
+
+    startTime = System.currentTimeMillis();
+    doitRemoveWithIndex(10000);
+    System.out.println("Took " + (System.currentTimeMillis() - startTime) + " ms with removing.");
 
     startTime = System.currentTimeMillis();
     doitFindNWithIndex(10000);
@@ -92,6 +97,23 @@ public class PerfTest {
         collection.insert(new BasicDBObject("_id", k).append("n", k % 100));
         collection.findOne(new BasicDBObject("n.a", k % 100));
       }
+      db.dropDatabase();
+    }
+  }
+
+  public static void doitRemoveWithIndex(int size) {
+    Fongo fongo = new Fongo("fongo");
+    for (int i = 0; i < 1; i++) {
+      DB db = fongo.getDB("db");
+      DBCollection collection = db.getCollection("coll");
+      collection.createIndex(new BasicDBObject("n", 1));
+      for (int k = 0; k < size; k++) {
+        collection.insert(new BasicDBObject("_id", k).append("n", k % 100));
+      }
+
+      for (int k = size; k > 0; k -= 2)
+        collection.remove(new BasicDBObject("_id", k));
+
       db.dropDatabase();
     }
   }
