@@ -27,7 +27,7 @@ public class GeoIndex extends IndexAbstract<GeoUtil.GeoDBObject> {
   private static final Logger LOG = LoggerFactory.getLogger(GeoIndex.class);
 
   GeoIndex(String name, DBObject keys, boolean unique, String geoIndex) {
-    super(name, keys, unique, new LinkedHashMap<GeoUtil.GeoDBObject, List<GeoUtil.GeoDBObject>>(), geoIndex);
+    super(name, keys, unique, new LinkedHashMap<GeoUtil.GeoDBObject, IndexedList<GeoUtil.GeoDBObject>>(), geoIndex);
     //TreeMap<GeoUtil.GeoDBObject, List<GeoUtil.GeoDBObject>>(new GeoUtil.GeoComparator(geoIndex)), geoIndex);
   }
 
@@ -61,9 +61,9 @@ public class GeoIndex extends IndexAbstract<GeoUtil.GeoDBObject> {
   /**
    * Try all the map, without trying to filter by geohash.
    */
-  private void geoNearCoverAll(Map<GeoUtil.GeoDBObject, List<GeoUtil.GeoDBObject>> values, Filter filterValue, Geometry near, boolean spherical, LinkedHashSet<DBObject> resultSet) {
-    for (Map.Entry<GeoUtil.GeoDBObject, List<GeoUtil.GeoDBObject>> entry : values.entrySet()) {
-      geoNearResults(entry.getValue(), filterValue, near, resultSet, spherical);
+  private void geoNearCoverAll(Map<GeoUtil.GeoDBObject, IndexedList<GeoUtil.GeoDBObject>> values, Filter filterValue, Geometry near, boolean spherical, LinkedHashSet<DBObject> resultSet) {
+    for (Map.Entry<GeoUtil.GeoDBObject, IndexedList<GeoUtil.GeoDBObject>> entry : values.entrySet()) {
+      geoNearResults(entry.getValue().getElements(), filterValue, near, resultSet, spherical);
     }
   }
 

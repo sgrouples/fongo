@@ -8,12 +8,9 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
 import static com.mongodb.FongoDBCollection.ID_FIELD_NAME;
 import com.mongodb.MongoException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+
+import java.util.*;
+
 import org.bson.types.Binary;
 
 /**
@@ -25,14 +22,14 @@ public abstract class IndexAbstract<T extends DBObject> {
   final String geoIndex;
   final ExpressionParser expressionParser = new ExpressionParser();
   // Contains all dbObject than field value can have
-  final Map<T, List<T>> mapValues;
+  final Map<T, IndexedList<T>> mapValues;
   private final String name;
   private final DBObject keys;
   private final Set<String> fields;
   private final boolean unique;
   int lookupCount = 0;
 
-  IndexAbstract(String name, DBObject keys, boolean unique, Map<T, List<T>> mapValues, String geoIndex) throws MongoException {
+  IndexAbstract(String name, DBObject keys, boolean unique, Map<T, IndexedList<T>> mapValues, String geoIndex) throws MongoException {
     this.name = name;
     this.fields = Collections.unmodifiableSet(keys.keySet()); // Setup BEFORE keys.
     this.keys = prepareKeys(keys);
@@ -106,9 +103,9 @@ public abstract class IndexAbstract<T extends DBObject> {
    * @param oldObject in update, old objet to remove from index.
    * @return keys in error if uniqueness is not respected, empty collection otherwise.
    */
-  public List<List<Object>> addOrUpdate(DBObject object, DBObject oldObject) {
+  public List<List<Object>> addOrUpdate(T object, T oldObject) {
     if (oldObject != null) {
-      this.remove(oldObject); // TODO : optim ?
+      remove(oldObject);
     }
 
     T key = getKeyFor(object);
@@ -118,13 +115,13 @@ public abstract class IndexAbstract<T extends DBObject> {
       if (mapValues.containsKey(key)) {
         return extractFields(object, key.keySet());
       }
-      mapValues.put(key, Collections.singletonList(embedded(object))); // DO NOT CLONE !
+      mapValues.put(key, new IndexedList<T>(Collections.singletonList(embedded(object)))); // DO NOT CLONE !
     } else {
       // Extract previous values
-      List<T> values = mapValues.get(key);
+      IndexedList<T> values = mapValues.get(key);
       if (values == null) {
         // Create if absent.
-        values = new ArrayList<T>();
+        values = new IndexedList<T>(new ArrayList<T>());
         mapValues.put(key, values);
       }
 
@@ -144,10 +141,10 @@ public abstract class IndexAbstract<T extends DBObject> {
    * @param oldObject old object if update, null elsewhere.
    * @return keys in error if uniqueness is not respected, empty collection otherwise.
    */
-  public List<List<Object>> checkAddOrUpdate(DBObject object, DBObject oldObject) {
+  public List<List<Object>> checkAddOrUpdate(T object, T oldObject) {
     if (unique) {
       DBObject key = getKeyFor(object);
-      List<T> objects = mapValues.get(key);
+      IndexedList<T> objects = mapValues.get(key);
       if (objects != null && !objects.contains(oldObject)) {
         List<List<Object>> fieldsForIndex = extractFields(object, getFields());
         return fieldsForIndex;
@@ -161,10 +158,10 @@ public abstract class IndexAbstract<T extends DBObject> {
    *
    * @param object to remove from the index.
    */
-  public void remove(DBObject object) {
-    DBObject key = getKeyFor(object);
+  public void remove(T object) {
+    T key = getKeyFor(object);
     // Extract previous values
-    List<T> values = mapValues.get(key);
+    IndexedList<T> values = mapValues.get(key);
     if (values != null) {
       // Last entry ? or uniqueness ?
       if (values.size() == 1) {
@@ -181,8 +178,8 @@ public abstract class IndexAbstract<T extends DBObject> {
    * @param objects to add.
    * @return keys in error if uniqueness is not respected, empty collection otherwise.
    */
-  public List<List<Object>> addAll(Iterable<DBObject> objects) {
-    for (DBObject object : objects) {
+  public List<List<Object>> addAll(Iterable<T> objects) {
+    for (T object : objects) {
       if (canHandle(object)) {
         List<List<Object>> nonUnique = addOrUpdate(object, null);
         // TODO(twillouer) : must handle writeConcern.
@@ -194,15 +191,19 @@ public abstract class IndexAbstract<T extends DBObject> {
     return Collections.emptyList();
   }
 
-  // Only for unique index and for query with values. ($in doens't work by example.)
+  // Only for unique index and for query with values. ($in doesn't work by example.)
   public List<T> get(DBObject query) {
     if (!unique) {
       throw new IllegalStateException("get is only for unique index");
     }
     lookupCount++;
 
-    DBObject key = getKeyFor(query);
-    return mapValues.get(key);
+    T key = getKeyFor(query);
+    IndexedList<T> result = mapValues.get(key);
+    if (result != null)
+      return result.getElements();
+    else
+      return null;
   }
 
   // @Nonnull
@@ -225,9 +226,9 @@ public abstract class IndexAbstract<T extends DBObject> {
     // Filter for the data.
     Filter filter = expressionParser.buildFilter(query);
     List<T> result = new ArrayList<T>();
-    for (Map.Entry<T, List<T>> entry : mapValues.entrySet()) {
+    for (Map.Entry<T, IndexedList<T>> entry : mapValues.entrySet()) {
       if (filterKey.apply(entry.getKey())) {
-        for (T object : entry.getValue()) {
+        for (T object : entry.getValue().getElements()) {
           if (filter.apply(object)) {
             result.add(object); // DO NOT CLONE ! need for update.
           }
@@ -246,7 +247,7 @@ public abstract class IndexAbstract<T extends DBObject> {
     if (unique) {
       size = mapValues.size();
     } else {
-      for (Map.Entry<T, List<T>> entry : mapValues.entrySet()) {
+      for (Map.Entry<T, IndexedList<T>> entry : mapValues.entrySet()) {
         size += entry.getValue().size();
       }
     }
@@ -255,8 +256,8 @@ public abstract class IndexAbstract<T extends DBObject> {
 
   public List<DBObject> values() {
     List<DBObject> values = new ArrayList<DBObject>(mapValues.size() * 10);
-    for (List<T> objects : mapValues.values()) {
-      values.addAll(objects);
+    for (IndexedList<T> objects : mapValues.values()) {
+      values.addAll(objects.getElements());
     }
     return values;
   }
