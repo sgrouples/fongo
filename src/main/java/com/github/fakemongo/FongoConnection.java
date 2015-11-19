@@ -441,6 +441,16 @@ public class FongoConnection implements Connection {
   }
 
   @Override
+  public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int skip,
+      int limit, int batchSize, boolean slaveOk, boolean tailableCursor, boolean awaitData,
+      boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
+    // we ignore the batchSize here since batching is not implemented.
+    return query(namespace, queryDocument, fields,
+                 limit, skip, slaveOk, tailableCursor, awaitData,
+                 noCursorTimeout, partial, oplogReplay, resultDecoder);
+  }
+  
+  @Override
   public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
     LOG.info("getMore() namespace:{} cursorId:{}", namespace, cursorId);
     // 0 means Cursor exhausted.
@@ -452,6 +462,11 @@ public class FongoConnection implements Connection {
     LOG.info("killCursor() cursors:{}", cursors);
   }
 
+  @Override
+  public void killCursor(MongoNamespace namespace, List<Long> cursors) {
+    LOG.info("killCursor() namespace:{}, cursors:{}", namespace.getFullName(), cursors);
+  }
+	
   @Override
   public int getCount() {
     LOG.info("getCount()");
