@@ -1,12 +1,15 @@
 package com.mongodb;
 
+import com.github.fakemongo.Fongo;
 import com.github.fakemongo.junit.FongoRule;
+import com.mongodb.connection.ServerVersion;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.util.StringUtils;
 
 /**
  * @author Anton Bobukh <abobukh@yandex-team.ru>
@@ -62,6 +65,20 @@ public class FongoDBTest {
 
     command = new BasicDBObject("buildInfo", 1);
     Assert.assertTrue(db.command(command, preference).containsField("version"));
+  }
+
+  @Test
+  public void commandBuildInfoPullsDefaultMongoVersionFromFongo() throws Exception {
+    CommandResult commandResult = db.command("buildInfo");
+    String expectedVersionAsString = StringUtils.collectionToDelimitedString(Fongo.DEFAULT_SERVER_VERSION.getVersionList(), ".");
+    assertThat(commandResult.getString("version")).isEqualTo(expectedVersionAsString);
+  }
+
+  @Test
+  public void commandBuildInfoPullsChangedMongoVersionFromFongo() throws Exception {
+      db = new Fongo("testfongo", new ServerVersion(3, 1)).getDB("testdb");
+      CommandResult commandResult = db.command("buildInfo");
+      assertThat(commandResult.getString("version")).isEqualTo("3.1.0");
   }
 
   @Test
