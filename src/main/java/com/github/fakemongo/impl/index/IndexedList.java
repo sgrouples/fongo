@@ -4,15 +4,27 @@ import java.util.*;
 
 
 public class IndexedList<Е> {
-  private final Map<Е, List<Integer>> indexes = new HashMap<Е, List<Integer>>();
+  private Map<Е, List<Integer>> indexes;
 
   private final List<Е> elements;
+
+  private boolean isSingle = true;
 
   public IndexedList(List<Е> elements) {
     this.elements = elements;
 
+    if (elements.size() > 1) {
+      initIndex(elements);
+    }
+  }
+
+  private void initIndex(List<Е> newElements) {
+    indexes = new HashMap<Е, List<Integer>>();
+
+    isSingle = false;
+
     int count = 0;
-    for (Е el : elements) {
+    for (Е el : newElements) {
       addIndex(el, count);
       count += 1;
     }
@@ -27,13 +39,21 @@ public class IndexedList<Е> {
   }
 
   public boolean contains(Е element) {
+    if (isSingle)
+      return elements.contains(element);
+
     return indexes.containsKey(element);
   }
 
   public void add(Е element) {
-    addIndex(element, elements.size());
+    if (elements.size() == 1) {
+      initIndex(elements);
+    }
 
     elements.add(element);
+
+    if (elements.size() > 1)
+      addIndex(element, elements.size()-1);
   }
 
   private void addIndex(Е element, int position) {
@@ -49,6 +69,11 @@ public class IndexedList<Е> {
   }
 
   public void remove(Е element) {
+    if (isSingle) {
+      elements.remove(element);
+      return;
+    }
+
     List<Integer> index = indexes.get(element);
 
     if (index == null)
