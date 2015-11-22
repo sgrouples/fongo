@@ -151,4 +151,29 @@ public class IndexedListTest {
         assertFalse(list.contains(firstElement));
         assertFalse(list.contains(secondElement));
     }
+
+    @Test
+    public void testRemoveNotExistedElement() throws Exception {
+        random = new Random();
+
+        int firstElement = 42;
+        int secondElement = 54;
+
+        List<Integer> innerList = new ArrayList<Integer>();
+        innerList.add(firstElement);
+        IndexedList<Integer> list = new IndexedList<Integer>(innerList);
+
+        assertTrue(list.contains(firstElement));
+        assertFalse(list.contains(secondElement));
+
+        list.remove(secondElement);
+
+        assertTrue(list.contains(firstElement));
+        assertFalse(list.contains(secondElement));
+
+        list.remove(firstElement);
+
+        assertFalse(list.contains(firstElement));
+        assertFalse(list.contains(secondElement));
+    }
 }
