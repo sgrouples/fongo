@@ -246,7 +246,8 @@ public class FongoDB extends DB {
       return okResult();
     } else if (cmd.containsField("buildInfo") || cmd.containsField("buildinfo")) {
       CommandResult okResult = okResult();
-      okResult.put("version", "2.4.5");
+      List<Integer> versionList = fongo.getServerVersion().getVersionList();
+      okResult.put("version", versionList.get(0) + "." + versionList.get(1) + "." + versionList.get(2));
       okResult.put("maxBsonObjectSize", 16777216);
       return okResult;
     } else if (cmd.containsField("forceerror")) {
