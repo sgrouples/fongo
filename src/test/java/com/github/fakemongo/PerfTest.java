@@ -87,6 +87,23 @@ public class PerfTest {
   }
 
   @Benchmark
+  public void doitRemoveWithIndex() {
+    DB db = fongo.getDB("db");
+    DBCollection collection = db.getCollection("coll");
+    collection.createIndex(new BasicDBObject("n", 1));
+
+    for (int k = 0; k < size; k++) {
+        collection.insert(new BasicDBObject("_id", k).append("n", k % 100));
+    }
+
+    for (int k = 0; k < size; k++) {
+      collection.remove(new BasicDBObject("n.a", k % 100));
+    }
+
+      db.dropDatabase();
+    }
+
+  @Benchmark
   public void doitRemoveWithIndexNew() {
     MongoDatabase db = fongo.getDatabase("db");
     MongoCollection<Document> collection = db.getCollection("coll");
