@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.bson.BSON;
@@ -185,6 +186,9 @@ public final class Util {
   public static Object clone(Object source) {
     source = BSON.applyEncodingHooks(source);
 
+    if (source instanceof UUID) {
+      return source;
+    }
     if (source instanceof DBObject) {
       return clone((DBObject) source);
     }
