@@ -25,6 +25,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.regex.Pattern;
 import org.bson.LazyBSONList;
 import org.bson.types.Binary;
@@ -674,6 +675,12 @@ public class ExpressionParser {
         cc1 = a1.toString();
         cc2 = a2.toString();
         checkTypes = false;
+      }
+      if (cc1 instanceof UUID && !(cc2 instanceof UUID)) {
+        return -1;
+      }
+      if (cc2 instanceof UUID && !(cc1 instanceof UUID)) {
+        return 1;
       }
       if (checkTypes) {
         Integer type1 = CLASS_TO_WEIGHT.get(clazz1);

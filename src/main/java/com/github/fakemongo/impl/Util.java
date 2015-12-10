@@ -14,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.bson.BSON;
@@ -51,6 +52,7 @@ public final class Util {
     }
     return value;
   }
+
   /**
    * Can extract field from an object.
    * Handle "field1.field2" in { field1 : {field2 : value2 } }
@@ -62,7 +64,7 @@ public final class Util {
       return null; // NPE ?
     }
     DBObject value = object;
-    for (String path: paths) {
+    for (String path : paths) {
       value = (DBObject) value.get(path);
       if (value == null) {
         break;
@@ -182,6 +184,9 @@ public final class Util {
   public static Object clone(Object source) {
     source = BSON.applyEncodingHooks(source);
 
+    if (source instanceof UUID) {
+      return source;
+    }
     if (source instanceof DBObject) {
       return clone((DBObject) source);
     }

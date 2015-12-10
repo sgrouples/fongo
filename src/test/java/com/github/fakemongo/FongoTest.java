@@ -416,8 +416,8 @@ public class FongoTest {
     String host = serverAddress.getHost() + ":" + serverAddress.getPort();
     DBObject expected = new BasicDBObject("serverUsed", host).append("ok", 1.0);
     expected.put("results", JSON.parse("[ "
-            + "{ \"score\" : 0.75 , "
-            + "\"obj\" : { \"_id\" : 1 , \"textField\" : \"aaa bbb\"}}]"
+        + "{ \"score\" : 0.75 , "
+        + "\"obj\" : { \"_id\" : 1 , \"textField\" : \"aaa bbb\"}}]"
     ));
     expected.put("stats",
         new BasicDBObject("nscannedObjects", 4L)
@@ -2077,25 +2077,25 @@ public class FongoTest {
   }
 
 
-    @Test
-    public void testBinarySaveWithNestedByteArray() throws Exception {
-      // Given
-      DBCollection collection = newCollection();
+  @Test
+  public void testBinarySaveWithNestedByteArray() throws Exception {
+    // Given
+    DBCollection collection = newCollection();
 
-      byte[] byteArray = "nestedByteArray".getBytes();
-      DBObject innerField = BasicDBObjectBuilder.start().add("value" , byteArray).get();
+    byte[] byteArray = "nestedByteArray".getBytes();
+    DBObject innerField = BasicDBObjectBuilder.start().add("value", byteArray).get();
 
-      // When
-      collection.insert(BasicDBObjectBuilder.start().add("_id", 1).add("nested", innerField).get());
+    // When
+    collection.insert(BasicDBObjectBuilder.start().add("_id", 1).add("nested", innerField).get());
 
-      // Then
-      List<DBObject> result = collection.find().toArray();
-      assertThat(result).hasSize(1);
-      assertThat(result.get(0).keySet()).containsExactly("_id", "nested");
-      assertThat(result.get(0).get("_id")).isEqualTo(1);
-      assertThat(DBObject.class.isAssignableFrom(result.get(0).get("nested").getClass()));
-      assertThat(((DBObject)result.get(0).get("nested")).get("value")).isEqualTo("nestedByteArray".getBytes());
-    }
+    // Then
+    List<DBObject> result = collection.find().toArray();
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).keySet()).containsExactly("_id", "nested");
+    assertThat(result.get(0).get("_id")).isEqualTo(1);
+    assertThat(DBObject.class.isAssignableFrom(result.get(0).get("nested").getClass()));
+    assertThat(((DBObject) result.get(0).get("nested")).get("value")).isEqualTo("nestedByteArray".getBytes());
+  }
 
 
   // can not change _id of a document query={ "_id" : "52986f667f6cc746624b0db5"}, document={ "name" : "Robert" , "_id" : { "$oid" : "52986f667f6cc746624b0db5"}}
@@ -2430,14 +2430,14 @@ public class FongoTest {
     // Given
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1)
-            .append("a", 100)
-            .append("b", 200)
+        .append("a", 100)
+        .append("b", 200)
 
-            .append("x", -100.0)
-            .append("y", 200.0)
+        .append("x", -100.0)
+        .append("y", 200.0)
 
-            .append("later", new Date(now + 10000))
-            .append("before", new Date(now - 10000))
+        .append("later", new Date(now + 10000))
+        .append("before", new Date(now - 10000))
     );
 
     // When
@@ -2483,14 +2483,14 @@ public class FongoTest {
     // Given
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1)
-            .append("a", 100)
-            .append("b", 200)
+        .append("a", 100)
+        .append("b", 200)
 
-            .append("x", -100.0)
-            .append("y", 200.0)
+        .append("x", -100.0)
+        .append("y", 200.0)
 
-            .append("later", new Date(now + 10000))
-            .append("before", new Date(now - 10000))
+        .append("later", new Date(now + 10000))
+        .append("before", new Date(now - 10000))
     );
 
     // When
@@ -3164,6 +3164,65 @@ public class FongoTest {
     if (fongoRule.isRealMongo()) {
       assertThat(collection.getDB().getCollection("db").getIndexInfo()).isEmpty();
     }
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/166
+  @Test
+  public void can_compare_uuid() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    final UUID uuid = UUID.randomUUID();
+    collection.insert(new BasicDBObject("_id", uuid));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("_id", "some string")).toArray();
+
+    // Then
+    assertThat(dbObjects).isEmpty();
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/166
+  @Test
+  public void should_search_uuid() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    final UUID uuid = UUID.randomUUID();
+    collection.insert(new BasicDBObject("_id", uuid));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("_id", uuid)).toArray();
+
+    // Then
+    assertThat(dbObjects).containsExactly(new BasicDBObject("_id", uuid));
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/166
+  @Test
+  public void should_not_search_uuid_in_string() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    final UUID uuid = UUID.randomUUID();
+    collection.insert(new BasicDBObject("_id", uuid));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("_id", uuid.toString())).toArray();
+
+    // Then
+    assertThat(dbObjects).isEmpty();
+  }
+  // See https://github.com/fakemongo/fongo/issues/166
+  @Test
+  public void should_not_search_string_in_uuid() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    final UUID uuid = UUID.randomUUID();
+    collection.insert(new BasicDBObject("_id", uuid.toString()));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("_id", uuid)).toArray();
+
+    // Then
+    assertThat(dbObjects).isEmpty();
   }
 
   static class Seq {
