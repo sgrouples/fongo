@@ -3303,6 +3303,26 @@ public class FongoTest {
     assertThat(dbObjects).isEmpty();
   }
 
+  @Test
+  public void should_fully_rename_a_collection() {
+    // Given
+    DBCollection collection = fongoRule.getDB("olddb").getCollection("oldName");
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.createIndex(new BasicDBObject("date", 1));
+
+    // When
+    final CommandResult commandResult = collection.getDB().command(new BasicDBObject("renameCollection", "olddb.oldName").append("to", "newdb.newcollection"));
+    DBCollection second = fongoRule.getDB("newdb").getCollection("newcollection");
+
+    // Then
+    assertThat(commandResult.getErrorMessage()).isNullOrEmpty();
+    assertThat(commandResult.ok()).isTrue();
+    assertThat(second.getFullName()).isEqualTo("newdb.newcollection");
+    assertThat(collection.getFullName()).isEqualTo("olddb.oldName");
+    assertThat(fongoRule.getMongo().getDB("newdb").getCollection("newcollection").find().toArray()).containsExactly(new BasicDBObject("_id", 1));
+    assertThat(fongoRule.getMongo().getDB("newdb").getCollection("newcollection").getIndexInfo()).hasSize(2);
+  }
+
   static class Seq {
     Object[] data;
 

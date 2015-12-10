@@ -286,7 +286,7 @@ public class FongoDB extends DB {
     } else if (cmd.containsField("renameCollection")) {
       final String renameCollection = (String) cmd.get("renameCollection");
       final String to = (String) cmd.get("to");
-      final boolean dropTarget = (Boolean) cmd.get("dropTarget");
+      final Boolean dropTarget = (Boolean) cmd.get("dropTarget");
       this.renameCollection(renameCollection, to, dropTarget);
       return okResult();
     } else {
@@ -327,7 +327,7 @@ public class FongoDB extends DB {
     return notOkErrorResult(null, "no such cmd: " + command);
   }
 
-  public void renameCollection(String renameCollection, String to, boolean dropTarget) {
+  public void renameCollection(String renameCollection, String to, Boolean dropTarget) {
     String dbRename = renameCollection.substring(0, renameCollection.indexOf('.'));
     String collectionRename = renameCollection.substring(renameCollection.indexOf('.') + 1);
     String dbTo = to.substring(0, to.indexOf('.'));
