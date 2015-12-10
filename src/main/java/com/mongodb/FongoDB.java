@@ -71,7 +71,7 @@ public class FongoDB extends DB {
   }
 
   @Override
-  public DBCollection getCollection(final String name) {
+  public FongoDBCollection getCollection(final String name) {
     return doGetCollection(name);
   }
 
@@ -147,6 +147,11 @@ public class FongoDB extends DB {
   @Override
   public WriteConcern getWriteConcern() {
     return fongo.getWriteConcern();
+  }
+
+  @Override
+  public ReadConcern getReadConcern() {
+    return fongo.getReadConcern();
   }
 
   @Override

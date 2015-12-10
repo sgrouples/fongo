@@ -14,6 +14,10 @@ import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
 import static com.mongodb.assertions.Assertions.isTrueArgument;
+import static com.mongodb.bulk.WriteRequest.Type.INSERT;
+import static com.mongodb.bulk.WriteRequest.Type.REPLACE;
+import com.mongodb.internal.validator.CollectibleDocumentFieldNameValidator;
+import com.mongodb.internal.validator.UpdateFieldNameValidator;
 import com.vividsolutions.jts.geom.Geometry;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,6 +38,7 @@ import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
 import org.bson.BsonDocumentWriter;
 import org.bson.BsonValue;
+import org.bson.FieldNameValidator;
 import org.bson.codecs.Codec;
 import org.bson.codecs.Decoder;
 import org.bson.codecs.DecoderContext;
@@ -495,7 +500,7 @@ public class FongoDBCollection extends DBCollection {
     indexColl.insert(rec);
   }
 
-  @Override
+  // @Override
   DBObject findOne(final DBObject pRef, final DBObject projection, final DBObject sort,
                    final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit) {
     final DBObject query = new BasicDBObject("$query", pRef);
@@ -970,10 +975,10 @@ public class FongoDBCollection extends DBCollection {
     return objectsToSearch;
   }
 
-  @Override
-  synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
-                             final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
-                             final BsonValue hint) {
+  // @Override
+  public synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
+                                    final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
+                                    final BsonValue hint) {
     final DBObject query = filterLists(pQuery);
     Filter filter = query == null ? ExpressionParser.AllFilter : buildFilter(query);
     long count = 0;
@@ -1080,7 +1085,9 @@ public class FongoDBCollection extends DBCollection {
   }
 
 
-  @Override
+
+  // @Override
+  @Deprecated
   BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
                                             final WriteConcern aWriteConcern) {
     isTrueArgument("writes is not an empty list", !writeRequests.isEmpty());

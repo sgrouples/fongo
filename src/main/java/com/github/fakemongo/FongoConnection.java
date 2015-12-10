@@ -50,6 +50,7 @@ import static java.util.Arrays.asList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.bson.BsonArray;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
@@ -64,6 +65,7 @@ import org.bson.codecs.Codec;
 import org.bson.codecs.Decoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import sun.reflect.generics.reflectiveObjects.NotImplementedException;
 
 /**
  *
@@ -191,6 +193,24 @@ public class FongoConnection implements Connection {
     return bulkWriteBatchCombiner.getResult();
   }
 
+  /**
+   * Insert the documents using the insert command.
+   *
+   * @param namespace                the namespace
+   * @param ordered                  whether the writes are ordered
+   * @param writeConcern             the write concern
+   * @param bypassDocumentValidation the bypassDocumentValidation flag
+   * @param inserts                  the inserts
+   * @return the bulk write result
+   * @mongodb.driver.manual reference/command/insert/ Insert
+   * @since 3.2
+   */
+  @Override
+  public BulkWriteResult insertCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, Boolean bypassDocumentValidation, List<InsertRequest> inserts) {
+
+    throw new NotImplementedException();
+  }
+
   private static final List<String> IGNORED_KEYS = asList("ok", "err", "code");
 
   BulkWriteError getBulkWriteError(final WriteConcernException writeException) {
@@ -215,10 +235,38 @@ public class FongoConnection implements Connection {
     return errInfo;
   }
 
+  /**
+   * Update the documents using the update command.
+   *
+   * @param namespace    the namespace
+   * @param ordered      whether the writes are ordered
+   * @param writeConcern the write concern
+   * @param updates      the updates
+   * @return the bulk write result
+   * @mongodb.driver.manual reference/command/update/ Update
+   * @since 3.2
+   */
   @Override
   public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, List<UpdateRequest> updates) {
+    return this.updateCommand(namespace, ordered, writeConcern, false, updates);
+  }
+
+  /**
+   * Update the documents using the update command.
+   *
+   * @param namespace                the namespace
+   * @param ordered                  whether the writes are ordered
+   * @param writeConcern             the write concern
+   * @param bypassDocumentValidation the bypassDocumentValidation flag
+   * @param updates                  the updates
+   * @return the bulk write result
+   * @mongodb.driver.manual reference/command/update/ Update
+   * @since 3.2
+   */
+  @Override
+  public BulkWriteResult updateCommand(MongoNamespace namespace, boolean ordered, WriteConcern writeConcern, Boolean bypassDocumentValidation, List<UpdateRequest> updates) {
     LOG.debug("updateCommand() namespace:{} updates:{}", namespace, updates);
-    final DBCollection collection = dbCollection(namespace);
+    final FongoDBCollection collection = dbCollection(namespace);
 
 
     final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
@@ -270,6 +318,8 @@ public class FongoConnection implements Connection {
         case DELETE:
           bulkWriteOperation.find(dbObject((update.getFilter()))).removeOne();
       }
+
+//      collection.executeBulkWriteOperation()
       final com.mongodb.BulkWriteResult bulkWriteResult = bulkWriteOperation.execute(writeConcern);
       indexMap = indexMap.add(1, 0);
       bulkWriteBatchCombiner.addResult(bulkWriteResult(bulkWriteResult), indexMap);
@@ -311,12 +361,13 @@ public class FongoConnection implements Connection {
     final DB db = fongo.getDB(database);
     LOG.debug("command() database:{}, command:{}", database, command);
     if (command.containsKey("count")) {
-      final DBCollection dbCollection = db.getCollection(command.get("count").asString().getValue());
+      final FongoDBCollection dbCollection = (FongoDBCollection) db.getCollection(command.get("count").asString().getValue());
       final DBObject query = dbObject(command, "query");
       final long limit = command.containsKey("limit") ? command.getInt64("limit").longValue() : -1;
       final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
-      return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip)));
+
+      return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip, dbCollection.getReadPreference(), 0, TimeUnit.MICROSECONDS, null)));
     } else if (command.containsKey("findandmodify")) {
       final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
       final DBObject query = dbObject(command, "query");
@@ -442,14 +493,14 @@ public class FongoConnection implements Connection {
 
   @Override
   public <T> QueryResult<T> query(MongoNamespace namespace, BsonDocument queryDocument, BsonDocument fields, int skip,
-      int limit, int batchSize, boolean slaveOk, boolean tailableCursor, boolean awaitData,
-      boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
+                                  int limit, int batchSize, boolean slaveOk, boolean tailableCursor, boolean awaitData,
+                                  boolean noCursorTimeout, boolean partial, boolean oplogReplay, Decoder<T> resultDecoder) {
     // we ignore the batchSize here since batching is not implemented.
     return query(namespace, queryDocument, fields,
-                 limit, skip, slaveOk, tailableCursor, awaitData,
-                 noCursorTimeout, partial, oplogReplay, resultDecoder);
+        limit, skip, slaveOk, tailableCursor, awaitData,
+        noCursorTimeout, partial, oplogReplay, resultDecoder);
   }
-  
+
   @Override
   public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
     LOG.info("getMore() namespace:{} cursorId:{}", namespace, cursorId);
@@ -466,7 +517,7 @@ public class FongoConnection implements Connection {
   public void killCursor(MongoNamespace namespace, List<Long> cursors) {
     LOG.info("killCursor() namespace:{}, cursors:{}", namespace.getFullName(), cursors);
   }
-	
+
   @Override
   public int getCount() {
     LOG.info("getCount()");
@@ -478,7 +529,7 @@ public class FongoConnection implements Connection {
     LOG.debug("release()");
   }
 
-  private DBCollection dbCollection(MongoNamespace namespace) {
+  private FongoDBCollection dbCollection(MongoNamespace namespace) {
     return fongo.getDB(namespace.getDatabaseName()).getCollection(namespace.getCollectionName());
   }
 
