@@ -174,7 +174,6 @@ public class FongoConnection implements Connection {
    * @param bypassDocumentValidation the bypassDocumentValidation flag
    * @param inserts                  the inserts
    * @return the bulk write result
-   * @mongodb.driver.manual reference/command/insert/ Insert
    * @since 3.2
    */
   @Override
@@ -243,7 +242,6 @@ public class FongoConnection implements Connection {
    * @param writeConcern the write concern
    * @param updates      the updates
    * @return the bulk write result
-   * @mongodb.driver.manual reference/command/update/ Update
    * @since 3.2
    */
   @Override
@@ -260,7 +258,6 @@ public class FongoConnection implements Connection {
    * @param bypassDocumentValidation the bypassDocumentValidation flag
    * @param updates                  the updates
    * @return the bulk write result
-   * @mongodb.driver.manual reference/command/update/ Update
    * @since 3.2
    */
   @Override
