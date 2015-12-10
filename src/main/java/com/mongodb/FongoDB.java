@@ -5,14 +5,12 @@ import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.MapReduce;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -259,7 +257,7 @@ public class FongoDB extends DB {
     } else if (cmd.containsField("renameCollection")) {
       final String renameCollection = (String) cmd.get("renameCollection");
       final String to = (String) cmd.get("to");
-      final boolean dropTarget = (Boolean) cmd.get("dropTarget");
+      final Boolean dropTarget = (Boolean) cmd.get("dropTarget");
       this.renameCollection(renameCollection, to, dropTarget);
       return okResult();
     } else {
@@ -300,7 +298,7 @@ public class FongoDB extends DB {
     return notOkErrorResult(null, "no such cmd: " + command);
   }
 
-  private void renameCollection(String renameCollection, String to, boolean dropTarget) {
+  private void renameCollection(String renameCollection, String to, Boolean dropTarget) {
     String dbRename = renameCollection.substring(0, renameCollection.indexOf('.'));
     String collectionRename = renameCollection.substring(renameCollection.indexOf('.') + 1);
     String dbTo = to.substring(0, to.indexOf('.'));
