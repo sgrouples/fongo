@@ -123,7 +123,7 @@ public class FongoDBCollection extends DBCollection {
 
   boolean enforceDuplicates(WriteConcern concern) {
     WriteConcern writeConcern = concern == null ? getWriteConcern() : concern;
-    return writeConcern.getW() > 0;
+    return writeConcern.isAcknowledged();
   }
 
   public ObjectId putIdIfNotPresent(DBObject obj) {
@@ -495,7 +495,7 @@ public class FongoDBCollection extends DBCollection {
     indexColl.insert(rec);
   }
 
-  @Override
+  // @Override
   DBObject findOne(final DBObject pRef, final DBObject projection, final DBObject sort,
                    final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit) {
     final DBObject query = new BasicDBObject("$query", pRef);
@@ -970,10 +970,10 @@ public class FongoDBCollection extends DBCollection {
     return objectsToSearch;
   }
 
-  @Override
-  synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
-                             final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
-                             final BsonValue hint) {
+  // @Override
+  public synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
+                                    final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
+                                    final BsonValue hint) {
     final DBObject query = filterLists(pQuery);
     Filter filter = query == null ? ExpressionParser.AllFilter : buildFilter(query);
     long count = 0;
@@ -1081,7 +1081,8 @@ public class FongoDBCollection extends DBCollection {
 
 
   @Override
-  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
+  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final Boolean bypassDocumentValidation,
+                                            final List<WriteRequest> writeRequests,
                                             final WriteConcern aWriteConcern) {
     isTrueArgument("writes is not an empty list", !writeRequests.isEmpty());
     WriteConcern writeConcern = aWriteConcern == null ? getWriteConcern() : aWriteConcern;
@@ -1134,10 +1135,17 @@ public class FongoDBCollection extends DBCollection {
       }
       idx++;
     }
-    if (writeConcern.getW() == 0) {
+    if (!writeConcern.isAcknowledged()) {
       return new UnacknowledgedBulkWriteResult();
     }
     return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
+  }
+
+  // @Override
+  @Deprecated
+  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
+                                            final WriteConcern aWriteConcern) {
+    return executeBulkWriteOperation(ordered, false, writeRequests, aWriteConcern);
   }
 
   private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
