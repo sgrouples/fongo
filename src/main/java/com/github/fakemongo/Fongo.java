@@ -4,6 +4,7 @@ import com.mongodb.DB;
 import com.mongodb.FongoDB;
 import com.mongodb.MockMongoClient;
 import com.mongodb.MongoClient;
+import com.mongodb.ReadConcern;
 import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
@@ -18,13 +19,11 @@ import com.mongodb.operation.WriteOperation;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Faked out version of com.mongodb.Mongo
@@ -81,7 +80,7 @@ public class Fongo implements OperationExecutor {
    * @param dbname name of the db.
    * @return the DB associated to this name.
    */
-  public DB getDB(String dbname) {
+  public FongoDB getDB(String dbname) {
     synchronized (dbMap) {
       FongoDB fongoDb = dbMap.get(dbname);
       if (fongoDb == null) {
@@ -149,6 +148,11 @@ public class Fongo implements OperationExecutor {
     return mongo.getWriteConcern();
   }
 
+  public ReadConcern getReadConcern() {
+    return mongo.getReadConcern();
+  }
+
+
   private MongoClient createMongo() {
     return MockMongoClient.create(this);
   }
@@ -215,4 +219,5 @@ public class Fongo implements OperationExecutor {
   public ServerVersion getServerVersion() {
     return serverVersion;
   }
+
 }
