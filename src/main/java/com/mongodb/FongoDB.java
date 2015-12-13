@@ -4,19 +4,17 @@ import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
-import java.util.concurrent.ConcurrentHashMap;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -357,7 +355,6 @@ public class FongoDB extends DB {
    *
    * @return the names of collections in this database
    * @throws com.mongodb.MongoException
-   * @mongodb.driver.manual reference/method/db.getCollectionNames/ getCollectionNames()
    */
   @Override
   public Set<String> getCollectionNames() {
