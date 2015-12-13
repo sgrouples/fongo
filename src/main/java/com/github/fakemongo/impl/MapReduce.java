@@ -406,5 +406,17 @@ public class MapReduce {
     construct.append("assert = function(a) {\n" +
         "    if (!a) throw new FongoAssertException();\n" +
         " };\n");
+
+    construct.append("isString = function(a) {\n" +
+        "    return typeof(a) === 'string';\n" +
+        " };\n");
+
+    construct.append("isNumber = function(a) {\n" +
+        "    return typeof(a) === 'number';\n" +
+        " };\n");
+
+    construct.append("isObject = function(a) {\n" +
+        "    return typeof(a) === 'object';\n" +
+        " };\n");
   }
 }

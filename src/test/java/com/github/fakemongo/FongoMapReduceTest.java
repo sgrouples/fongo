@@ -35,12 +35,7 @@ public class FongoMapReduceTest {
   // see http://no-fucking-idea.com/blog/2012/04/01/using-map-reduce-with-mongodb/
   @Test
   public void testMapReduceSimple() {
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit(this.url, 1);  };";
@@ -58,12 +53,7 @@ public class FongoMapReduceTest {
 
   @Test
   public void testMapReduceEmitObject() {
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -163,12 +153,7 @@ public class FongoMapReduceTest {
 
   @Test
   public void should_use_outputdb() {
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit(this.url, 1);  };";
@@ -218,12 +203,7 @@ public class FongoMapReduceTest {
   @Test
   public void testMapReduceInline() {
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
     // When
     String map = "function(){    emit(this.url, 1);  };";
@@ -237,12 +217,7 @@ public class FongoMapReduceTest {
   @Test
   public void testMapReduceMapInError() {
     ExpectedMongoException.expectMongoCommandException(exception, 16722);
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    ;";
@@ -253,12 +228,7 @@ public class FongoMapReduceTest {
   @Test
   public void testMapReduceReduceInError() {
     ExpectedMongoException.expectMongoCommandException(exception, 16722);
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit(this.url, 1);  };";
@@ -347,12 +317,7 @@ public class FongoMapReduceTest {
   @Test
   public void should_printjson_work() {
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -369,12 +334,7 @@ public class FongoMapReduceTest {
   @Test
   public void should_print_work() {
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -391,12 +351,7 @@ public class FongoMapReduceTest {
   @Test
   public void should_printjsononeline_work() {
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -413,12 +368,7 @@ public class FongoMapReduceTest {
   @Test
   public void should_assert_work() {
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -437,12 +387,7 @@ public class FongoMapReduceTest {
     ExpectedMongoException.expectMongoCommandException(exception, 16722);
     exception.expectMessage("Error: assert failed");
     // Given
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
-        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
-        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    DBCollection coll = newCollectionWithUrls();
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
@@ -450,5 +395,115 @@ public class FongoMapReduceTest {
 
     // When
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
+  }
+
+  @Test
+  public void should_isNumber_work() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isNumber(res) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 1.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 1.0}}]"), results);
+  }
+
+  @Test
+  public void should_isString_work() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isString(\"\" + res) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 1.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 1.0}}]"), results);
+  }
+
+  @Test
+  public void should_isString_return_false() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isString(res) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 2.0}}]"), results);
+  }
+
+  @Test
+  public void should_isObject_work() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isObject({res:res}) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 1.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 1.0}}]"), results);
+  }
+
+  @Test
+  public void should_isObject_return_false_for_string() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isObject(\"\" + res) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 2.0}}]"), results);
+  }
+
+  @Test
+  public void should_isObject_return_false_for_double() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isObject(res) ? 1 : 2};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 2.0}}]"), results);
+  }
+
+  private DBCollection newCollectionWithUrls() {
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+    return coll;
   }
 }
