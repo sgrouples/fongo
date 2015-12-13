@@ -22,6 +22,7 @@ import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.tools.shell.Global;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -199,7 +200,7 @@ public class MapReduce {
     // TODO use Compilable ? http://www.jmdoudoux.fr/java/dej/chap-scripting.htm
     Context cx = Context.enter();
     try {
-      Scriptable scriptable = cx.initStandardObjects();
+      Scriptable scriptable = new Global(cx);//cx.initStandardObjects();
       if (this.scope != null) {
         for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
           scriptable.put(entry.getKey(), scriptable, entry.getValue());
@@ -397,14 +398,23 @@ public class MapReduce {
     construct.append("printjson = function(a) {\n" +
         " };\n");
 
-    construct.append("print = function(a) {\n" +
-        " };\n");
-
     construct.append("printjsononeline = function(a) {\n" +
         " };\n");
 
     construct.append("assert = function(a) {\n" +
         "    if (!a) throw new FongoAssertException();\n" +
+        " };\n");
+
+    construct.append("isString = function(a) {\n" +
+        "    return typeof(a) === 'string';\n" +
+        " };\n");
+
+    construct.append("isNumber = function(a) {\n" +
+        "    return typeof(a) === 'number';\n" +
+        " };\n");
+
+    construct.append("isObject = function(a) {\n" +
+        "    return typeof(a) === 'object';\n" +
         " };\n");
   }
 }
