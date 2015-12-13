@@ -81,7 +81,7 @@ public class MapReduce {
     REDUCE {
       @Override
       public void newResults(MapReduce mr, DBCollection coll, List<DBObject> results) {
-        List<DBObject> reduced = mr.reduceOutputStage(coll, results);
+        final List<DBObject> reduced = mr.reduceOutputStage(coll, results);
         for (DBObject result : reduced) {
           coll.update(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME)), result, true,
               false);
@@ -149,7 +149,7 @@ public class MapReduce {
   public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize,
                    Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
     if (out.containsField("db")) {
-      this.fongoDB = (FongoDB) fongo.getDB((String) out.get("db"));
+      this.fongoDB = fongo.getDB((String) out.get("db"));
     } else {
       this.fongoDB = (FongoDB) coll.getDB();
     }
@@ -213,6 +213,9 @@ public class MapReduce {
           cx.evaluateString(scriptable, jsFunction, "<map-reduce>", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
+          if (e.getMessage().contains("FongoAssertException")) {
+            fongoDB.notOkErrorResult(16722, "Error: assert failed: " + e.getMessage()).throwOnError();
+          }
           fongoDB.notOkErrorResult(16722, "JavaScript execution failed: " + e.getMessage()).throwOnError();
         }
       }
@@ -225,7 +228,7 @@ public class MapReduce {
         dbOuts.add(getObject(out));
       }
       // TODO : verify emitCount
-      return new MapReduceResult(objects.size(), dbOuts.size(), dbOuts.size(), dbOuts);
+      return new MapReduceResult(objects.size(), dbOuts.size(), objects.size(), dbOuts);
     } finally {
       Context.exit();
     }
@@ -241,6 +244,9 @@ public class MapReduce {
           cx.evaluateString(scope, jsFunction, "<reduce output stage>", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
+          if (e.getMessage().contains("FongoAssertException")) {
+            fongoDB.notOkErrorResult(16722, "Error: assert failed: " + e.getMessage()).throwOnError();
+          }
           fongoDB.notOkErrorResult(16722, "JavaScript execution failed: " + e.getMessage()).throwOnError();
         }
       }
@@ -256,7 +262,7 @@ public class MapReduce {
       LOG.debug("reduceOutputStage() : {}", dbOuts);
       return dbOuts;
     } finally {
-      cx.exit();
+      Context.exit();
     }
   }
 
@@ -267,9 +273,7 @@ public class MapReduce {
       NativeArray noArray = (NativeArray) no;
       for (int i = 0; i < noArray.getLength(); i++) {
         Object value = noArray.get(i, noArray);
-        if (value instanceof NativeObject || value instanceof NativeArray) {
-          value = getObject((ScriptableObject) value);
-        }
+        value = getObjectOrTransform(value);
         ret.add(value);
       }
       return ret;
@@ -279,12 +283,20 @@ public class MapReduce {
     for (Object propId : propIds) {
       String key = Context.toString(propId);
       Object value = NativeObject.getProperty(no, key);
-      if (value instanceof NativeObject || value instanceof NativeArray) {
-        value = getObject((ScriptableObject) value);
-      }
+      value = getObjectOrTransform(value);
       ret.put(key, value);
     }
     return ret;
+  }
+
+  private Object getObjectOrTransform(Object value) {
+    if (value instanceof NativeObject || value instanceof NativeArray) {
+      value = getObject((ScriptableObject) value);
+    }
+    if (value instanceof Integer) {
+      value = ((Integer) value).doubleValue();
+    }
+    return value;
   }
 
   /**
@@ -328,7 +340,7 @@ public class MapReduce {
     sb.append("var $$$fongoOuts$$$ = Array();\n" +
         "for(var i in $$$fongoEmits$$$) {\n" +
         "var elem = $$$fongoEmits$$$[i];\n" +
-        "values = []; id = null; for (var ii in elem) { values.push(elem[ii].value); id = elem[ii].id;}\n" +
+        "var values = []; id = null; for (var ii in elem) { values.push(elem[ii].value); id = elem[ii].id;}\n" +
         "$$$fongoOuts$$$[$$$fongoOuts$$$.length] = { _id : id, value : reduce(id, values) };\n" +
         "}\n");
     result.add(sb.toString());
@@ -359,7 +371,7 @@ public class MapReduce {
         String existingValueJson = FongoJSON.serialize(existing.get("value"));
         sb.append("$$$fongoId$$$ = ").append(id).append(";\n");
         sb.append("$$$fongoValues$$$ = [ ").append(existingValueJson).append(", ").append(objectValueJson).append("];\n");
-        sb.append("$$$fongoReduced$$$ = { _id : $$$fongoId$$$, value : reduce($$$fongoId$$$, $$$fongoValues$$$)};")
+        sb.append("$$$fongoReduced$$$ = { _id: $$$fongoId$$$, 'value': reduce($$$fongoId$$$, $$$fongoValues$$$)};")
             .append(";\n");
         sb.append("$$$fongoOuts$$$[$$$fongoOuts$$$.length] = $$$fongoReduced$$$;\n");
       }
@@ -381,5 +393,18 @@ public class MapReduce {
         "    }\n" +
         "    return a;" +
         "};\n");
+
+    construct.append("printjson = function(a) {\n" +
+        " };\n");
+
+    construct.append("print = function(a) {\n" +
+        " };\n");
+
+    construct.append("printjsononeline = function(a) {\n" +
+        " };\n");
+
+    construct.append("assert = function(a) {\n" +
+        "    if (!a) throw new FongoAssertException();\n" +
+        " };\n");
   }
 }

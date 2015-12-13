@@ -13,7 +13,6 @@ import java.util.List;
 import java.util.Map;
 import org.assertj.core.api.Assertions;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -48,13 +47,13 @@ public class FongoMapReduceTest {
     String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {count: res};  };";
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
     Assertions.assertThat(result.getDuration()).isGreaterThanOrEqualTo(0);
-    Assertions.assertThat(result.getEmitCount()).isEqualTo(2);
+    Assertions.assertThat(result.getEmitCount()).isEqualTo(5);
     Assertions.assertThat(result.getOutputCount()).isEqualTo(2);
     Assertions.assertThat(result.getInputCount()).isEqualTo(5);
 
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"count\" : 2}}, { \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"count\" : 3}}]"), results);
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"count\" : 2.0}}, { \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"count\" : 3.0}}]"), results);
   }
 
   @Test
@@ -72,7 +71,7 @@ public class FongoMapReduceTest {
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3}}]"), results);
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
   }
 
   @Test
@@ -158,8 +157,8 @@ public class FongoMapReduceTest {
     coll.mapReduce(map, reduce, "result", new BasicDBObject());
 
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2,\"c\",6]}}, " +
-        "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4,\"d\",8,\"e\",10]}}]"), results);
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"www.google.com\" , \"value\" : { \"mergedArray\" : [\"a\",2.0,\"c\",6.0]}}, " +
+        "{ \"_id\" : \"www.no-fucking-idea.com\" , \"value\" : { \"mergedArray\" : [\"b\",4.0,\"d\",8.0,\"e\",10.0]}}]"), results);
   }
 
   @Test
@@ -210,7 +209,7 @@ public class FongoMapReduceTest {
 
     List<DBObject> results = output.getOutputCollection().find().toArray();
 
-    assertEquals(fongoRule.parse("[{ \"_id\" : \"phil\" , \"value\" : 474}]"), results);
+    assertEquals(fongoRule.parse("[{ \"_id\" : \"phil\" , \"value\" : 474.0}]"), results);
   }
 
   /**
@@ -343,5 +342,113 @@ public class FongoMapReduceTest {
 
     Assertions.assertThat(out.results()).isEqualTo(fongoRule.parseList("[{\"_id\":{\"day\":\"200\"}, \"value\":{\"count\":1.0}}, " +
         "{\"_id\":{\"day\":\"300\"}, \"value\":{\"count\":1.0}}]"));
+  }
+
+  @Test
+  public void should_printjson_work() {
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": res};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
+  }
+
+  @Test
+  public void should_print_work() {
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    print(res); return {\"count\": res};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
+  }
+
+  @Test
+  public void should_printjsononeline_work() {
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjsononeline(res); return {\"count\": res};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
+  }
+
+  @Test
+  public void should_assert_work() {
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    assert(true); return {\"count\": res};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 3.0}}]"), results);
+  }
+
+  @Test
+  public void should_assert_return_an_error() {
+    ExpectedMongoException.expectMongoCommandException(exception, 16722);
+    exception.expectMessage("Error: assert failed");
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
+        " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
+        " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    assert(res == 2); return {\"count\": res};  };";
+
+    // When
+    coll.mapReduce(map, reduce, "result", new BasicDBObject());
   }
 }

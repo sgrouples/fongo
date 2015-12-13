@@ -502,7 +502,7 @@ public class FongoConnection implements Connection {
 
   @Override
   public <T> QueryResult<T> getMore(MongoNamespace namespace, long cursorId, int numberToReturn, Decoder<T> resultDecoder) {
-    LOG.info("getMore() namespace:{} cursorId:{}", namespace, cursorId);
+    LOG.debug("getMore() namespace:{} cursorId:{}", namespace, cursorId);
     // 0 means Cursor exhausted.
     return new QueryResult(namespace, Collections.emptyList(), 0, fongo.getServerAddress());
   }
@@ -514,7 +514,7 @@ public class FongoConnection implements Connection {
 
   @Override
   public void killCursor(MongoNamespace namespace, List<Long> cursors) {
-    LOG.info("killCursor() namespace:{}, cursors:{}", namespace.getFullName(), cursors);
+    LOG.debug("killCursor() namespace:{}, cursors:{}", namespace.getFullName(), cursors);
   }
 
   @Override
