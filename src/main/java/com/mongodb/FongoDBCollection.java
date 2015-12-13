@@ -387,7 +387,14 @@ public class FongoDBCollection extends DBCollection {
     for (String key : q.keySet()) {
       Object value = q.get(key);
       if (isNotUpdateCommand(value)) {
-        filteredQuery.put(key, value);
+        if ("$and".equals(key)) {
+          List<DBObject> values = (List<DBObject>) value;
+          for (DBObject dbObject : values) {
+            filteredQuery.putAll(dbObject);
+          }
+        } else {
+          filteredQuery.put(key, value);
+        }
       }
     }
     updateEngine.mergeEmbeddedValueFromQuery(newObject, filteredQuery);

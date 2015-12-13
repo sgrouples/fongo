@@ -37,6 +37,7 @@ import com.mongodb.connection.ServerVersion;
 import java.util.ArrayList;
 import java.util.Arrays;
 import static java.util.Arrays.asList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 import org.assertj.core.api.Assertions;
@@ -958,12 +959,53 @@ public abstract class AbstractFongoV3Test {
     Assertions.assertThat(toList(iterable)).containsExactly(docId(1).append("a", 1));
   }
 
+  @Test
+  public void should_upsert_a_document_with_$and() {
+    // Given
+    MongoCollection collection = newCollection();
+    Date now = new Date();
+
+    // When
+    collection.updateOne(
+        new Document()
+            .append("$and", Arrays.asList(new Document[]{
+                new Document().append("id1", 1),
+                new Document().append("id2", 2)
+            })),
+        new Document()
+            .append("$set", new Document()
+                .append("subdocument",
+                    new Document("a", 1).append("b", 2))
+                .append("date", now)
+            ),
+        new UpdateOptions().upsert(true)
+    );
+
+    // Then
+    final FindIterable iterable = collection.find();
+    Assertions.assertThat(toListWithouId(iterable)).containsExactly(new Document()
+        .append("id1", 1).append("id2", 2)
+        .append("subdocument",
+            new Document("a", 1).append("b", 2))
+        .append("date", now)
+    );
+  }
+
   private Document docId(final Object value) {
     return new Document("_id", value);
   }
 
   private <T> List<T> toList(final MongoIterable<T> iterable) {
     return iterable.into(new ArrayList<T>());
+  }
+
+  private List<Document> toListWithouId(final MongoIterable<Document> iterable) {
+    final ArrayList<org.bson.Document> list = new ArrayList<org.bson.Document>();
+    for (Document document : iterable) {
+      document.remove("_id");
+      list.add(document);
+    }
+    return list;
   }
 
   public MongoCollection<Document> newCollection() {
