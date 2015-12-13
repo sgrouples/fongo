@@ -223,6 +223,10 @@ public final class GeoUtil {
     return createGeometryPoint(coordinate(object));
   }
 
+  public static Geometry toGeometry(Coordinate coordinate) {
+    return createGeometryPoint(coordinate);
+  }
+
   public static Geometry toGeometry(DBObject dbObject) {
     if (dbObject.containsField("$box")) {
       BasicDBList coordinates = (BasicDBList) dbObject.get("$box");

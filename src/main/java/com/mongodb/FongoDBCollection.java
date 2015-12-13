@@ -11,6 +11,7 @@ import com.github.fakemongo.impl.index.GeoIndex;
 import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
+import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -1220,7 +1221,7 @@ public class FongoDBCollection extends DBCollection {
     return Collections.unmodifiableList(indexes);
   }
 
-  public synchronized List<DBObject> geoNear(DBObject near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
+  public synchronized List<DBObject> geoNear(Coordinate near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
     IndexAbstract matchingIndex = searchGeoIndex(true);
     if (matchingIndex == null) {
       fongoDb.notOkErrorResult(-5, "no geo indices for geoNear").throwOnError();

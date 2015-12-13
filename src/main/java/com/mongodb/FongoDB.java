@@ -3,6 +3,8 @@ package com.mongodb;
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.MapReduce;
+import com.github.fakemongo.impl.geo.GeoUtil;
+import com.vividsolutions.jts.geom.Coordinate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
@@ -79,7 +81,7 @@ public class FongoDB extends DB {
     return mapReduce.computeResult();
   }
 
-  private List<DBObject> doGeoNearCollection(String collection, DBObject near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
+  private List<DBObject> doGeoNearCollection(String collection, Coordinate near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
     FongoDBCollection coll = doGetCollection(collection);
     return coll.geoNear(near, query, limit, maxDistance, spherical);
   }
@@ -237,7 +239,7 @@ public class FongoDB extends DB {
       // TODO : handle "num" (override limit)
       try {
         List<DBObject> result = doGeoNearCollection((String) cmd.get("geoNear"),
-            (DBObject) cmd.get("near"),
+            GeoUtil.coordinate(cmd.get("near")),
             (DBObject) cmd.get("query"),
             (Number) cmd.get("limit"),
             (Number) cmd.get("maxDistance"),
