@@ -487,7 +487,7 @@ public class FongoMapReduceTest {
     DBCollection coll = newCollectionWithUrls();
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isObject(res) ? 1 : 2};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": isObject(res) ? 1 : 2}  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -496,6 +496,39 @@ public class FongoMapReduceTest {
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
     assertEquals(fongoRule.parse("[{\"_id\" : {url: \"www.google.com\"} , \"value\" : { \"count\" : 2.0}}, { \"_id\" : {url: \"www.no-fucking-idea.com\"} , \"value\" : { \"count\" : 2.0}}]"), results);
   }
+
+  @Test
+  public void should_tojson_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    ; return tojson({\"count\": res});  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{ \\\"count\\\" : 2 }\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{ \\\"count\\\" : 3 }\"}]"), results);
+  }
+
+  @Test
+  public void should_tojsononeline_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    ; return tojsononeline({\"count\": res});  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{  \\\"count\\\" : 2 }\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{  \\\"count\\\" : 3 }\"}]"), results);
+  }
+
 
   private DBCollection newCollectionWithUrls() {
     DBCollection coll = fongoRule.newCollection();
