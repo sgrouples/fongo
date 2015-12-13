@@ -416,5 +416,9 @@ public class MapReduce {
     construct.append("isObject = function(a) {\n" +
         "    return typeof(a) === 'object';\n" +
         " };\n");
+
+    construct.append("tojson = function(a) {\n" +
+        "    return JSON.stringify(a);\n" +
+        " };\n");
   }
 }
