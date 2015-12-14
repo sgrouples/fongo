@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.mozilla.javascript.ConsString;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeArray;
 import org.mozilla.javascript.NativeObject;
@@ -297,6 +298,9 @@ public class MapReduce {
     if (value instanceof Integer) {
       value = ((Integer) value).doubleValue();
     }
+    if (value instanceof ConsString) {
+      value = value.toString();
+    }
     return value;
   }
 
@@ -418,7 +422,11 @@ public class MapReduce {
         " };\n");
 
     construct.append("tojson = function(a) {\n" +
-        "    return JSON.stringify(a);\n" +
+        "    return JSON.stringify(a,null,0);\n" +
+        " };\n");
+
+    construct.append("tojsononeline = function(a) {\n" +
+        "    return JSON.stringify(a,null,0);\n" +
         " };\n");
   }
 }

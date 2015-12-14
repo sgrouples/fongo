@@ -510,7 +510,8 @@ public class FongoMapReduceTest {
 
     // Then
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{ \\\"count\\\" : 2 }\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{ \\\"count\\\" : 3 }\"}]"), results);
+    // Some difference with real mongo on space
+    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{\\\"count\\\":2}\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{\\\"count\\\":3}\"}]"), results);
   }
 
   @Test
@@ -526,7 +527,8 @@ public class FongoMapReduceTest {
 
     // Then
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
-    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{  \\\"count\\\" : 2 }\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{  \\\"count\\\" : 3 }\"}]"), results);
+    // Some difference with real mongo on space
+    assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{\\\"count\\\":2}\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{\\\"count\\\":3}\"}]"), results);
   }
 
 

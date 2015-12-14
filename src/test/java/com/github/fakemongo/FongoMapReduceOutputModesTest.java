@@ -21,7 +21,7 @@ import org.junit.Test;
 public class FongoMapReduceOutputModesTest {
 
   @Rule
-  public FongoRule fongoRule = new FongoRule(!true);
+  public FongoRule fongoRule = new FongoRule(false);
 
   private DBCollection users;
   private DBCollection typeHeights;
