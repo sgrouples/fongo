@@ -8,6 +8,7 @@ import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
 import com.mongodb.util.FongoJSON;
 import java.io.IOException;
+import static java.util.Arrays.asList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -529,6 +530,28 @@ public class FongoMapReduceTest {
     List<DBObject> results = fongoRule.newCollection("result").find().toArray();
     // Some difference with real mongo on space
     assertEquals(fongoRule.parse("[{ \"_id\" : { \"url\" : \"www.google.com\"} , \"value\" : \"{\\\"count\\\":2}\"}, { \"_id\" : { \"url\" : \"www.no-fucking-idea.com\"} , \"value\" : \"{\\\"count\\\":3}\"}]"), results);
+  }
+
+  @Test
+  public void should_NumberLong_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberLong(res)};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
+        results);
+//    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2L)),
+//        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3L))),
+//        results);
   }
 
 

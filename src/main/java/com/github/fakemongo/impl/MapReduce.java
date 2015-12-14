@@ -19,6 +19,7 @@ import java.util.UUID;
 import org.mozilla.javascript.ConsString;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Scriptable;
@@ -202,6 +203,7 @@ public class MapReduce {
     Context cx = Context.enter();
     try {
       Scriptable scriptable = new Global(cx);//cx.initStandardObjects();
+      cx.getWrapFactory().setJavaPrimitiveWrap(false);
       if (this.scope != null) {
         for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
           scriptable.put(entry.getKey(), scriptable, entry.getValue());
@@ -223,10 +225,10 @@ public class MapReduce {
       }
 
       // Get the result into an object.
-      NativeArray outs = (NativeArray) scriptable.get("$$$fongoOuts$$$", scriptable);
-      List<DBObject> dbOuts = new ArrayList<DBObject>();
+      final NativeArray outs = (NativeArray) scriptable.get("$$$fongoOuts$$$", scriptable);
+      final List<DBObject> dbOuts = new ArrayList<DBObject>();
       for (int i = 0; i < outs.getLength(); i++) {
-        NativeObject out = (NativeObject) outs.get(i, outs);
+        final NativeObject out = (NativeObject) outs.get(i, outs);
         dbOuts.add(getObject(out));
       }
       // TODO : verify emitCount
@@ -300,6 +302,9 @@ public class MapReduce {
     }
     if (value instanceof ConsString) {
       value = value.toString();
+    }
+    if (value instanceof NativeJavaObject) {
+      value = ((NativeJavaObject) value).unwrap();
     }
     return value;
   }
@@ -399,10 +404,12 @@ public class MapReduce {
         "    return a;" +
         "};\n");
 
-    construct.append("printjson = function(a) {\n" +
+    construct.append("printjson = function(a) {" +
+        "    print(tojson(a));\n" +
         " };\n");
 
     construct.append("printjsononeline = function(a) {\n" +
+        "    print(tojson(a));\n" +
         " };\n");
 
     construct.append("assert = function(a) {\n" +
@@ -427,6 +434,10 @@ public class MapReduce {
 
     construct.append("tojsononeline = function(a) {\n" +
         "    return JSON.stringify(a,null,0);\n" +
+        " };\n");
+
+    construct.append("NumberLong = function(a) {\n" +
+        "    return new java.lang.Long(a);\n" +
         " };\n");
   }
 }
