@@ -533,6 +533,85 @@ public class FongoMapReduceTest {
   }
 
   @Test
+  public void should_NumberInt_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res)};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
+        results);
+//    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2L)),
+//        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3L))),
+//        results);
+  }
+
+  @Test
+  public void should_NumberInttoNumber_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res).toNumber()};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
+        results);
+  }
+
+  @Test
+  public void should_NumberIntvalueOf_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res).valueOf()};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
+        results);
+  }
+
+  @Test
+  public void should_NumberInttoString_works() {
+    // Given
+    DBCollection coll = newCollectionWithUrls();
+
+
+    String map = "function(){    emit({url: this.url}, 1);  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res).toString()};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", "NumberInt(2)")),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", "NumberInt(3)"))),
+        results);
+  }
+
+  @Test
   public void should_NumberLong_works() {
     // Given
     DBCollection coll = newCollectionWithUrls();

@@ -205,18 +205,8 @@ public class MapReduce {
     try {
       Scriptable scriptable = new Global(cx);//cx.initStandardObjects();
       cx.initStandardObjects();
-      try {
-//        ScriptableObject.defineClass(scriptable, Counter.class);
-        ScriptableObject.defineClass(scriptable, FongoNumberLong.class);
-      } catch (IllegalAccessException e) {
-        e.printStackTrace();
-      } catch (InstantiationException e) {
-        e.printStackTrace();
-      } catch (InvocationTargetException e) {
-        e.printStackTrace();
-      }
-//      ScriptableObject.putProperty(scriptable, "FongoNumberLong", Context.javaToJS(FongoNumberLong.class, scriptable));
-//      ScriptableObject.putProperty(scriptable, "Counter", Context.javaToJS(Counter.class, scriptable));
+      ScriptableObject.defineClass(scriptable, FongoNumberLong.class);
+      ScriptableObject.defineClass(scriptable, FongoNumberInt.class);
 
 //      cx.setGeneratingDebug(true);
 //      cx.getWrapFactory().setJavaPrimitiveWrap(false);
@@ -249,6 +239,12 @@ public class MapReduce {
       }
       // TODO : verify emitCount
       return new MapReduceResult(objects.size(), dbOuts.size(), objects.size(), dbOuts);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    } catch (InstantiationException e) {
+      throw new RuntimeException(e);
+    } catch (InvocationTargetException e) {
+      throw new RuntimeException(e);
     } finally {
       Context.exit();
     }
@@ -324,6 +320,9 @@ public class MapReduce {
     }
     if (value instanceof FongoNumberLong) {
       value = ((FongoNumberLong) value).value;
+    }
+    if (value instanceof FongoNumberInt) {
+      value = ((FongoNumberInt) value).value;
     }
     return value;
   }
@@ -458,20 +457,10 @@ public class MapReduce {
     construct.append("NumberLong = function(a) {\n" +
         "        return new FongoNumberLong(a);\n" +
         "};\n");
-//    construct.append("NumberLong = function(a) {\n" +
-//        "    return { \n" +
-//        "        value : a, " +
-//        "        toString : function() {\n" +
-//        "            return \"NumberLong(\"+this.value+\")\";\n" +
-//        "        },\n" +
-//        "        valueOf : function() {\n" +
-//        "            return this.value;\n" +
-//        "        }\n," +
-//        "        toNumber : function() {\n" +
-//        "            return this.value;\n" +
-//        "        }\n" +
-//        "    }\n" +
-//        "};\n");
+
+    construct.append("NumberInt = function(a) {\n" +
+        "        return new FongoNumberInt(a);\n" +
+        "};\n");
   }
 
   public static class FongoNumberLong extends ScriptableObject {
@@ -500,6 +489,35 @@ public class MapReduce {
 
     public String jsFunction_toString() {
       return "NumberLong(" + this.value + ")";
+    }
+  }
+
+  public static class FongoNumberInt extends ScriptableObject {
+    int value;
+
+    public FongoNumberInt() {
+    }
+
+    // Method jsConstructor defines the JavaScript constructor
+    public void jsConstructor(int a) {
+      this.value = a;
+    }
+
+    public int jsFunction_toNumber() {
+      return value;
+    }
+
+    public long jsFunction_valueOf() {
+      return value;
+    }
+
+    @Override
+    public String getClassName() {
+      return "FongoNumberInt";
+    }
+
+    public String jsFunction_toString() {
+      return "NumberInt(" + this.value + ")";
     }
   }
 }
