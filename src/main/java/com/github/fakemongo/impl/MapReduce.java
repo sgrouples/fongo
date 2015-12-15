@@ -12,6 +12,7 @@ import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
 import com.mongodb.operation.MapReduceStatistics;
 import com.mongodb.util.FongoJSON;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -203,7 +204,22 @@ public class MapReduce {
     Context cx = Context.enter();
     try {
       Scriptable scriptable = new Global(cx);//cx.initStandardObjects();
-      cx.getWrapFactory().setJavaPrimitiveWrap(false);
+      cx.initStandardObjects();
+      try {
+//        ScriptableObject.defineClass(scriptable, Counter.class);
+        ScriptableObject.defineClass(scriptable, FongoNumberLong.class);
+      } catch (IllegalAccessException e) {
+        e.printStackTrace();
+      } catch (InstantiationException e) {
+        e.printStackTrace();
+      } catch (InvocationTargetException e) {
+        e.printStackTrace();
+      }
+//      ScriptableObject.putProperty(scriptable, "FongoNumberLong", Context.javaToJS(FongoNumberLong.class, scriptable));
+//      ScriptableObject.putProperty(scriptable, "Counter", Context.javaToJS(Counter.class, scriptable));
+
+//      cx.setGeneratingDebug(true);
+//      cx.getWrapFactory().setJavaPrimitiveWrap(false);
       if (this.scope != null) {
         for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
           scriptable.put(entry.getKey(), scriptable, entry.getValue());
@@ -214,7 +230,7 @@ public class MapReduce {
       List<String> javascriptFunctions = constructJavascriptFunction(objects);
       for (String jsFunction : javascriptFunctions) {
         try {
-          cx.evaluateString(scriptable, jsFunction, "<map-reduce>", 0, null);
+          cx.evaluateString(scriptable, jsFunction, "MapReduce", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
           if (e.getMessage().contains("FongoAssertException")) {
@@ -305,6 +321,9 @@ public class MapReduce {
     }
     if (value instanceof NativeJavaObject) {
       value = ((NativeJavaObject) value).unwrap();
+    }
+    if (value instanceof FongoNumberLong) {
+      value = ((FongoNumberLong) value).value;
     }
     return value;
   }
@@ -437,7 +456,50 @@ public class MapReduce {
         " };\n");
 
     construct.append("NumberLong = function(a) {\n" +
-        "    return new java.lang.Long(a);\n" +
-        " };\n");
+        "        return new FongoNumberLong(a);\n" +
+        "};\n");
+//    construct.append("NumberLong = function(a) {\n" +
+//        "    return { \n" +
+//        "        value : a, " +
+//        "        toString : function() {\n" +
+//        "            return \"NumberLong(\"+this.value+\")\";\n" +
+//        "        },\n" +
+//        "        valueOf : function() {\n" +
+//        "            return this.value;\n" +
+//        "        }\n," +
+//        "        toNumber : function() {\n" +
+//        "            return this.value;\n" +
+//        "        }\n" +
+//        "    }\n" +
+//        "};\n");
+  }
+
+  public static class FongoNumberLong extends ScriptableObject {
+    long value;
+
+    public FongoNumberLong() {
+    }
+
+    // Method jsConstructor defines the JavaScript constructor
+    public void jsConstructor(int a) {
+      this.value = a;
+    }
+
+    public long jsFunction_toNumber() {
+      return value;
+    }
+
+    public long jsFunction_valueOf() {
+      return value;
+    }
+
+    @Override
+    public String getClassName() {
+      return "FongoNumberLong";
+    }
+
+    public String jsFunction_toString() {
+      return "NumberLong(" + this.value + ")";
+    }
   }
 }
