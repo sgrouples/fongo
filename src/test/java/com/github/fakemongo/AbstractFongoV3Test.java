@@ -902,6 +902,7 @@ public abstract class AbstractFongoV3Test {
     // When
     final ListCollectionsIterable<Document> documents = fongoRule.getDatabase().listCollections();
     // Then
+    assertThat(documents.iterator().next()).isInstanceOf(Document.class);
     assertThat(toList(documents)).containsOnly(new Document("name", "collection2").append("options", new Document()),
         new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()),
         new Document("name", "system.indexes").append("options", new Document()));
@@ -926,7 +927,6 @@ public abstract class AbstractFongoV3Test {
 
   @Test
   public void should_listIndex() {
-    Assume.assumeTrue(serverVersion().equals(Fongo.OLD_SERVER_VERSION));
     // Given
     MongoCollection collection = newCollection();
     collection.insertOne(docId(1));
@@ -937,6 +937,23 @@ public abstract class AbstractFongoV3Test {
     final ListIndexesIterable iterable = collection.listIndexes();
 
     // Then
+    Assertions.assertThat(toList(iterable)).containsOnly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getFullName()),
+        new Document("v", 1).append("key", new Document("b", 1)).append("name", "fongo").append("ns", collection.getNamespace().getFullName()));
+  }
+
+  @Test
+  public void should_listIndex_works_iterable() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(docId(1));
+    collection.insertOne(docId(5).append("b", 6));
+    collection.createIndex(new Document("b", 1), new IndexOptions().name("fongo"));
+
+    // When
+    final ListIndexesIterable iterable = collection.listIndexes();
+
+    // Then
+    Assertions.assertThat(iterable.iterator().next()).isInstanceOf(Document.class);
     Assertions.assertThat(toList(iterable)).containsOnly(new Document("v", 1).append("key", new Document("_id", 1)).append("name", "_id_").append("ns", collection.getNamespace().getFullName()),
         new Document("v", 1).append("key", new Document("b", 1)).append("name", "fongo").append("ns", collection.getNamespace().getFullName()));
   }

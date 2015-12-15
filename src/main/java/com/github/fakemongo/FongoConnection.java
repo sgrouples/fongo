@@ -365,7 +365,6 @@ public class FongoConnection implements Connection {
       final long limit = command.containsKey("limit") ? command.getInt64("limit").longValue() : -1;
       final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
-
       return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip, dbCollection.getReadPreference(), 0, TimeUnit.MICROSECONDS, null)));
     } else if (command.containsKey("findandmodify")) {
       final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
@@ -402,14 +401,7 @@ public class FongoConnection implements Connection {
       if (!v3) {
         return reencode(commandResultDecoder, resultField, results);
       } else {
-        // TODO : better way.
-        final Codec<Document> documentCodec = MongoClient.getDefaultCodecRegistry().get(Document.class);
-        final List<Document> each = new ArrayList<Document>();
-        for (DBObject result : results) {
-          final Document decode = documentCodec.decode(new BsonDocumentReader(bsonDocument(result)),
-              decoderContext());
-          each.add(decode);
-        }
+        final List<Document> each = documents(results);
         return (T) new BsonDocument("cursor", new BsonDocument("id", new BsonInt64(0))
             .append("ns", new BsonString(dbCollection.getFullName()))
             .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
@@ -437,14 +429,18 @@ public class FongoConnection implements Connection {
     } else if (command.containsKey("listIndexes")) {
       final DBCollection dbCollection = db.getCollection(command.get("listIndexes").asString().getValue());
 
-      BasicDBObject cmd = new BasicDBObject();
+      final BasicDBObject cmd = new BasicDBObject();
       cmd.put("ns", dbCollection.getFullName());
 
-      DBCursor cur = dbCollection.getDB().getCollection("system.indexes").find(cmd);
+      final DBCursor cur = dbCollection.getDB().getCollection("system.indexes").find(cmd);
 
+      final List<Document> each = documents(cur.toArray());
+//      return (T) new BsonDocument("cursor", new BsonDocument("id",
+//          new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
+//          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(cur.toArray())));
       return (T) new BsonDocument("cursor", new BsonDocument("id",
           new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
-          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(cur.toArray())));
+          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
     } else if (command.containsKey("listCollections")) {
       List<Document> result = new ArrayList<Document>();
       for (String name : db.getCollectionNames()) {
@@ -460,6 +456,18 @@ public class FongoConnection implements Connection {
       LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));
     }
+  }
+
+  private List<Document> documents(Iterable<DBObject> list) {
+    // TODO : better way.
+    final Codec<Document> documentCodec = MongoClient.getDefaultCodecRegistry().get(Document.class);
+    final List<Document> each = new ArrayList<Document>();
+    for (DBObject result : list) {
+      final Document decode = documentCodec.decode(new BsonDocumentReader(bsonDocument(result)),
+          decoderContext());
+      each.add(decode);
+    }
+    return each;
   }
 
   private <T> T reencode(final Decoder<T> commandResultDecoder, final String resultField, final Iterable<DBObject> results) {
