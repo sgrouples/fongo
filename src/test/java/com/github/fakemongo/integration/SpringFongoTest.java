@@ -9,12 +9,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.bson.types.ObjectId;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -32,7 +32,7 @@ import org.springframework.data.mongodb.core.MongoOperations;
 import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
-import org.springframework.data.mongodb.core.query.Criteria;
+import static org.springframework.data.mongodb.core.query.Criteria.where;
 import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
@@ -55,14 +55,39 @@ public class SpringFongoTest {
     mongoOperations.save(mainObject);
 
     MainObject foundObject = mongoOperations.findOne(
-        new Query(Criteria.where("referencedObject.$id").is(new ObjectId(referencedObject.getId()))),
+        new Query(where("referencedObject.$id").is(new ObjectId(referencedObject.getId()))),
         MainObject.class);
 
     assertNotNull("should have found an object", foundObject);
     assertEquals("should find a ref to an object", referencedObject.getId(), foundObject.getReferencedObject().getId());
   }
 
-  @Ignore("need to upgrade Spring for new Java drivers")
+  @Test
+  public void should_listdBRefFindWorks() {
+    ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
+    MongoOperations mongoOperations = (MongoOperations) ctx.getBean("mongoTemplate");
+
+    MainListObject mainObject = new MainListObject();
+
+    List<ReferencedObject> referencedObjects = new ArrayList<ReferencedObject>();
+    for (int i = 0; i < 3; i++) {
+      final ReferencedObject referencedObject = new ReferencedObject();
+      referencedObjects.add(referencedObject);
+      mongoOperations.save(referencedObject);
+    }
+
+    mainObject.setReferencedObjects(referencedObjects);
+
+    mongoOperations.save(mainObject);
+
+    MainListObject foundObject = mongoOperations.findOne(
+        new Query(where("referencedObjects.$id").is(new ObjectId(referencedObjects.get(0).getId()))),
+        MainListObject.class);
+
+    assertNotNull("should have found an object", foundObject);
+    Assertions.assertThat(foundObject.getReferencedObjects()).containsExactlyElementsOf(referencedObjects);
+  }
+
   @Test
   public void testGeospacialIndexed() {
     // Given
@@ -77,13 +102,13 @@ public class SpringFongoTest {
 
     // Then
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("id").is(new ObjectId(object.getId()))),
+        new Query(where("id").is(new ObjectId(object.getId()))),
         GeoSpatialIndexedWrapper.class));
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("geo").is(object.getGeo())),
+        new Query(where("geo").is(object.getGeo())),
         GeoSpatialIndexedWrapper.class));
     assertEquals(object, mongoOperations.findOne(
-        new Query(Criteria.where("geo").is(new Point(object.getGeo()[0], object.getGeo()[1]))),
+        new Query(where("geo").is(new Point(object.getGeo()[0], object.getGeo()[1]))),
         GeoSpatialIndexedWrapper.class));
   }
 
@@ -162,7 +187,6 @@ public class SpringFongoTest {
         new ReferencedObject("d")), result);
   }
 
-  @Ignore("need to upgrade Spring for new Java drivers")
   @Test
   public void testMapLookup() throws Exception {
     ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
@@ -175,7 +199,7 @@ public class SpringFongoTest {
     SpringModelMap map = new SpringModelMap(springModelBarcode);
     springModelMapRepository.save(map);
     MongoOperations mongoOperations = (MongoOperations) ctx.getBean("mongoTemplate");
-    Query query = Query.query(Criteria.where("barcode.serial").is(serial).and("barcode.time").is(time));
+    Query query = Query.query(where("barcode.serial").is(serial).and("barcode.time").is(time));
     List<SpringModelMap> receipts = mongoOperations.find(query, SpringModelMap.class);
     assertEquals(1, receipts.size());
   }
@@ -274,6 +298,35 @@ public class SpringFongoTest {
 
     public void setReferencedObject(ReferencedObject referencedObject) {
       this.referencedObject = referencedObject;
+    }
+  }
+
+  @Document
+  public static class MainListObject implements Serializable, Identifiable<String> {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    private String id;
+
+    @DBRef
+    private List<ReferencedObject> referencedObjects;
+
+    @Override
+    public String getId() {
+      return this.id;
+    }
+
+    public void setId(String id) {
+      this.id = id;
+    }
+
+    public List<ReferencedObject> getReferencedObjects() {
+      return referencedObjects;
+    }
+
+    public void setReferencedObjects(List<ReferencedObject> referencedObjects) {
+      this.referencedObjects = referencedObjects;
     }
   }
 
