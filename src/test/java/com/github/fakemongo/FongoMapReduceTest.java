@@ -539,7 +539,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res)};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0}); return {\"count\": NumberInt(res)};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -561,7 +561,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res).toNumber()};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {\"count\": NumberInt(res).toNumber()};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -580,7 +580,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberInt(res).valueOf()};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});   return {\"count\": NumberInt(res).valueOf()};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -618,7 +618,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberLong(res)};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});  return {\"count\": NumberLong(res)};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -640,7 +640,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberLong(res).toNumber()};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {\"count\": NumberLong(res).toNumber()};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -659,7 +659,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberLong(res).valueOf()};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {\"count\": NumberLong(res).valueOf()};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
@@ -678,7 +678,7 @@ public class FongoMapReduceTest {
 
 
     String map = "function(){    emit({url: this.url}, 1);  };";
-    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    printjson(res); return {\"count\": NumberLong(res).toString()};  };";
+    String reduce = "function(key, values){    var res = 0.0;    values.forEach(function(v){ res += 1.0});    return {\"count\": NumberLong(res).toString()};  };";
 
     // When
     final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
