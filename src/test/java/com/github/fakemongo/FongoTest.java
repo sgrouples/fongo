@@ -3323,6 +3323,34 @@ public class FongoTest {
     assertThat(fongoRule.getMongo().getDB("newdb").getCollection("newcollection").getIndexInfo()).hasSize(2);
   }
 
+  @Test
+  public void should_$each_works_with_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1));
+
+    // When
+    final String[] value = new String[]{"1", "2", "3", "4"};
+    collection.update(new BasicDBObject("_id", 1), new BasicDBObject("$push", new BasicDBObject("value", new BasicDBObject("$each", value))));
+
+    // Then
+    assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 1).append("value", value));
+  }
+
+  @Test
+  public void should_$each_works_with_long_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1));
+
+    // When
+    final long[] value = new long[]{1L, 2L, 3L, 4L};
+    collection.update(new BasicDBObject("_id", 1), new BasicDBObject("$push", new BasicDBObject("value", new BasicDBObject("$each", value))));
+
+    // Then
+    assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 1).append("value", value));
+  }
+
   static class Seq {
     Object[] data;
 

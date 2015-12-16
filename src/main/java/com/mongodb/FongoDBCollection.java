@@ -177,6 +177,36 @@ public class FongoDBCollection extends DBCollection {
         list.add(replaceListAndMap(listItem));
       }
       replacementValue = list;
+    } else if (replacementValue instanceof long[]) {
+      BasicDBList list = new BasicDBList();
+      for (Object listItem : (long[]) replacementValue) {
+        list.add(replaceListAndMap(listItem));
+      }
+      replacementValue = list;
+    } else if (replacementValue instanceof int[]) {
+      BasicDBList list = new BasicDBList();
+      for (Object listItem : (int[]) replacementValue) {
+        list.add(replaceListAndMap(listItem));
+      }
+      replacementValue = list;
+    } else if (replacementValue instanceof double[]) {
+      BasicDBList list = new BasicDBList();
+      for (Object listItem : (double[]) replacementValue) {
+        list.add(replaceListAndMap(listItem));
+      }
+      replacementValue = list;
+    } else if (replacementValue instanceof float[]) {
+      BasicDBList list = new BasicDBList();
+      for (Object listItem : (float[]) replacementValue) {
+        list.add(replaceListAndMap(listItem));
+      }
+      replacementValue = list;
+    } else if (replacementValue instanceof boolean[]) {
+      BasicDBList list = new BasicDBList();
+      for (Object listItem : (boolean[]) replacementValue) {
+        list.add(replaceListAndMap(listItem));
+      }
+      replacementValue = list;
     } else if (replacementValue instanceof Map) {
       BasicDBObject newDbo = new BasicDBObject();
       //noinspection unchecked
