@@ -9,12 +9,12 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.bson.types.ObjectId;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -63,7 +63,32 @@ public class SpringFongoTest {
     assertEquals("should find a ref to an object", referencedObject.getId(), foundObject.getReferencedObject().getId());
   }
 
-  @Ignore("need to upgrade Spring for new Java drivers")
+  @Test
+  public void should_listdBRefFindWorks() {
+    ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
+    MongoOperations mongoOperations = (MongoOperations) ctx.getBean("mongoTemplate");
+
+    MainListObject mainObject = new MainListObject();
+
+    List<ReferencedObject> referencedObjects = new ArrayList<ReferencedObject>();
+    for (int i = 0; i < 3; i++) {
+      final ReferencedObject referencedObject = new ReferencedObject();
+      referencedObjects.add(referencedObject);
+      mongoOperations.save(referencedObject);
+    }
+
+    mainObject.setReferencedObjects(referencedObjects);
+
+    mongoOperations.save(mainObject);
+
+    MainListObject foundObject = mongoOperations.findOne(
+        new Query(where("referencedObjects.$id").is(new ObjectId(referencedObjects.get(0).getId()))),
+        MainListObject.class);
+
+    assertNotNull("should have found an object", foundObject);
+    Assertions.assertThat(foundObject.getReferencedObjects()).containsExactlyElementsOf(referencedObjects);
+  }
+
   @Test
   public void testGeospacialIndexed() {
     // Given
@@ -163,7 +188,6 @@ public class SpringFongoTest {
         new ReferencedObject("d")), result);
   }
 
-  @Ignore("need to upgrade Spring for new Java drivers")
   @Test
   public void testMapLookup() throws Exception {
     ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
@@ -275,6 +299,35 @@ public class SpringFongoTest {
 
     public void setReferencedObject(ReferencedObject referencedObject) {
       this.referencedObject = referencedObject;
+    }
+  }
+
+  @Document
+  public static class MainListObject implements Serializable, Identifiable<String> {
+
+    private static final long serialVersionUID = 1L;
+
+    @Id
+    private String id;
+
+    @DBRef
+    private List<ReferencedObject> referencedObjects;
+
+    @Override
+    public String getId() {
+      return this.id;
+    }
+
+    public void setId(String id) {
+      this.id = id;
+    }
+
+    public List<ReferencedObject> getReferencedObjects() {
+      return referencedObjects;
+    }
+
+    public void setReferencedObjects(List<ReferencedObject> referencedObjects) {
+      this.referencedObjects = referencedObjects;
     }
   }
 
