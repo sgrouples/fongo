@@ -15,6 +15,7 @@ import org.bson.types.ObjectId;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
@@ -89,6 +90,7 @@ public class SpringFongoTest {
     Assertions.assertThat(foundObject.getReferencedObjects()).containsExactlyElementsOf(referencedObjects);
   }
 
+  @Ignore
   @Test
   public void testGeospacialIndexed() {
     // Given
