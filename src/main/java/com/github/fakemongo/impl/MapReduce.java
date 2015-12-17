@@ -351,14 +351,15 @@ public class MapReduce {
     sb.append("var $$$fongoVars$$$ = new Object();\n");
     // For each object, execute in javascript the function.
     for (DBObject object : objects) {
-      String json = FongoJSON.serialize(object);
-      sb.append("$$$fongoVars$$$ = ").append(json).append(";\n");
+      sb.append("$$$fongoVars$$$ = ");
+      FongoJSON.serializeMapReduce(object, sb);
+      sb.append(";\n");
       sb.append("$$$fongoVars$$$['fongoExecute'] = fongoMapFunction;\n");
       sb.append("$$$fongoVars$$$.fongoExecute();\n");
-      if (sb.length() > 65535) { // Rhino limit :-(
-        result.add(sb.toString());
-        sb.setLength(0);
-      }
+//      if (sb.length() > 65535) { // Rhino limit :-(
+//        result.add(sb.toString());
+//        sb.setLength(0);
+//      }
     }
     result.add(sb.toString());
 
@@ -474,12 +475,12 @@ public class MapReduce {
       this.value = a;
     }
 
-    public long jsFunction_toNumber() {
-      return value;
+    public int jsFunction_toNumber() {
+      return (int) value;
     }
 
-    public long jsFunction_valueOf() {
-      return value;
+    public int jsFunction_valueOf() {
+      return jsFunction_toNumber();
     }
 
     @Override
@@ -507,7 +508,7 @@ public class MapReduce {
       return value;
     }
 
-    public long jsFunction_valueOf() {
+    public int jsFunction_valueOf() {
       return value;
     }
 

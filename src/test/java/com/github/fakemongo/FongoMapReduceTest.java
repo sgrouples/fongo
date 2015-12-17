@@ -1,5 +1,6 @@
 package com.github.fakemongo;
 
+import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
@@ -690,14 +691,34 @@ public class FongoMapReduceTest {
         results);
   }
 
+  @Test
+  public void should_NumberLongvalueOf_with_array_of_long_works() {
+    // Given
+    final DBCollection coll = fongoRule.newCollection();
+    coll.insert(new BasicDBObject("url", "www.google.com").append("date", Util.wrap(asList(1L, 2L, 3L, 4L))),
+        new BasicDBObject("url", "www.google.com").append("date", Util.wrap(asList(2L, 3L, 4L))),
+        new BasicDBObject("url", "www.no-fucking-idea.com").append("date", Util.wrap(asList(2L, 3L, 4L))),
+        new BasicDBObject("url", "www.no-fucking-idea.com").append("date", Util.wrap(asList(12L, 3L, 4L))));
+
+    String map = "function(){  emit({url: this.url}, this.date);  };";
+    String reduce = "function(key, values){    var res = 0;   values.forEach(function(v){ v.forEach(function(l) { res += l.toNumber()})});    return {\"count\": res};  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 19D)),
+        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 28D))),
+        results);
+  }
+
 
   private DBCollection newCollectionWithUrls() {
-    DBCollection coll = fongoRule.newCollection();
-    fongoRule.insertJSON(coll, "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
+    return fongoRule.insertJSON(fongoRule.newCollection(), "[{url: \"www.google.com\", date: 1, trash_data: 5 },\n" +
         " {url: \"www.no-fucking-idea.com\", date: 1, trash_data: 13 },\n" +
         " {url: \"www.google.com\", date: 1, trash_data: 1 },\n" +
         " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 69 },\n" +
         " {url: \"www.no-fucking-idea.com\", date: 2, trash_data: 256 }]");
-    return coll;
   }
 }
