@@ -7,12 +7,17 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.MongoException;
 import com.mongodb.annotations.ThreadSafe;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -106,11 +111,11 @@ public class Group extends PipelineKeyword {
 
     private final boolean canReturnNull;
 
-    private GroupKeyword(String keyword) {
+    GroupKeyword(String keyword) {
       this(keyword, false);
     }
 
-    private GroupKeyword(String keyword, boolean canReturnNull) {
+    GroupKeyword(String keyword, boolean canReturnNull) {
       this.keyword = keyword;
       this.canReturnNull = canReturnNull;
     }
@@ -219,9 +224,7 @@ public class Group extends PipelineKeyword {
       //ex: { "state" : "$state" , "city" : "$city"}
       DBObject subKey = new BasicDBObject();
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) ((DBObject) id).toMap().entrySet()) {
-        subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
-      }
+      extractKeys((DBObject) id, dbObject, subKey);
       result.put(FongoDBCollection.ID_FIELD_NAME, subKey);
     } else if (id != null) {
       String field = fieldName(id);
@@ -233,13 +236,78 @@ public class Group extends PipelineKeyword {
     return result;
   }
 
+  private void extractKeys(DBObject id, DBObject dbObject, DBObject subKey) {
+    for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) id.toMap().entrySet()) {
+      if (entry.getValue() instanceof DBObject) {
+        DBObject keywordDBObject = (DBObject) entry.getValue();
+        String keywordString = keywordDBObject.keySet().iterator().next();
+        Keyword extracted = Keyword.keyword(keywordString);
+        if (extracted != null) {
+          subKey.put(entry.getKey(), extracted.apply(Util.extractField(dbObject, fieldName(keywordDBObject.get(keywordString)))));
+        } else {
+          LOG.error("cannot find keywork for {}", entry);
+          throw new MongoException(15999, String.format("invalid operator '%s'", keywordString));
+        }
+      } else {
+        subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
+      }
+    }
+  }
+
+
+  enum Keyword {
+    // https://docs.mongodb.org/manual/reference/operator/aggregation-date/
+    DAYOFYEAR("$dayOfYear", Calendar.DAY_OF_YEAR),
+    DAYOFMONTH("$dayOfMonth", Calendar.DAY_OF_MONTH),
+    DAYOFWEEK("$dayOfWeek", Calendar.DAY_OF_WEEK),
+    YEAR("$year", Calendar.YEAR),
+    MONTH("$month", Calendar.MONTH, 1),
+    WEEK("$week", Calendar.WEEK_OF_YEAR, -1),
+    HOUR("$hour", Calendar.HOUR_OF_DAY),
+    MINUTE("$minute", Calendar.MINUTE),
+    SECOND("$second", Calendar.SECOND),
+    MILLISECOND("$millisecond", Calendar.MILLISECOND);
+//    DATETOSTRING("$dateToString",);
+
+    final String keyword;
+    final int fromCalendar;
+    final int modifier;
+
+    Keyword(String keyword, int fromCalendar, int modifier) {
+      this.keyword = keyword;
+      this.fromCalendar = fromCalendar;
+      this.modifier = modifier;
+    }
+
+    Keyword(String keyword, int fromCalendar) {
+      this(keyword, fromCalendar, 0);
+    }
+
+    Object apply(Object value) {
+      if (value == null) {
+        return null;
+      }
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"), Locale.ENGLISH);
+      calendar.setTimeInMillis((((Date) value).getTime()));
+      int extracted = calendar.get(fromCalendar) + modifier;
+      return extracted;
+    }
+
+    static Keyword keyword(String word) {
+      for (Keyword keyword : Keyword.values()) {
+        if (keyword.keyword.equals(word)) {
+          return keyword;
+        }
+      }
+      return null;
+    }
+  }
+
   private DBObject criteriaForId(Object id, DBObject dbObject) {
     DBObject result = new BasicDBObject();
     if (id instanceof DBObject) {
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) ((DBObject) id).toMap().entrySet()) {
-        result.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
-      }
+      extractKeys((DBObject) id, dbObject, result);
     } else if (id != null) {
       String field = fieldName(id);
       result.put(field, Util.extractField(dbObject, field));

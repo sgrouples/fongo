@@ -9,6 +9,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.List;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
@@ -573,6 +574,21 @@ public class FongoAggregateTest {
     Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
   }
 
+  @Ignore("soon")
+  @Test
+  public void should_$group_contains__id() {
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15955);
+    DBCollection collection = createTestCollection();
+
+    DBObject groupFields = new BasicDBObject("count", new BasicDBObject("$sum", 1L));
+    DBObject group = new BasicDBObject("$group", groupFields);
+    AggregationOutput output = collection.aggregate(Lists.newArrayList(group));
+
+    Assertions.assertThat(output.results()).hasSize(1);
+    Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
+  }
+
   // See https://github.com/fakemongo/fongo/issues/152
   @Ignore
   @Test
@@ -655,6 +671,54 @@ public class FongoAggregateTest {
     Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"description\" : \"product 1\" }," +
         "{ \"_id\" : 2, \"item\" : \"abc2\", \"description\" : \"Unspecified\" }," +
         "{ \"_id\" : 3, \"item\" : \"xyz1\", \"description\" : \"Unspecified\" }\n]"));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_date_return_value() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
+
+    // Then
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_multiple_date_return_value() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t")).append("month", new BasicDBObject("$month", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
+
+    // Then
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH)).append("month", Calendar.getInstance().get(Calendar.MONTH) + 1)));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_invalid_keyword_send_error() {
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15999);
+    exception.expectMessage("invalid operator '$NOTEXIST'");
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$NOTEXIST", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
   }
 
 

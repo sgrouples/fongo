@@ -5,6 +5,7 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.FongoDB;
 import java.util.List;
 import java.util.UUID;
 
@@ -42,6 +43,10 @@ public abstract class PipelineKeyword {
   protected DBCollection dropAndInsert(DBCollection coll, List<DBObject> objects) {
     coll.drop();
     return createAndInsert(objects);
+  }
+
+  static void errorResult(DBCollection coll, int code, String err) {
+    ((FongoDB) coll.getDB()).notOkErrorResult(code, err).throwOnError();
   }
 
   protected DBCollection createAndInsert(List<DBObject> objects) {
