@@ -256,14 +256,9 @@ public class MapReduce {
   private void addScopeObjects(StringBuilder stringBuilder) {
     if (this.scope != null) {
       for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
-        Object object = entry.getValue();
-        if (object instanceof Long) {
-          object = "NumberLong(" + object + ")";
-        }
-        if (object instanceof Integer) {
-          object = "NumberInteger(" + object + ")";
-        }
-        stringBuilder.append("var " + entry.getKey() + " = " + object.toString() + ";\n");
+        stringBuilder.append("var ").append(entry.getKey()).append(" = ");
+        FongoJSON.serialize(entry.getValue(), stringBuilder, OBJECT_SERIALIZERS);
+        stringBuilder.append(";\n");
       }
     }
   }

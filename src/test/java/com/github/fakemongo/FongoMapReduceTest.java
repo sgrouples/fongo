@@ -362,7 +362,7 @@ public class FongoMapReduceTest {
     String map = "function() {" +
         "if(this.arrayOfStuff) {" +
         "this.arrayOfStuff.forEach(function(stuff) {" +
-        "if(stuff.date > from.toNumber() && stuff.date < to.toNumber()) {" +
+        "if(stuff.date > o.from.toNumber() && stuff.date < o.to.toNumber()) {" +
         "emit({day: stuff.date}, {count:1});" +
         "}" +
         "});" +
@@ -382,8 +382,7 @@ public class FongoMapReduceTest {
 
     MapReduceCommand cmd = new MapReduceCommand(coll, map, reduce, null, MapReduceCommand.OutputType.INLINE, query);
     Map scope = new HashMap();
-    scope.put("from", 100L);
-    scope.put("to", 301L);
+    scope.put("o", new BasicDBObject("to", 301L).append("from", 100L));
     cmd.setScope(scope);
     MapReduceOutput out = coll.mapReduce(cmd);
 
