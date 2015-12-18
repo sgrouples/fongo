@@ -126,12 +126,12 @@ public class FongoDBCursor extends DBCursor {
    */
   @Override
   public DBCursor copy() {
-    return new FongoDBCursor(this.dbCollection, this.query, this.projection, this.findOptions, Util.clone(this.modifiers), Util.clone(this.sort));
+    return new FongoDBCursor(this.dbCollection, this.query, this.projection, new FindOptions(this.findOptions), Util.clone(this.modifiers), Util.clone(this.sort));
   }
 
   @Override
   public int getLimit() {
-    return super.getLimit();
+    return findOptions.getLimit();
   }
 
   /**
@@ -141,7 +141,7 @@ public class FongoDBCursor extends DBCursor {
    */
   @Override
   public int getBatchSize() {
-    return super.getBatchSize();
+    return findOptions.getBatchSize();
   }
 
   @Override
@@ -276,4 +276,6 @@ public class FongoDBCursor extends DBCursor {
   public int size() {
     return super.size();
   }
+
+
 }

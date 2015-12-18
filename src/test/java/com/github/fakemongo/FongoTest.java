@@ -506,6 +506,40 @@ public class FongoTest {
   }
 
   @Test
+  public void should_dbcursor_handle_limit_when_copy() {
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2));
+    collection.insert(new BasicDBObject("_id", 3));
+    collection.insert(new BasicDBObject("_id", 4));
+
+    DBCursor cursor = collection.find().limit(2);
+    DBCursor cursor1 = cursor.copy();
+    assertEquals(Arrays.asList(
+        new BasicDBObject("_id", 1),
+        new BasicDBObject("_id", 2)
+    ), cursor1.toArray());
+  }
+
+  @Test
+  public void should_dbcursor_handle_limit_when_copy_and_not_modify_other() {
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2));
+    collection.insert(new BasicDBObject("_id", 3));
+    collection.insert(new BasicDBObject("_id", 4));
+
+    DBCursor cursor = collection.find();
+    DBCursor cursor1 = cursor.copy().limit(2);
+    assertEquals(Arrays.asList(
+        new BasicDBObject("_id", 1),
+        new BasicDBObject("_id", 2),
+        new BasicDBObject("_id", 3),
+        new BasicDBObject("_id", 4)
+    ), cursor.toArray());
+  }
+
+  @Test
   public void testFindWithSkipLimit() {
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1));
