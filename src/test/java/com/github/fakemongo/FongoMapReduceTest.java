@@ -317,6 +317,81 @@ public class FongoMapReduceTest {
   }
 
   @Test
+  public void should_scope_permit_to_initialize_NumberLong() {
+    DBCollection coll = fongoRule.newCollection();
+
+    fongoRule.insertJSON(coll, "[{\n" +
+        "\t\"_id\": \"4f0c56f1b8eea0b686189c90\",\n" +
+        "\t\"meh\": \"meh\",\n" +
+        "\t\"feh\": \"feh\",\n" +
+        "\t\"arrayOfStuff\": [\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Elgin City\",\n" +
+        "\t\t\t\"date\": \"100\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Rangers\",\n" +
+        "\t\t\t\"date\": \"200\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Arsenal\",\n" +
+        "\t\t\t\"date\": \"300\"\n" +
+        "\t\t}\n" +
+        "\t]\n" +
+        "},\n" +
+        "{\n" +
+        "\t\"_id\": \"4f0c56f1b8eea0b686189c99\",\n" +
+        "\t\"meh\": \"meh meh meh meh\",\n" +
+        "\t\"feh\": \"feh feh feh feh feh feh\",\n" +
+        "\t\"arrayOfStuff\": [\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Satriani\",\n" +
+        "\t\t\t\"date\": \"100\"\n" +
+        "\t\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Vai\",\n" +
+        "\t\t\t\"date\": \"200\"\n" +
+        "\t\t},\n" +
+        "\t\t{\n" +
+        "\t\t\t\"name\": \"Johnson\",\n" +
+        "\t\t\t\"date\": \"300\"\n" +
+        "\t\t}\n" +
+        "\t]\n" +
+        "}]");
+
+    String map = "function() {" +
+        "if(this.arrayOfStuff) {" +
+        "this.arrayOfStuff.forEach(function(stuff) {" +
+        "if(stuff.date > from.toNumber() && stuff.date < to.toNumber()) {" +
+        "emit({day: stuff.date}, {count:1});" +
+        "}" +
+        "});" +
+        "}" +
+        "};";
+
+    String reduce = "function(key , values) {" +
+        "var total = 0;" +
+        "values.forEach(function(v) {" +
+        "total += v.count;" +
+        "});" +
+        "return {count : total};" +
+        "};";
+
+    DBObject query = new BasicDBObject();
+    query.put("meh", "meh");
+
+    MapReduceCommand cmd = new MapReduceCommand(coll, map, reduce, null, MapReduceCommand.OutputType.INLINE, query);
+    Map scope = new HashMap();
+    scope.put("from", 100L);
+    scope.put("to", 301L);
+    cmd.setScope(scope);
+    MapReduceOutput out = coll.mapReduce(cmd);
+
+    Assertions.assertThat(out.results()).isEqualTo(fongoRule.parseList("[{\"_id\":{\"day\":\"200\"}, \"value\":{\"count\":1.0}}, " +
+        "{\"_id\":{\"day\":\"300\"}, \"value\":{\"count\":1.0}}]"));
+  }
+
+  @Test
   public void should_printjson_work() {
     // Given
     DBCollection coll = newCollectionWithUrls();

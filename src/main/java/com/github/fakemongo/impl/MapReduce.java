@@ -207,17 +207,18 @@ public class MapReduce {
       cx.initStandardObjects();
       ScriptableObject.defineClass(scriptable, FongoNumberLong.class);
       ScriptableObject.defineClass(scriptable, FongoNumberInt.class);
-
 //      cx.setGeneratingDebug(true);
 //      cx.getWrapFactory().setJavaPrimitiveWrap(false);
-      if (this.scope != null) {
-        for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
-          scriptable.put(entry.getKey(), scriptable, entry.getValue());
-        }
-      }
 
-      List<DBObject> objects = this.fongoDBCollection.find(query).sort(sort).limit(limit).toArray();
-      List<String> javascriptFunctions = constructJavascriptFunction(objects);
+      final StringBuilder stringBuilder = new StringBuilder();
+      // Add some function to javascript engine.
+      this.addMongoFunctions(stringBuilder);
+      this.addScopeObjects(stringBuilder);
+
+      final List<String> javascriptFunctions = new ArrayList<String>();
+      javascriptFunctions.add(stringBuilder.toString());
+      final List<DBObject> objects = this.fongoDBCollection.find(query).sort(sort).limit(limit).toArray();
+      constructJavascriptFunction(javascriptFunctions, objects);
       for (String jsFunction : javascriptFunctions) {
         try {
           cx.evaluateString(scriptable, jsFunction, "MapReduce", 0, null);
@@ -250,11 +251,23 @@ public class MapReduce {
     }
   }
 
+  private void addScopeObjects(StringBuilder stringBuilder) {
+    if (this.scope != null) {
+      for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
+        Object object = entry.getValue();
+        if (object instanceof Long) {
+          object = "NumberLong(" + object + ")";
+        }
+        stringBuilder.append("var " + entry.getKey() + " = " + object.toString() + ";\n");
+      }
+    }
+  }
+
   private List<DBObject> reduceOutputStage(DBCollection coll, List<DBObject> mapReduceOutput) {
     Context cx = Context.enter();
     try {
-      Scriptable scope = cx.initStandardObjects();
-      List<String> jsFunctions = constructReduceOutputStageJavascriptFunction(coll, mapReduceOutput);
+      final Scriptable scope = cx.initStandardObjects();
+      final List<String> jsFunctions = constructReduceOutputStageJavascriptFunction(coll, mapReduceOutput);
       for (String jsFunction : jsFunctions) {
         try {
           cx.evaluateString(scope, jsFunction, "<reduce output stage>", 0, null);
@@ -330,11 +343,8 @@ public class MapReduce {
   /**
    * Create the map/reduce/finalize function.
    */
-  private List<String> constructJavascriptFunction(List<DBObject> objects) {
-    List<String> result = new ArrayList<String>();
+  private List<String> constructJavascriptFunction(List<String> result, List<DBObject> objects) {
     StringBuilder sb = new StringBuilder(80000);
-    // Add some function to javascript engine.
-    addMongoFunctions(sb);
 
     // Create variables for exporting.
     sb.append("var $$$fongoEmits$$$ = new Object();\n");
@@ -468,6 +478,10 @@ public class MapReduce {
     long value;
 
     public FongoNumberLong() {
+    }
+
+    public FongoNumberLong(long value) {
+      this.value = value;
     }
 
     // Method jsConstructor defines the JavaScript constructor
