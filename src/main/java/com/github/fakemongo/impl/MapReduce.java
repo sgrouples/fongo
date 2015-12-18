@@ -12,8 +12,10 @@ import com.mongodb.MapReduceCommand;
 import com.mongodb.MapReduceOutput;
 import com.mongodb.operation.MapReduceStatistics;
 import com.mongodb.util.FongoJSON;
+import com.mongodb.util.ObjectSerializer;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -258,6 +260,9 @@ public class MapReduce {
         if (object instanceof Long) {
           object = "NumberLong(" + object + ")";
         }
+        if (object instanceof Integer) {
+          object = "NumberInteger(" + object + ")";
+        }
         stringBuilder.append("var " + entry.getKey() + " = " + object.toString() + ";\n");
       }
     }
@@ -362,7 +367,7 @@ public class MapReduce {
     // For each object, execute in javascript the function.
     for (DBObject object : objects) {
       sb.append("$$$fongoVars$$$ = ");
-      FongoJSON.serializeMapReduce(object, sb);
+      FongoJSON.serialize(object, sb, OBJECT_SERIALIZERS);
       sb.append(";\n");
       sb.append("$$$fongoVars$$$['fongoExecute'] = fongoMapFunction;\n");
       sb.append("$$$fongoVars$$$.fongoExecute();\n");
@@ -534,5 +539,42 @@ public class MapReduce {
     public String jsFunction_toString() {
       return "NumberInt(" + this.value + ")";
     }
+  }
+
+
+  private static class FongoLongSerializer implements ObjectSerializer {
+
+    @Override
+    public String serialize(final Object obj) {
+      StringBuilder builder = new StringBuilder();
+      serialize(obj, builder);
+      return builder.toString();
+    }
+
+    @Override
+    public void serialize(final Object obj, final StringBuilder buf) {
+      buf.append("NumberLong(").append(obj.toString()).append(")");
+    }
+  }
+
+  private static class FongoIntegerSerializer implements ObjectSerializer {
+    @Override
+    public String serialize(final Object obj) {
+      StringBuilder builder = new StringBuilder();
+      serialize(obj, builder);
+      return builder.toString();
+    }
+
+    @Override
+    public void serialize(final Object obj, final StringBuilder buf) {
+      buf.append("NumberInt(").append(obj.toString()).append(")");
+    }
+  }
+
+  static final Map<Class<?>, ObjectSerializer> OBJECT_SERIALIZERS = new HashMap<Class<?>, ObjectSerializer>();
+
+  static {
+    OBJECT_SERIALIZERS.put(Long.class, new FongoLongSerializer());
+    OBJECT_SERIALIZERS.put(Integer.class, new FongoIntegerSerializer());
   }
 }

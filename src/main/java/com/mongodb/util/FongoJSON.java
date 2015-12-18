@@ -17,6 +17,7 @@ package com.mongodb.util;
 
 // JSON.java
 
+import java.util.Map;
 import java.util.UUID;
 import org.bson.BSONCallback;
 
@@ -50,10 +51,7 @@ public class FongoJSON {
    * @see JSONSerializers#getLegacy()
    */
   public static void serialize(final Object object, final StringBuilder buf) {
-    final ClassMapBasedObjectSerializer legacy = (ClassMapBasedObjectSerializer) JSONSerializers.getLegacy();
-    legacy.addObjectSerializer(String.class, new FongoStringSerializer());
-    legacy.addObjectSerializer(UUID.class, new FongoStringSerializer());
-    legacy.serialize(object, buf);
+    serialize(object, buf, null);
   }
 
   /**
@@ -65,12 +63,15 @@ public class FongoJSON {
    * @param buf    StringBuilder containing the JSON representation under construction
    * @see JSONSerializers#getLegacy()
    */
-  public static void serializeMapReduce(final Object object, final StringBuilder buf) {
+  public static void serialize(final Object object, final StringBuilder buf, final Map<Class<?>, ObjectSerializer> objectSerializers) {
     final ClassMapBasedObjectSerializer legacy = (ClassMapBasedObjectSerializer) JSONSerializers.getLegacy();
     legacy.addObjectSerializer(String.class, new FongoStringSerializer());
-    legacy.addObjectSerializer(Long.class, new FongoLongSerializer());
-    legacy.addObjectSerializer(Integer.class, new FongoIntegerSerializer());
     legacy.addObjectSerializer(UUID.class, new FongoStringSerializer());
+    if (objectSerializers != null) {
+      for (Map.Entry<Class<?>, ObjectSerializer> stringObjectSerializerEntry : objectSerializers.entrySet()) {
+        legacy.addObjectSerializer(stringObjectSerializerEntry.getKey(), stringObjectSerializerEntry.getValue());
+      }
+    }
     legacy.serialize(object, buf);
   }
 
@@ -79,22 +80,6 @@ public class FongoJSON {
     @Override
     public void serialize(final Object obj, final StringBuilder buf) {
       FongoJSON.string(buf, obj.toString());
-    }
-  }
-
-  private static class FongoLongSerializer extends AbstractObjectSerializer {
-
-    @Override
-    public void serialize(final Object obj, final StringBuilder buf) {
-      buf.append("NumberLong(").append(obj.toString()).append(")");
-    }
-  }
-
-  private static class FongoIntegerSerializer extends AbstractObjectSerializer {
-
-    @Override
-    public void serialize(final Object obj, final StringBuilder buf) {
-      buf.append("NumberInt(").append(obj.toString()).append(")");
     }
   }
 
