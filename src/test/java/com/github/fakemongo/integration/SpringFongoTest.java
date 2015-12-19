@@ -190,6 +190,7 @@ public class SpringFongoTest {
         new ReferencedObject("d")), result);
   }
 
+  @Ignore
   @Test
   public void testMapLookup() throws Exception {
     ApplicationContext ctx = new AnnotationConfigApplicationContext(MongoConfig.class);
@@ -219,6 +220,7 @@ public class SpringFongoTest {
     @Override
     @Bean
     public Mongo mongo() throws Exception {
+//      return new MongoClient();
       return new Fongo("spring-test").getMongo();
     }
 
