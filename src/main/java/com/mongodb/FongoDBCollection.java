@@ -631,13 +631,7 @@ public class FongoDBCollection extends DBCollection {
             clonedDbo.removeField(ID_FIELD_NAME);
           }
           clonedDbo.removeField(FONGO_SPECIAL_ORDER_BY);
-          // TODO WDEL
-//          for (String key : clonedDbo.keySet()) {
-//            Object value = clonedDbo.get(key);
-//            if (value instanceof DBRef && ((DBRef) value).getDB() == null) {
-//              clonedDbo.put(key, new DBRef(this.getDB(), ((DBRef) value).getId()));
-//            }
-//          }
+//          handleDBRef(clonedDbo);
           results.add(clonedDbo);
         }
       }
@@ -651,6 +645,29 @@ public class FongoDBCollection extends DBCollection {
 
     return replaceWithObjectClass(results);
   }
+
+//  private void handleDBRef(DBObject clonedDbo) {
+//    for (Map.Entry<String, Object> entry : Util.entrySet(clonedDbo)) {
+//      Object value = entry.getValue();
+//      if (value instanceof DBRef && ((DBRef) value).getDB() == null) {
+//        clonedDbo.put(entry.getKey(), new DBRef(this.getDB(), ((DBRef) value).getRef(), ((DBRef) value).getId()));
+//      } else if (value instanceof List) {
+//        BasicDBList newList = new BasicDBList();
+//        for (Object o : ((Collection) value)) {
+//          Object newObject = o;
+//          if (o instanceof DBObject) {
+//            handleDBRef((DBObject) newObject);
+//          } else if (o instanceof DBRef && ((DBRef) o).getDB() == null) {
+//            newObject = new DBRef(this.getDB(), ((DBRef) o).getRef(), ((DBRef) o).getId());
+//          }
+//          newList.add(newObject);
+//        }
+//        clonedDbo.put(entry.getKey(), newList);
+//      } else if (value instanceof DBObject) {
+//        handleDBRef((DBObject) value);
+//      }
+//    }
+//  }
 
   /**
    * Return "objects.values()" if no index found.
