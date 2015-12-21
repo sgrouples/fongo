@@ -901,11 +901,27 @@ public abstract class AbstractFongoV3Test {
 
     // When
     final ListCollectionsIterable<Document> documents = fongoRule.getDatabase().listCollections();
+
     // Then
     assertThat(documents.iterator().next()).isInstanceOf(Document.class);
     assertThat(toList(documents)).containsOnly(new Document("name", "collection2").append("options", new Document()),
         new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()),
         new Document("name", "system.indexes").append("options", new Document()));
+  }
+
+  @Test
+  public void should_listCollectionName() {
+    // Given
+    final MongoCollection<Document> collection1 = newCollection();
+    final MongoCollection<Document> collection2 = fongoRule.newMongoCollection("collection2");
+    collection1.insertOne(new Document("_id", 1));
+    collection2.insertOne(new Document("_id", 1));
+
+    // When
+    final MongoIterable<String> names = fongoRule.getDatabase().listCollectionNames();
+
+    // Then
+    assertThat(toList(names)).containsOnly("system.indexes", collection1.getNamespace().getCollectionName(), collection2.getNamespace().getCollectionName());
   }
 
   @Test

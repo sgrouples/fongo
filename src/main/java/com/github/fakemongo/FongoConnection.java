@@ -435,20 +435,15 @@ public class FongoConnection implements Connection {
       final DBCursor cur = dbCollection.getDB().getCollection("system.indexes").find(cmd);
 
       final List<Document> each = documents(cur.toArray());
-//      return (T) new BsonDocument("cursor", new BsonDocument("id",
-//          new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
-//          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(cur.toArray())));
       return (T) new BsonDocument("cursor", new BsonDocument("id",
           new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
           .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
     } else if (command.containsKey("listCollections")) {
-      List<Document> result = new ArrayList<Document>();
-      for (String name : db.getCollectionNames()) {
-        result.add(new Document("name", name).append("options", new Document()));
+      final List<DBObject> result = new ArrayList<DBObject>();
+      for (final String name : db.getCollectionNames()) {
+        result.add(new BasicDBObject("name", name).append("options", new BasicDBObject()));
       }
-      return (T) new BsonDocument("cursor", new BsonDocument("id",
-          new BsonInt64(0)).append("ns", new BsonString(db.getName() + ".dontkown"))
-          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(result)));
+      return reencode(commandResultDecoder, "cursor", new BasicDBObject("id", 0L).append("ns", db.getName() + ".dontkown").append("firstBatch", result));
     } else if (command.containsKey("dropDatabase")) {
       db.dropDatabase();
       return null;
