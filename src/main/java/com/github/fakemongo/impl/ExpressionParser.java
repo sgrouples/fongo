@@ -1264,6 +1264,10 @@ public class ExpressionParser {
             return true;
           }
         }
+        if (queryValue instanceof List) {
+          List q = (List) queryValue;
+          return q.isEmpty() && ((List) storedValue).isEmpty();
+        }
         return false;
       } else {
         return storedValue != null && singleCompare(queryValue, storedValue);

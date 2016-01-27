@@ -3385,6 +3385,19 @@ public class FongoTest {
     assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 1).append("value", value));
   }
 
+  @Test
+  public void should_$eq_on_empty_array_works() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1).append("tags", new BasicDBList()));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("tags", new BasicDBObject("$eq", new BasicDBList()))).toArray();
+
+    // Then
+    assertThat(dbObjects).containsExactly(new BasicDBObject("_id", 1).append("tags", new BasicDBList()));
+  }
+
   static class Seq {
     Object[] data;
 
