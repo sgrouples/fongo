@@ -861,6 +861,14 @@ public class FongoTest {
   }
 
   @Test
+  public void testUpdateNotExistingById() {
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("n", "1"));
+    collection.update(new BasicDBObject("_id", 2), new BasicDBObject("n", "2"));
+    assertEquals(1, collection.find().size());
+  }
+
+  @Test
   public void testUpdateWithObjectId() {
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", new BasicDBObject("n", 1)));
