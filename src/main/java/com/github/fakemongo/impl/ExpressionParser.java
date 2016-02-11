@@ -331,6 +331,66 @@ public class ExpressionParser {
     return andFilter;
   }
 
+  public ValueFilter buildValueFilter(DBObject ref) {
+    if (ref.containsField("$in")) {
+      // Special case: $in inside $pull may filter primitive values, not DBObjects
+      Collection<?> options = (Collection<?>) ref.get("$in");
+      return buildValueFilterIn(options);
+    }
+    return buildValueFilter(buildFilter(ref));
+  }
+
+  private ValueFilter buildValueFilterIn(Collection<?> options) {
+    final List<ValueFilter> filters = new ArrayList<ValueFilter>(options.size());
+    for (Object option : options) {
+      filters.add(buildValueFilter(option));
+    }
+    return new ValueFilter() {
+      @Override
+      public boolean apply(Object object) {
+        for (ValueFilter filter : filters) {
+          if (filter.apply(object)) {
+            return true;
+          }
+        }
+        return false;
+      }
+    };
+  }
+
+  private ValueFilter buildValueFilter(final Filter filter) {
+    return new ValueFilter() {
+      @Override
+      public boolean apply(Object object) {
+        return object instanceof DBObject && filter.apply((DBObject) object);
+      }
+    };
+  }
+
+  private ValueFilter buildValueFilter(final Object object) {
+    if (object instanceof DBObject) {
+        return buildValueFilter(buildFilter((DBObject) object));
+    }
+    if (object instanceof Pattern) {
+      return buildValueFilter((Pattern) object);
+    }
+    return new ValueFilter() {
+      @Override
+      public boolean apply(Object matchWith) {
+        return Integer.valueOf(0).equals(compareObjects(object, matchWith, false));
+      }
+    };
+  }
+
+  private ValueFilter buildValueFilter(final Pattern pattern) {
+    return new ValueFilter() {
+      @Override
+      public boolean apply(Object object) {
+        return object instanceof String && pattern.matcher(object.toString()).matches();
+      }
+    };
+  }
+
   /**
    * Only build the filter for this keys.
    *

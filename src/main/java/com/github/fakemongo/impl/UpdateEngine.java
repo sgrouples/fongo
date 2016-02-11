@@ -446,9 +446,9 @@ public class UpdateEngine {
           if (currentList != null && currentList.size() > 0) {
             BasicDBList newList = new BasicDBList();
             if (object instanceof DBObject) {
-              Filter filter = expressionParser.buildFilter((DBObject) object);
+              ValueFilter filter = expressionParser.buildValueFilter((DBObject) object);
               for (Object item : currentList) {
-                if (!(item instanceof DBObject) || !filter.apply((DBObject) item)) {
+                if (!filter.apply(item)) {
                   newList.add(item);
                 }
               }
@@ -468,7 +468,7 @@ public class UpdateEngine {
         void mergeAction(String subKey, DBObject subObject, Object object, DBObject objOriginal, boolean isCreated) {
           BasicDBList currentList = expressionParser.typecast(command + " only works on arrays", subObject.get(subKey), BasicDBList.class);
           if (currentList != null && currentList.size() > 0) {
-            Set pullSet = new HashSet(expressionParser.typecast(command, object, List.class));
+            Set<Object> pullSet = new HashSet<Object>(expressionParser.typecast(command, object, List.class));
             BasicDBList newList = new BasicDBList();
             for (Object item : currentList) {
               if (!pullSet.contains(item)) {
