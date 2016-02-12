@@ -1,5 +1,6 @@
 package com.github.fakemongo.impl.aggregation;
 
+import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
@@ -119,9 +120,9 @@ public class Project extends PipelineKeyword {
         } else {
           projectedFields.put(value, projected.addInfo(value));
         }
-      } else if (kvalue instanceof DBObject) {
-        DBObject value = (DBObject) kvalue;
-        ProjectedAbstract projectedAbstract = ProjectedAbstract.getProjected(value, coll, key);
+      } else if (ExpressionParser.isDbObject(kvalue)) {
+        DBObject value = ExpressionParser.toDbObject(kvalue);
+        ProjectedAbstract projectedAbstract = getProjected(value, coll, key);
         if (projectedAbstract != null) {
           // case : {cmp : {$cmp:[$firstname, $lastname]}}
           projectedAbstract.apply(coll, projectResult, projectedFields, key, value, namespace);
@@ -267,7 +268,7 @@ public class Project extends PipelineKeyword {
       for (Object field : toConcat) {
         if (field instanceof String) {
           createMapping(coll, projectResult, projectedFields, (String) field, (String) field, namespace, this);
-        } else if (field instanceof DBObject) {
+        } else if (ExpressionParser.isDbObject(field)) {
           // $concat : [ { $ifnull : [ "$item", "item is null" ] } ]
         }
       }
@@ -597,7 +598,7 @@ public class Project extends PipelineKeyword {
   public DBCollection apply(DBCollection coll, DBObject object) {
     LOG.debug("project() : {}", object);
 
-    DBObject project = (DBObject) object.get(getKeyword());
+    DBObject project = ExpressionParser.toDbObject(object.get(getKeyword()));
     DBObject projectResult = Util.clone(project);
 
     // Extract fields who will be renamed.

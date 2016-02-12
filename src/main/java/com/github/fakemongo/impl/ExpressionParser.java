@@ -186,7 +186,7 @@ public class ExpressionParser {
       new BasicFilterFactory(ALL) {
         @Override
         boolean compare(Object queryValue, Object storedValue) {
-          Collection queryList = typecast(command + " clause", queryValue, Collection.class);
+          Collection<?> queryList = typecast(command + " clause", queryValue, Collection.class);
           List storedList = typecast("value", storedValue, List.class);
           if (storedList == null) {
             return false;
@@ -210,7 +210,7 @@ public class ExpressionParser {
       new BasicFilterFactory(ELEM_MATCH) {
         @Override
         boolean compare(Object queryValue, Object storedValue) {
-          DBObject query = typecast(command + " clause", queryValue, DBObject.class);
+          DBObject query = castToDBObject(command + " clause", queryValue);
           List storedList = typecast("value", storedValue, List.class);
           if (storedList == null) {
             return false;
@@ -222,8 +222,8 @@ public class ExpressionParser {
             BasicDBObject dbObject = new BasicDBObject("$$$$fongo$$$$", query);
             Filter filter = buildFilter(dbObject);
             for (Object object : storedList) {
-              if (object instanceof DBObject) {
-                if (buildFilter(query).apply((DBObject) object)) {
+              if (isDbObject(object)) {
+                if (buildFilter(query).apply(toDbObject(object))) {
                   return true;
                 }
               }
@@ -234,7 +234,7 @@ public class ExpressionParser {
           } else {
             Filter filter = buildFilter(query);
             for (Object object : storedList) {
-              if (filter.apply((DBObject) object)) {
+              if (filter.apply(toDbObject(object))) {
                 return true;
               }
             }
@@ -311,7 +311,7 @@ public class ExpressionParser {
   }
 
   private boolean isDBObjectButNotDBList(Object o) {
-    return o instanceof DBObject && !(o instanceof List);
+    return isDbObject(o) && !(o instanceof List);
   }
 
   public Filter buildFilter(DBObject ref) {
@@ -357,14 +357,14 @@ public class ExpressionParser {
     return new ValueFilter() {
       @Override
       public boolean apply(Object object) {
-        return object instanceof DBObject && filter.apply((DBObject) object);
+        return isDbObject(object) && filter.apply(toDbObject(object));
       }
     };
   }
 
   private ValueFilter buildValueFilter(final Object object) {
-    if (object instanceof DBObject) {
-        return buildValueFilter(buildFilter((DBObject) object));
+    if (isDbObject(object)) {
+        return buildValueFilter(buildFilter(toDbObject(object)));
     }
     if (object instanceof Pattern) {
       return buildValueFilter((Pattern) object);
@@ -409,6 +409,13 @@ public class ExpressionParser {
     } catch (Exception e) {
       throw new FongoException(fieldName + " expected to be of type " + clazz.getName() + " but is " + (obj != null ? obj.getClass() : "null") + " toString:" + obj);
     }
+  }
+
+  public DBObject castToDBObject(String fieldName, Object obj) {
+    if (isDbObject(obj)) {
+      return toDbObject(obj);
+    }
+    throw new FongoException(fieldName + " expected to be DBObject or Map but is " + (obj != null ? obj.getClass() : "null") + " toString:" + obj);
   }
 
   private void enforce(boolean check, String message) {
@@ -513,16 +520,16 @@ public class ExpressionParser {
 
     for (int i = startIndex; i < path.size() - 1; i++) {
       Object value = dbo.get(subKey);
-      if (value instanceof DBObject && !(value instanceof List)) {
-        dbo = (DBObject) value;
+      if (isDbObject(value) && !(value instanceof List)) {
+        dbo = toDbObject(value);
       } else if (value instanceof List && Util.isPositiveInt(path.get(i + 1))) {
         BasicDBList newList = Util.wrap((List) value);
         dbo = newList;
       } else if (value instanceof List) {
         List<Object> results = new ArrayList<Object>();
         for (Object listValue : (List) value) {
-          if (listValue instanceof DBObject) {
-            List<Object> embeddedListValue = getEmbeddedValues(path, i + 1, (DBObject) listValue);
+          if (isDbObject(listValue)) {
+            List<Object> embeddedListValue = getEmbeddedValues(path, i + 1, toDbObject(listValue));
             results.addAll(embeddedListValue);
           } else if (listValue instanceof DBRefBase) {
             results.addAll(extractDBRefValue((DBRefBase) listValue, path.get(i + 1)));
@@ -551,24 +558,23 @@ public class ExpressionParser {
 
   private Filter buildExpressionFilter(final List<String> path, Object expression) {
     if (OR.equals(path.get(0))) {
-      @SuppressWarnings(
-          "unchecked") Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
+      Collection<?> queryList = typecast(path + " operator", expression, Collection.class);
       OrFilter orFilter = new OrFilter();
-      for (DBObject query : queryList) {
-        orFilter.addFilter(buildFilter(query));
+      for (Object query : queryList) {
+        orFilter.addFilter(buildFilter(toDbObject(query)));
       }
       return orFilter;
     } else if (AND.equals(path.get(0))) {
-      Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
+      Collection<?> queryList = typecast(path + " operator", expression, Collection.class);
       AndFilter andFilter = new AndFilter();
-      for (DBObject query : queryList) {
-        andFilter.addFilter(buildFilter(query));
+      for (Object query : queryList) {
+        andFilter.addFilter(buildFilter(toDbObject(query)));
       }
       return andFilter;
     } else if (WHERE.equals(path.get(0))) {
       return new WhereFilter((String) expression);
-    } else if (expression instanceof DBObject || expression instanceof Map) {
-      DBObject ref = expression instanceof DBObject ? (DBObject) expression : new BasicDBObject((Map) expression);
+    } else if (isDbObject(expression)) {
+      DBObject ref = toDbObject(expression);
 
       if (ref.containsField(NOT)) {
         return new NotFilter(buildExpressionFilter(path, ref.get(NOT)));
@@ -595,6 +601,23 @@ public class ExpressionParser {
     } else {
       return simpleFilter(path, expression);
     }
+  }
+
+  public static DBObject toDbObject(Object expression) {
+    if (expression == null) {
+      return null;
+    }
+    if (expression instanceof DBObject) {
+      return (DBObject) expression;
+    }
+    if (expression instanceof Map) {
+      return new BasicDBObject((Map) expression);
+    }
+    throw new IllegalArgumentException("Expected DBObject or Map, got: " + expression);
+  }
+
+  public static boolean isDbObject(Object expression) {
+    return expression instanceof DBObject || expression instanceof Map;
   }
 
   public Filter simpleFilter(final List<String> path, final Object expression) {
@@ -651,7 +674,7 @@ public class ExpressionParser {
     LOG.debug("comparing {} and {}", queryValue, storedValue);
 
     if (isDBObjectButNotDBList(queryValue) && isDBObjectButNotDBList(storedValue)) {
-      return compareDBObjects((DBObject) queryValue, (DBObject) storedValue);
+      return compareDBObjects(toDbObject(queryValue), toDbObject(storedValue));
     } else if (queryValue instanceof List && storedValue instanceof List) {
       List queryList = (List) queryValue;
       List storedList = (List) storedValue;
@@ -919,7 +942,7 @@ public class ExpressionParser {
     return new Filter() {
       @Override
       public boolean apply(DBObject o) {
-        final Geometry objectGeometry = GeoUtil.toGeometry((DBObject) Util.extractField(o, path));
+        final Geometry objectGeometry = GeoUtil.toGeometry(toDbObject(Util.extractField(o, path)));
 
         double distance = GeoUtil.distanceInRadians(geometry, objectGeometry, sphere);
         o.put(FongoDBCollection.FONGO_SPECIAL_ORDER_BY, distance);
@@ -1053,8 +1076,8 @@ public class ExpressionParser {
     @Override
     public int compare(Object o1, Object o2) {
       if (isDBObjectButNotDBList(o1) && isDBObjectButNotDBList(o2)) {
-        DBObject dbo1 = (DBObject) o1;
-        DBObject dbo2 = (DBObject) o2;
+        DBObject dbo1 = toDbObject(o1);
+        DBObject dbo2 = toDbObject(o2);
         for (String sortKey : orderByKeySet) {
           final List<String> path = Util.split(sortKey);
           int sortDirection = (Integer) orderBy.get(sortKey);
@@ -1069,7 +1092,7 @@ public class ExpressionParser {
         }
         return 0;
       } else if (isDBObjectButNotDBList(o1) || isDBObjectButNotDBList(o2)) {
-        DBObject dbo = (DBObject) (o1 instanceof DBObject ? o1 : o2);
+        DBObject dbo = toDbObject(isDbObject(o1) ? o1 : o2);
         for (String sortKey : orderByKeySet) {
           final List<String> path = Util.split(sortKey);
           int sortDirection = (Integer) orderBy.get(sortKey);
@@ -1077,7 +1100,7 @@ public class ExpressionParser {
           List<Object> foundValues = getEmbeddedValues(path, dbo);
 
           if (!foundValues.isEmpty()) {
-            return o1 instanceof DBObject ? sortDirection : -sortDirection;
+            return isDbObject(o1) ? sortDirection : -sortDirection;
           }
         }
         return compareTo(o1, o2);
@@ -1175,8 +1198,8 @@ public class ExpressionParser {
 
     @Override
     public Filter createFilter(final List<String> path, final DBObject refExpression) {
-      Collection queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
-      final Set querySet = new HashSet(queryList);
+      Collection<?> queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
+      final Set<?> querySet = new HashSet<Object>(queryList);
       return new Filter() {
         @Override
         public boolean apply(DBObject o) {
@@ -1254,8 +1277,8 @@ public class ExpressionParser {
         geometry = GeoUtil.createGeometryPoint(coordinates.get(0));
         maxDistance = typecast(MAX_DISTANCE, refExpression.get(MAX_DISTANCE), Number.class);
       } else {
-        DBObject dbObject = typecast(command, refExpression.get(command), DBObject.class);
-        geometry = GeoUtil.toGeometry(((DBObject) Util.extractField(dbObject, "$geometry")));
+        DBObject dbObject = castToDBObject(command, refExpression.get(command));
+        geometry = GeoUtil.toGeometry((toDbObject(Util.extractField(dbObject, "$geometry"))));
         maxDistance = typecast(MAX_DISTANCE, dbObject.get(MAX_DISTANCE), Number.class);
         if (maxDistance != null) {
           // When in GeoJSon, distance is in meter.
@@ -1276,7 +1299,7 @@ public class ExpressionParser {
     @Override
     public Filter createFilter(final List<String> path, DBObject refExpression) {
       LOG.debug("geoWithin path:{}, refExp:{}", path, refExpression);
-      Geometry geometry = GeoUtil.toGeometry(typecast("$geoWithin", refExpression.get("$geoWithin"), DBObject.class));
+      Geometry geometry = GeoUtil.toGeometry(castToDBObject("$geoWithin", refExpression.get("$geoWithin")));
       return createGeowithinFilter(path, geometry);
     }
   }

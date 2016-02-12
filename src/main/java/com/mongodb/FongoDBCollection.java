@@ -169,8 +169,8 @@ public class FongoDBCollection extends DBCollection {
 
   public Object replaceListAndMap(Object value) {
     Object replacementValue = BSON.applyEncodingHooks(value);
-    if (replacementValue instanceof DBObject) {
-      replacementValue = filterLists((DBObject) replacementValue);
+    if (ExpressionParser.isDbObject(replacementValue)) {
+      replacementValue = filterLists(ExpressionParser.toDbObject(replacementValue));
     } else if (replacementValue instanceof List) {
       BasicDBList list = new BasicDBList();
       for (Object listItem : (List) replacementValue) {
@@ -320,8 +320,8 @@ public class FongoDBCollection extends DBCollection {
     Object idValue = query.get(ID_KEY);
     if (idValue == null || query.keySet().size() > 1) {
       return Collections.emptyList();
-    } else if (idValue instanceof DBObject) {
-      DBObject idDbObject = (DBObject) idValue;
+    } else if (ExpressionParser.isDbObject(idValue)) {
+      DBObject idDbObject = ExpressionParser.toDbObject(idValue);
       Collection inList = (Collection) idDbObject.get(QueryOperators.IN);
 
       // I think sorting the inputed keys is a rough
@@ -364,8 +364,8 @@ public class FongoDBCollection extends DBCollection {
 
   public boolean isNotUpdateCommand(Object value) {
     boolean okValue = true;
-    if (value instanceof DBObject) {
-      for (String innerKey : ((DBObject) value).keySet()) {
+    if (ExpressionParser.isDbObject(value)) {
+      for (String innerKey : (ExpressionParser.toDbObject(value)).keySet()) {
         if (innerKey.startsWith("$")) {
           okValue = false;
         }
@@ -500,13 +500,13 @@ public class FongoDBCollection extends DBCollection {
 
     DBObject orderby = null;
     if (ref.containsField("$orderby")) {
-      orderby = (DBObject) ref.get("$orderby");
+      orderby = ExpressionParser.toDbObject(ref.get("$orderby"));
     }
     if (ref.containsField("$maxScan")) {
       maxScan = ((Number) ref.get("$maxScan")).longValue();
     }
     if (ref.containsField("$query")) {
-      ref = (DBObject) ref.get("$query");
+      ref = ExpressionParser.toDbObject(ref.get("$query"));
     }
 
     Filter filter = expressionParser.buildFilter(ref);
@@ -569,16 +569,16 @@ public class FongoDBCollection extends DBCollection {
         BasicDBList newList = new BasicDBList();
         for (Object o : ((Collection) value)) {
           Object newObject = o;
-          if (o instanceof DBObject) {
-            handleDBRef((DBObject) newObject);
+          if (ExpressionParser.isDbObject(o)) {
+            handleDBRef(ExpressionParser.toDbObject(newObject));
           } else if (o instanceof DBRef && ((DBRef) o).getDB() == null) {
             newObject = new DBRef(this.getDB(), ((DBRef) o).getRef(), ((DBRef) o).getId());
           }
           newList.add(newObject);
         }
         clonedDbo.put(entry.getKey(), newList);
-      } else if (value instanceof DBObject) {
-        handleDBRef((DBObject) value);
+      } else if (ExpressionParser.isDbObject(value)) {
+        handleDBRef(ExpressionParser.toDbObject(value));
       }
     }
   }
@@ -626,20 +626,20 @@ public class FongoDBCollection extends DBCollection {
     Object value = dbo.get(subKey);
 
     if (path.size() > startIndex + 1) {
-      if (value instanceof DBObject && !(value instanceof List)) {
+      if (ExpressionParser.isDbObject(value) && !(value instanceof List)) {
         BasicDBObject nb = (BasicDBObject) ret.get(subKey);
         if (nb == null) {
           nb = new BasicDBObject();
         }
         ret.append(subKey, nb);
-        addValuesAtPath(nb, (DBObject) value, path, startIndex + 1);
+        addValuesAtPath(nb, ExpressionParser.toDbObject(value), path, startIndex + 1);
       } else if (value instanceof List) {
 
         BasicDBList list = getListForKey(ret, subKey);
 
         int idx = 0;
         for (Object v : (List) value) {
-          if (v instanceof DBObject) {
+          if (ExpressionParser.isDbObject(v)) {
             BasicDBObject nb;
             if (list.size() > idx) {
               nb = (BasicDBObject) list.get(idx);
@@ -647,7 +647,7 @@ public class FongoDBCollection extends DBCollection {
               nb = new BasicDBObject();
               list.add(nb);
             }
-            addValuesAtPath(nb, (DBObject) v, path, startIndex + 1);
+            addValuesAtPath(nb, ExpressionParser.toDbObject(v), path, startIndex + 1);
           }
           idx++;
         }
@@ -707,7 +707,7 @@ public class FongoDBCollection extends DBCollection {
    */
   private DBObject instantiateObjectClassInstance() {
     try {
-      return (DBObject) getObjectClass().newInstance();
+      return ExpressionParser.toDbObject(getObjectClass().newInstance());
     } catch (InstantiationException e) {
       throw new MongoInternalException("Can't create instance of type: " + getObjectClass(), e);
     } catch (IllegalAccessException e) {
@@ -746,13 +746,13 @@ public class FongoDBCollection extends DBCollection {
         included = ((Number) projectionValue).intValue() > 0;
       } else if (projectionValue instanceof Boolean) {
         included = (Boolean) projectionValue;
-      } else if (projectionValue instanceof DBObject) {
+      } else if (ExpressionParser.isDbObject(projectionValue)) {
         project = true;
         projectionFields.add(projectionKey);
       } else if (!projectionValue.toString().equals("text")) {
         final String msg = "Projection `" + projectionKey
-            + "' has a value that Fongo doesn't know how to handle: " + projectionValue
-            + " (" + (projectionValue == null ? " " : projectionValue.getClass() + ")");
+                + "' has a value that Fongo doesn't know how to handle: " + projectionValue
+                + " (" + (projectionValue == null ? " " : projectionValue.getClass() + ")");
 
         throw new IllegalArgumentException(msg);
       }
