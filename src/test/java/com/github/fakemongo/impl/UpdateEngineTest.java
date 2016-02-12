@@ -341,6 +341,28 @@ public class UpdateEngineTest {
   }
 
   @Test
+  public void testEmbeddedPullWithInPatternOperation() {
+    UpdateEngine updateEngine = new UpdateEngine();
+    DBObject update = new BasicDBObjectBuilder()
+            .push("$pull").push("field").append("$in", Util.list(Pattern.compile("a+"))).pop().pop()
+            .get();
+
+    assertEquals(new BasicDBObject("field", Util.list("bb")),
+        updateEngine.doUpdate(new BasicDBObject("field", Util.list("aa", "bb")), update));
+  }
+
+  @Test
+  public void testEmbeddedPullWithInNumberOperation() {
+    UpdateEngine updateEngine = new UpdateEngine();
+    DBObject update = new BasicDBObjectBuilder()
+            .push("$pull").push("field").append("$in", Util.list(2L)).pop().pop()
+            .get();
+
+    assertEquals(new BasicDBObject("field", Util.list(1)),
+        updateEngine.doUpdate(new BasicDBObject("field", Util.list(1, 2.0)), update));
+  }
+
+  @Test
   public void testPullAllOperation() {
     UpdateEngine updateEngine = new UpdateEngine();
     DBObject update = new BasicDBObjectBuilder().push("$pullAll").append("a", Util.list(2, 3)).pop().get();
