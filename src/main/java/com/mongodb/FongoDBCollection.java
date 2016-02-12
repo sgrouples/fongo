@@ -39,6 +39,7 @@ import org.bson.codecs.Codec;
 import org.bson.codecs.Decoder;
 import org.bson.codecs.DecoderContext;
 import org.bson.codecs.EncoderContext;
+import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
 import org.bson.types.Binary;
@@ -306,7 +307,7 @@ public class FongoDBCollection extends DBCollection {
 
         updatedDocuments++;
         updatedExisting = false;
-        upsertedId = q.get(ID_FIELD_NAME);
+        upsertedId = newObject.get(ID_FIELD_NAME);
       }
     }
     return updateResult(updatedDocuments, updatedExisting, upsertedId);
@@ -1433,7 +1434,7 @@ public class FongoDBCollection extends DBCollection {
     if (document == null) {
       return null;
     }
-    return MongoClient.getDefaultCodecRegistry().get(DBObject.class).decode(new BsonDocumentReader(document),
+    return defaultDbObjectCodec().decode(new BsonDocumentReader(document),
         decoderContext());
   }
 
@@ -1452,6 +1453,21 @@ public class FongoDBCollection extends DBCollection {
 
   public static DecoderContext decoderContext() {
     return DecoderContext.builder().build();
+  }
+
+  public static EncoderContext encoderContext() {
+    return EncoderContext.builder().build();
+  }
+  public static CodecRegistry defaultCodecRegistry() {
+    return MongoClient.getDefaultCodecRegistry();
+  }
+
+  public static Codec<DBObject> defaultDbObjectCodec() {
+    return defaultCodecRegistry().get(DBObject.class);
+  }
+
+  public static <T> Codec<T> codec(Class<T> clazz) {
+    return defaultCodecRegistry().get(clazz);
   }
 
   public static DBObject dbObject(final BsonDocument queryDocument, final String key) {
@@ -1476,8 +1492,8 @@ public class FongoDBCollection extends DBCollection {
     }
 
     final BsonDocument bsonDocument = new BsonDocument();
-    MongoClient.getDefaultCodecRegistry().get(DBObject.class)
-        .encode(new BsonDocumentWriter(bsonDocument), dbObject, EncoderContext.builder().build());
+    defaultDbObjectCodec()
+        .encode(new BsonDocumentWriter(bsonDocument), dbObject, encoderContext());
 
     return bsonDocument;
   }
