@@ -165,9 +165,9 @@ public class FongoDBCollection extends DBCollection {
     Object replacementValue = BSON.applyEncodingHooks(value);
     if (ExpressionParser.isDbObject(replacementValue)) {
       replacementValue = filterLists(ExpressionParser.toDbObject(replacementValue));
-    } else if (replacementValue instanceof List) {
+    } else if (replacementValue instanceof Collection) {
       BasicDBList list = new BasicDBList();
-      for (Object listItem : (List) replacementValue) {
+      for (Object listItem : (Collection) replacementValue) {
         list.add(replaceListAndMap(listItem));
       }
       replacementValue = list;

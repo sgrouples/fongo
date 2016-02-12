@@ -2,11 +2,14 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
+import static com.google.common.collect.Lists.newArrayList;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
+import com.mongodb.DBRef;
+import java.util.HashSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
@@ -70,5 +73,33 @@ public class FongoFindTest {
 
     // Then
     assertThat(cursor.size()).isEqualTo(2);
+  }
+
+  @Test
+  public void should_handle_$in_with_dbref() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("lang", "de").append("platform", new DBRef("platforms", "demo")));
+    collection.insert(new BasicDBObject("_id", 2).append("lang", "de").append("platform", new DBRef("platforms", "demo2")));
+    collection.insert(new BasicDBObject("lang", "de").append("platform", new DBRef("platforms", "demo3")));
+
+    BasicDBList platforms = new BasicDBList();
+    platforms.add(new DBRef("platforms", "demo2"));
+    DBObject query = new BasicDBObject("lang", "de").append("platform", new BasicDBObject("$in", platforms));
+
+    // When
+    DBCursor cursor = collection.find(query);
+
+    // Then
+    assertThat(cursor.toArray()).isEqualTo(newArrayList(new BasicDBObject("_id", 2).append("lang", "de").append("platform", new DBRef("platforms", "demo2"))));
+  }
+
+  @Test
+  public void should_handle_collection_in_query() {
+    DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("lang", "de"));
+    assertThat(collection.findOne(
+        new BasicDBObject("lang", new BasicDBObject("$in", new HashSet<String>(newArrayList("de")))))
+    ).isNotNull();
   }
 }
