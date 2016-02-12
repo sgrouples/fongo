@@ -5,6 +5,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -387,5 +388,18 @@ public class FongoDBCollectionTest {
 
     DBCursor cursorWithSkipAndLimit = collection.find().skip(23).limit(5);
     Assertions.assertThat(3).isEqualTo(cursorWithSkipAndLimit.size());    
+  }
+
+  @Test
+  public void queryMapInsteadOfDBObject() {
+    collection.findOne(new BasicDBObject("sub", new HashMap<String, String>()));
+  }
+
+  @Test
+  public void insertMapInsteadOfDBObject() {
+    HashMap<String, String> value = new HashMap<String, String>();
+    value.put("a", "a");
+    collection.insert(new BasicDBObject("sub", value));
+    assertEquals(value, collection.findOne().get("sub"));
   }
 }

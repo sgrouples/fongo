@@ -179,8 +179,8 @@ public final class GeoUtil {
       } else {
         LOG.warn("Strange, coordinate of {} has not a size of 2", value);
       }
-    } else if (value instanceof DBObject) {
-      DBObject dbObject = (DBObject) value;
+    } else if (ExpressionParser.isDbObject(value)) {
+      DBObject dbObject = ExpressionParser.toDbObject(value);
       if (dbObject.containsField("type")) {
         // GeoJSON
         try {
@@ -217,8 +217,8 @@ public final class GeoUtil {
   }
 
   public static Geometry toGeometry(Object object) {
-    if (object instanceof DBObject) {
-      return toGeometry((DBObject) object);
+    if (ExpressionParser.isDbObject(object)) {
+      return toGeometry(ExpressionParser.toDbObject(object));
     }
     return createGeometryPoint(coordinate(object));
   }
@@ -242,7 +242,7 @@ public final class GeoUtil {
       return createPolygon(coordinates);
     } else if (dbObject.containsField("$geometry")) {
       // TODO : must check
-      return toGeometry((DBObject) dbObject.get("$geometry"));
+      return toGeometry(ExpressionParser.toDbObject(dbObject.get("$geometry")));
     } else if (dbObject.containsField("type")) {
       try {
         GeoJsonObject geoJsonObject = new ObjectMapper().readValue(FongoJSON.serialize(dbObject), GeoJsonObject.class);

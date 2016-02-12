@@ -42,7 +42,7 @@ public class UpdateEngine {
     abstract void mergeAction(String subKey, DBObject subObject, Object object, DBObject objOriginal, boolean isCreated);
 
     public DBObject doUpdate(DBObject obj, DBObject update, Set<String> seenKeys, DBObject query, boolean isCreated) {
-      DBObject updateObject = (DBObject) update.get(command);
+      DBObject updateObject = ExpressionParser.toDbObject(update.get(command));
       HashSet<String> keySet = new HashSet<String>(updateObject.keySet());
 
       LOG.debug("KeySet is of length {}", keySet.size());
@@ -75,8 +75,8 @@ public class UpdateEngine {
         Object value = obj.get(subKey);
         if ((value instanceof List) && "$".equals(path.get(i + 1))) {
           handlePositionalUpdate(updateKey, object, (List) value, obj, query, objOriginal);
-        } else if (value instanceof DBObject) {
-          obj = (DBObject) value;
+        } else if (ExpressionParser.isDbObject(value)) {
+          obj = ExpressionParser.toDbObject(value);
         } else if (value instanceof List) {
           BasicDBList newList = Util.wrap((List) value);
 
@@ -118,21 +118,21 @@ public class UpdateEngine {
           LOG.debug("found a positional list item " + listItem + " " + prePath + " " + postPath);
         }
         if (!postPath.isEmpty()) {
-          if (!(listItem instanceof DBObject)) {
+          if (!ExpressionParser.isDbObject(listItem)) {
             throw new FongoException("can not update \"" + postPath + "\" field of non-DBObject object");
           }
 
           BasicDBList listWithSingleItem = new BasicDBList();
           listWithSingleItem.add(listItem);
-          if (filter.apply((DBObject) listItem) ||
+          if (filter.apply(ExpressionParser.toDbObject(listItem)) ||
               //Case of a nested $elemMatch
               filter.apply(new BasicDBObject(prePath, listWithSingleItem))) {
-            doSingleKeyUpdate(postPath, (DBObject) listItem, object, query, false);
+            doSingleKeyUpdate(postPath, ExpressionParser.toDbObject(listItem), object, query, false);
             break;
           }
         } else {
           //this is kind of a waste
-          DBObject o = listItem instanceof DBObject ? (DBObject) listItem : new BasicDBObject(prePath, listItem);
+          DBObject o = ExpressionParser.isDbObject(listItem) ? ExpressionParser.toDbObject(listItem) : new BasicDBObject(prePath, listItem);
           if (filter.apply(o)) {
             BasicDBList newList = new BasicDBList();
             newList.addAll(valueList);
@@ -332,8 +332,8 @@ public class UpdateEngine {
             currentValue = new BasicDBList();
           }
 
-          if (object instanceof DBObject && (((DBObject) object).get("$each") != null)) {
-            DBObject dbObject = (DBObject) object;
+          if (ExpressionParser.isDbObject(object) && ((ExpressionParser.toDbObject(object)).get("$each") != null)) {
+            DBObject dbObject = ExpressionParser.toDbObject(object);
             Object eachObject = dbObject.get("$each");
             BasicDBList eachList = expressionParser.typecast(command + ".$each value", eachObject, BasicDBList.class);
 
@@ -354,8 +354,8 @@ public class UpdateEngine {
               if (sortObj instanceof Number) {
                 int sortDirection = ((Number) sortObj).intValue();
                 Collections.sort(currentValue, expressionParser.objectComparator(sortDirection));
-              } else if (sortObj instanceof DBObject) {
-                Collections.sort(currentValue, expressionParser.sortSpecificationComparator((DBObject) sortObj));
+              } else if (ExpressionParser.isDbObject(sortObj)) {
+                Collections.sort(currentValue, expressionParser.sortSpecificationComparator(ExpressionParser.toDbObject(sortObj)));
               }
             }
 
@@ -402,8 +402,8 @@ public class UpdateEngine {
           boolean isEach = false;
           BasicDBList currentValue = expressionParser.typecast(subKey, subObject.get(subKey), BasicDBList.class);
           currentValue = (currentValue == null) ? new BasicDBList() : currentValue;
-          if (object instanceof DBObject) {
-            Object eachObject = ((DBObject) object).get("$each");
+          if (ExpressionParser.isDbObject(object)) {
+            Object eachObject = ExpressionParser.toDbObject(object).get("$each");
             if (eachObject != null) {
               isEach = true;
               BasicDBList newList = expressionParser.typecast(command + ".$each value", eachObject, BasicDBList.class);
@@ -445,8 +445,8 @@ public class UpdateEngine {
           BasicDBList currentList = expressionParser.typecast(command + " only works on arrays", subObject.get(subKey), BasicDBList.class);
           if (currentList != null && currentList.size() > 0) {
             BasicDBList newList = new BasicDBList();
-            if (object instanceof DBObject) {
-              ValueFilter filter = expressionParser.buildValueFilter((DBObject) object);
+            if (ExpressionParser.isDbObject(object)) {
+              ValueFilter filter = expressionParser.buildValueFilter(ExpressionParser.toDbObject(object));
               for (Object item : currentList) {
                 if (!filter.apply(item)) {
                   newList.add(item);
@@ -515,8 +515,8 @@ public class UpdateEngine {
         void mergeAction(String subKey, DBObject subObject, Object object, DBObject objOriginal, boolean isCreated) {
           if (Boolean.TRUE.equals(object)) {
             subObject.put(subKey, new Date());
-          } else if ((objOriginal != null) && (object instanceof DBObject)) {
-            Object typeObject = ((DBObject) object).get("$type");
+          } else if ((objOriginal != null) && (ExpressionParser.isDbObject(object))) {
+            Object typeObject = ExpressionParser.toDbObject(object).get("$type");
             String type = expressionParser.typecast(command, typeObject, String.class);
             if ("date".equals(type)) {
               subObject.put(subKey, new Date());

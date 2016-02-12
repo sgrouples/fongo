@@ -2,6 +2,8 @@ package com.mongodb;
 
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
+import com.github.fakemongo.impl.ExpressionParser;
+import com.github.fakemongo.impl.MapReduce;
 import com.github.fakemongo.impl.geo.GeoUtil;
 import com.vividsolutions.jts.geom.Coordinate;
 import java.util.ArrayList;
@@ -214,10 +216,10 @@ public class FongoDB extends DB {
       Number limit = (Number) cmd.get("limit");
       Number skip = (Number) cmd.get("skip");
       long result = doGetCollection(collectionName).getCount(
-          (DBObject) cmd.get("query"),
-          null,
-          limit == null ? 0L : limit.longValue(),
-          skip == null ? 0L : skip.longValue());
+              ExpressionParser.toDbObject(cmd.get("query")),
+              null,
+              limit == null ? 0L : limit.longValue(),
+              skip == null ? 0L : skip.longValue());
       CommandResult okResult = okResult();
       okResult.append("n", (double) result);
       return okResult;
@@ -267,11 +269,11 @@ public class FongoDB extends DB {
       // TODO : handle "num" (override limit)
       try {
         List<DBObject> result = doGeoNearCollection((String) cmd.get("geoNear"),
-            GeoUtil.coordinate(cmd.get("near")),
-            (DBObject) cmd.get("query"),
-            (Number) cmd.get("limit"),
-            (Number) cmd.get("maxDistance"),
-            Boolean.TRUE.equals(cmd.get("spherical")));
+                GeoUtil.coordinate(cmd.get("near")),
+                ExpressionParser.toDbObject(cmd.get("query")),
+                (Number) cmd.get("limit"),
+                (Number) cmd.get("maxDistance"),
+                Boolean.TRUE.equals(cmd.get("spherical")));
         if (result == null) {
           return notOkErrorResult("can't geoNear");
         }
@@ -292,12 +294,12 @@ public class FongoDB extends DB {
     } else {
       String collectionName = ((Map.Entry<String, DBObject>) cmd.toMap().entrySet().iterator().next()).getKey();
       if (collectionExists(collectionName)) {
-        DBObject newCmd = (DBObject) cmd.get(collectionName);
-        if ((newCmd.containsField("text") && ((DBObject) newCmd.get("text")).containsField("search"))) {
+        DBObject newCmd = ExpressionParser.toDbObject(cmd.get(collectionName));
+        if ((newCmd.containsField("text") && (ExpressionParser.toDbObject(newCmd.get("text"))).containsField("search"))) {
           DBObject resp = doTextSearchInCollection(collectionName,
-              (String) ((DBObject) newCmd.get("text")).get("search"),
-              (Integer) ((DBObject) newCmd.get("text")).get("limit"),
-              (DBObject) ((DBObject) newCmd.get("text")).get("project"));
+                  (String) (ExpressionParser.toDbObject(newCmd.get("text"))).get("search"),
+                  (Integer) (ExpressionParser.toDbObject(newCmd.get("text"))).get("limit"),
+                  ExpressionParser.toDbObject(((DBObject) newCmd.get("text")).get("project")));
           if (resp == null) {
             return notOkErrorResult("can't perform text search");
           }
@@ -305,11 +307,11 @@ public class FongoDB extends DB {
           okResult.put("results", resp.get("results"));
           okResult.put("stats", resp.get("stats"));
           return okResult;
-        } else if ((newCmd.containsField("$text") && ((DBObject) newCmd.get("$text")).containsField("$search"))) {
+        } else if ((newCmd.containsField("$text") && (ExpressionParser.toDbObject(newCmd.get("$text"))).containsField("$search"))) {
           DBObject resp = doTextSearchInCollection(collectionName,
-              (String) ((DBObject) newCmd.get("$text")).get("$search"),
-              (Integer) ((DBObject) newCmd.get("text")).get("limit"),
-              (DBObject) ((DBObject) newCmd.get("text")).get("project"));
+                  (String) (ExpressionParser.toDbObject(newCmd.get("$text"))).get("$search"),
+                  (Integer) (ExpressionParser.toDbObject(newCmd.get("text"))).get("limit"),
+                  ExpressionParser.toDbObject(((DBObject) newCmd.get("text")).get("project")));
           if (resp == null) {
             return notOkErrorResult("can't perform text search");
           }
@@ -340,7 +342,7 @@ public class FongoDB extends DB {
       if (!index.get("name").equals("_id_")) {
         System.out.println(index);
         Boolean unique = (Boolean) index.get("unique");
-        fongoDBCollection.createIndex((DBObject) index.get("key"), (String) index.get("name"), unique == null ? false : unique);
+        fongoDBCollection.createIndex(ExpressionParser.toDbObject(index.get("key")), (String) index.get("name"), unique == null ? false : unique);
       }
     }
 
@@ -472,14 +474,14 @@ public class FongoDB extends DB {
     }
 
     DBObject result = findAndModify(
-        (String) cmd.get(key),
-        (DBObject) cmd.get("query"),
-        (DBObject) cmd.get("sort"),
-        Boolean.TRUE.equals(cmd.get("remove")),
-        (DBObject) cmd.get("update"),
-        Boolean.TRUE.equals(cmd.get("new")),
-        (DBObject) cmd.get("fields"),
-        Boolean.TRUE.equals(cmd.get("upsert")));
+            (String) cmd.get(key),
+            ExpressionParser.toDbObject(cmd.get("query")),
+            ExpressionParser.toDbObject(cmd.get("sort")),
+            Boolean.TRUE.equals(cmd.get("remove")),
+            ExpressionParser.toDbObject(cmd.get("update")),
+            Boolean.TRUE.equals(cmd.get("new")),
+            ExpressionParser.toDbObject(cmd.get("fields")),
+            Boolean.TRUE.equals(cmd.get("upsert")));
     CommandResult okResult = okResult();
     okResult.put("value", result);
     return okResult;
@@ -487,15 +489,15 @@ public class FongoDB extends DB {
 
   private CommandResult runMapReduce(DBObject cmd, String key) {
     MapReduceOutput result = doMapReduce(
-        (String) cmd.get(key),
-        (String) cmd.get("map"),
-        (String) cmd.get("reduce"),
-        (String) cmd.get("finalize"),
-        (Map) cmd.get("scope"),
-        (DBObject) cmd.get("out"),
-        (DBObject) cmd.get("query"),
-        (DBObject) cmd.get("sort"),
-        (Number) cmd.get("limit"));
+            (String) cmd.get(key),
+            (String) cmd.get("map"),
+            (String) cmd.get("reduce"),
+            (String) cmd.get("finalize"),
+            (Map) cmd.get("scope"),
+            ExpressionParser.toDbObject(cmd.get("out")),
+            ExpressionParser.toDbObject(cmd.get("query")),
+            ExpressionParser.toDbObject(cmd.get("sort")),
+            (Number) cmd.get("limit"));
     if (result == null) {
       return notOkErrorResult("can't mapReduce");
     }

@@ -1,5 +1,6 @@
 package com.github.fakemongo.impl.aggregation;
 
+import com.github.fakemongo.impl.ExpressionParser;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.annotations.ThreadSafe;
@@ -22,7 +23,7 @@ public class Sort extends PipelineKeyword {
    */
   @Override
   public DBCollection apply(DBCollection coll, DBObject object) {
-    List<DBObject> objects = coll.find().sort((DBObject) object.get(getKeyword())).toArray();
+    List<DBObject> objects = coll.find().sort(ExpressionParser.toDbObject(object.get(getKeyword()))).toArray();
     return dropAndInsert(coll, objects);
   }
 

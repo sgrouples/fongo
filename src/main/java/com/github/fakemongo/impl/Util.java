@@ -48,7 +48,7 @@ public final class Util {
     int indexDot = field.indexOf('.');
     if (indexDot > 0) {
       String subField = field.substring(indexDot + 1);
-      value = extractField((DBObject) object.get(field.substring(0, indexDot)), subField);
+      value = extractField(ExpressionParser.toDbObject(object.get(field.substring(0, indexDot))), subField);
     } else {
       value = (T) object.get(field);
     }
@@ -67,7 +67,7 @@ public final class Util {
     }
     DBObject value = object;
     for (String path : paths) {
-      value = (DBObject) value.get(path);
+      value = ExpressionParser.toDbObject(value.get(path));
       if (value == null) {
         break;
       }
@@ -95,8 +95,8 @@ public final class Util {
       result = false;
       if (object.containsField(actualField)) {
         Object value = object.get(actualField);
-        if (value instanceof DBObject) {
-          result = containsField((DBObject) value, subField);
+        if (ExpressionParser.isDbObject(value)) {
+          result = containsField(ExpressionParser.toDbObject(value), subField);
         }
       }
     } else {
@@ -125,7 +125,7 @@ public final class Util {
       if (!dbObject.containsField(field)) {
         dbObject.put(field, new BasicDBObject());
       }
-      putValue((DBObject) dbObject.get(field), nextPath, value);
+      putValue(ExpressionParser.toDbObject(dbObject.get(field)), nextPath, value);
     } else {
       dbObject.put(path, value);
     }
@@ -181,7 +181,7 @@ public final class Util {
   }
 
   /**
-   * @see org.bson.BasicBSONEncoder#_putObjectField()
+   * @see org.bson.BasicBSONEncoder#_putObjectField(String, Object)
    */
   public static Object clone(Object source) {
     source = BSON.applyEncodingHooks(source);
@@ -189,8 +189,8 @@ public final class Util {
     if (source instanceof UUID) {
       return source;
     }
-    if (source instanceof DBObject) {
-      return clone((DBObject) source);
+    if (ExpressionParser.isDbObject(source)) {
+      return clone(ExpressionParser.toDbObject(source));
     }
     if (source instanceof Binary) {
       return ((Binary) source).getData().clone();
@@ -250,7 +250,7 @@ public final class Util {
       BasicDBList clone = new BasicDBList();
       for (Object o : ((org.bson.LazyBSONList) source)) {
         if (o instanceof DBObject) {
-          clone.add(Util.clone((DBObject) o));
+          clone.add(clone(ExpressionParser.toDbObject(o)));
         } else {
           clone.add(o);
         }
@@ -259,8 +259,8 @@ public final class Util {
     } else if (source instanceof LazyDBList) {
       BasicDBList clone = new BasicDBList();
       for (Object o : ((LazyDBList) source)) {
-        if (o instanceof DBObject) {
-          clone.add(Util.clone((DBObject) o));
+        if (ExpressionParser.isDbObject(o)) {
+          clone.add(clone(ExpressionParser.toDbObject(o)));
         } else {
           clone.add(o);
         }
@@ -278,8 +278,8 @@ public final class Util {
       @SuppressWarnings("unchecked")
       BasicDBObject clone = new BasicDBObject();
       for (Map.Entry<String, Object> entry : ((LazyBSONObject) source).entrySet()) {
-        if (entry.getValue() instanceof DBObject) {
-          clone.put(entry.getKey(), Util.clone((DBObject) entry.getValue()));
+        if (ExpressionParser.isDbObject(entry.getValue())) {
+          clone.put(entry.getKey(), clone(ExpressionParser.toDbObject(entry.getValue())));
         } else {
           if (entry.getValue() instanceof Binary) {
             clone.put(entry.getKey(), ((Binary) entry.getValue()).getData().clone());
@@ -294,8 +294,8 @@ public final class Util {
     @SuppressWarnings("unchecked")
     BasicDBObject clone = new BasicDBObject();
     for (Map.Entry<String, Object> entry : entrySet(source)) {
-      if (entry.getValue() instanceof DBObject) {
-        clone.put(entry.getKey(), Util.clone((DBObject) entry.getValue()));
+      if (ExpressionParser.isDbObject(entry.getValue())) {
+        clone.put(entry.getKey(), clone(ExpressionParser.toDbObject(entry.getValue())));
       } else {
         if (entry.getValue() instanceof Binary) {
           clone.put(entry.getKey(), ((Binary) entry.getValue()).getData().clone());
@@ -347,10 +347,10 @@ public final class Util {
       String field = entry.getKey();
       if (!FongoDBCollection.ID_FIELD_NAME.equals(field)) {
         Object val = entry.getValue();
-        if (val instanceof DBObject) {
-          newobj.put(field, Util.clone((DBObject) val));
+        if (ExpressionParser.isDbObject(val)) {
+          newobj.put(field, clone(ExpressionParser.toDbObject(val)));
         } else {
-          newobj.put(field, Util.clone(val));
+          newobj.put(field, clone(val));
         }
       }
     }
