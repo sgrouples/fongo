@@ -74,8 +74,8 @@ public class Index extends IndexAbstract<DBObject> {
     for (final DBObject objectToPut : objectsToPut) {
       final String rootElement = objectToPut.keySet().iterator().next();
       if (object.containsField(rootElement)) {
-        DBObject objectToAdd = (DBObject) objectToPut.get(rootElement);
-        ((DBObject) object.get(rootElement)).putAll(objectToAdd);
+        DBObject objectToAdd = ExpressionParser.toDbObject(objectToPut.get(rootElement));
+        ExpressionParser.toDbObject(object.get(rootElement)).putAll(objectToAdd);
       } else {
         object.putAll(objectToPut);
       }

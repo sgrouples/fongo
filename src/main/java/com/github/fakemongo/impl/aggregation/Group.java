@@ -1,5 +1,6 @@
 package com.github.fakemongo.impl.aggregation;
 
+import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
@@ -131,9 +132,9 @@ public class Group extends PipelineKeyword {
   }
 
   public DBCollection apply(DBCollection coll, DBObject object) {
-    DBObject group = (DBObject) object.get(getKeyword());
+    DBObject group = ExpressionParser.toDbObject(object.get(getKeyword()));
 
-    Object id = ((DBObject) object.get(getKeyword())).removeField(FongoDBCollection.ID_KEY);
+    Object id = (ExpressionParser.toDbObject(object.get(getKeyword()))).removeField(FongoDBCollection.ID_KEY);
     LOG.debug("group() for _id : {}", id);
     // Try to group in the mapping.
     Map<DBObject, Mapping> mapping = createMapping(coll, id);
@@ -142,8 +143,8 @@ public class Group extends PipelineKeyword {
     for (Map.Entry<String, Object> entry : ((Set<Map.Entry<String, Object>>) group.toMap().entrySet())) {
       String key = entry.getKey();
       Object value = entry.getValue();
-      if (value instanceof DBObject) {
-        DBObject objectValue = (DBObject) value;
+      if (ExpressionParser.isDbObject(value)) {
+        DBObject objectValue = ExpressionParser.toDbObject(value);
         for (Map.Entry<DBObject, Mapping> entryMapping : mapping.entrySet()) {
           DBCollection workColl = entryMapping.getValue().collection;
           for (GroupKeyword keyword : GroupKeyword.values()) {
@@ -215,11 +216,11 @@ public class Group extends PipelineKeyword {
 
   private DBObject keyForId(Object id, DBObject dbObject) {
     DBObject result = new BasicDBObject();
-    if (id instanceof DBObject) {
+    if (ExpressionParser.isDbObject(id)) {
       //ex: { "state" : "$state" , "city" : "$city"}
       DBObject subKey = new BasicDBObject();
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) ((DBObject) id).toMap().entrySet()) {
+      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) (ExpressionParser.toDbObject(id)).toMap().entrySet()) {
         subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
       }
       result.put(FongoDBCollection.ID_KEY, subKey);
@@ -235,9 +236,9 @@ public class Group extends PipelineKeyword {
 
   private DBObject criteriaForId(Object id, DBObject dbObject) {
     DBObject result = new BasicDBObject();
-    if (id instanceof DBObject) {
+    if (ExpressionParser.isDbObject(id)) {
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) ((DBObject) id).toMap().entrySet()) {
+      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) (ExpressionParser.toDbObject(id)).toMap().entrySet()) {
         result.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
       }
     } else if (id != null) {

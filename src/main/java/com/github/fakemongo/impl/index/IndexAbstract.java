@@ -211,7 +211,7 @@ public abstract class IndexAbstract<T extends DBObject> {
     // Optimization
     if (unique && query.keySet().size() == 1) {
       Object key = query.toMap().values().iterator().next();
-      if (!(key instanceof DBObject || key instanceof Binary || key instanceof byte[])) {
+      if (!(ExpressionParser.isDbObject(key) || key instanceof Binary || key instanceof byte[])) {
         List<T> result = get(query);
         if (result != null) {
           return result;
@@ -302,8 +302,8 @@ public abstract class IndexAbstract<T extends DBObject> {
         return true;
       } else if (!searchQueryFields.containsField(fieldPart)) {
         return false;
-      } else if (searchQueryFields.get(fieldPart) instanceof DBObject) {
-        searchQueryFields = (DBObject) searchQueryFields.get(fieldPart);
+      } else if (ExpressionParser.isDbObject(searchQueryFields.get(fieldPart))) {
+        searchQueryFields = ExpressionParser.toDbObject(searchQueryFields.get(fieldPart));
       }
     }
 
