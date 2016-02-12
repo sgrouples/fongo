@@ -283,8 +283,10 @@ public class FongoDBCollection extends DBCollection {
         o.put(ID_KEY, Util.clone(o.get(ID_KEY)));
       }
       @SuppressWarnings("unchecked") Iterator<DBObject> oldObjects = _idIndex.retrieveObjects(q).iterator();
-      addToIndexes(Util.clone(o), oldObjects.hasNext() ? oldObjects.next() : null, concern);
-      updatedDocuments++;
+      if (oldObjects.hasNext() || upsert) {
+        addToIndexes(Util.clone(o), oldObjects.hasNext() ? oldObjects.next() : null, concern);
+        updatedDocuments++;
+      }
     } else {
       Filter filter = expressionParser.buildFilter(q);
       for (DBObject obj : filterByIndexes(q)) {
