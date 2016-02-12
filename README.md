@@ -17,7 +17,7 @@ Add dependency to your project:
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>2.0.4</version>
+  <version>2.0.5</version>
   <scope>test</scope>
 </dependency>
 ```
@@ -238,3 +238,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Heng-Scheng Chuang](https://github.com/ddchengschengc)
 * [Jimmy Royer](https://github.com/jimleroyer)
 * [Akbashev Alexander](https://github.com/Jimilian)
+* [Daniil Gitelson] (https://github.com/daniilguit)
