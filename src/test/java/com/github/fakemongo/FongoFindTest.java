@@ -13,6 +13,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
 
+import java.util.HashSet;
+
 
 public class FongoFindTest {
 
@@ -91,5 +93,14 @@ public class FongoFindTest {
 
     // Then
     assertThat(cursor.toArray()).isEqualTo(newArrayList(new BasicDBObject("_id", 2).append("lang", "de").append("platform", new DBRef("platforms", "demo2"))));
+  }
+
+  @Test
+  public void should_handle_collection_in_query() {
+    DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("lang", "de"));
+    assertThat(collection.findOne(
+            new BasicDBObject("lang", new BasicDBObject("$in", new HashSet<String>(newArrayList("de")))))
+    ).isNotNull();
   }
 }
