@@ -138,7 +138,19 @@ public class FongoConnection implements Connection {
         isUpdateOfExisting = true;
         count += writeResult.getN();
       } else {
-        count++;
+        if(update.isUpsert()) {
+          BsonValue updateId = update.getUpdate().get(DBCollection.ID_FIELD_NAME, null);
+
+          if (updateId != null) {
+            upsertedId = updateId;
+          } else {
+            BsonDocument bsonDoc = bsonDocument(new BasicDBObject(DBCollection.ID_FIELD_NAME, writeResult.getUpsertedId()));
+            upsertedId = bsonDoc.get(DBCollection.ID_FIELD_NAME);
+          }
+          count++;
+        } else {
+          count += writeResult.getN();
+        }
       }
     }
     if (writeConcern.isAcknowledged()) {
@@ -265,12 +277,13 @@ public class FongoConnection implements Connection {
     LOG.debug("updateCommand() namespace:{} updates:{}", namespace, updates);
     final FongoDBCollection collection = dbCollection(namespace);
 
-
-    final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
     BulkWriteBatchCombiner bulkWriteBatchCombiner = new BulkWriteBatchCombiner(fongo.getServerAddress(), ordered, writeConcern);
-    IndexMap indexMap = IndexMap.create();
 
+    int idx = 0, offset = 0;
     for (UpdateRequest update : updates) {
+      IndexMap indexMap = IndexMap.create(offset,1);
+      final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
+
       if (Boolean.TRUE.equals(bypassDocumentValidation)) {
         FieldNameValidator validator;
         if (update.getType() == REPLACE || update.getType() == INSERT) {
@@ -320,8 +333,12 @@ public class FongoConnection implements Connection {
 
 //      collection.executeBulkWriteOperation()
       final com.mongodb.BulkWriteResult bulkWriteResult = bulkWriteOperation.execute(writeConcern);
-      indexMap = indexMap.add(1, 0);
-      bulkWriteBatchCombiner.addResult(bulkWriteResult(bulkWriteResult), indexMap);
+      indexMap = indexMap.add(0,offset);
+      BulkWriteResult bwr = bulkWriteResult(bulkWriteResult);
+      int upsertCount = bwr.getUpserts().size();
+      offset += upsertCount;
+      bulkWriteBatchCombiner.addResult(bwr, indexMap);
+      idx++;
     }
     return bulkWriteBatchCombiner.getResult();
   }
