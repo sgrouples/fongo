@@ -252,3 +252,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Ben](https://github.com/BenRomberg)
 * [Daniil Gitelson] (https://github.com/daniilguit)
 * [Mark Crossfield] (https://github.com/mrmanc)
+* [Rory Douglas] (https://github.com/worrel)
