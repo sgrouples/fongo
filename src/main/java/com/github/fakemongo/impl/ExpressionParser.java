@@ -381,7 +381,7 @@ public class ExpressionParser {
     return new ValueFilter() {
       @Override
       public boolean apply(Object object) {
-        return object instanceof String && pattern.matcher(object.toString()).matches();
+        return object instanceof String && pattern.matcher(object.toString()).find();
       }
     };
   }

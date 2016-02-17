@@ -348,7 +348,7 @@ public class UpdateEngineTest {
             .get();
 
     assertEquals(new BasicDBObject("field", Util.list("bb")),
-        updateEngine.doUpdate(new BasicDBObject("field", Util.list("aa", "bb")), update));
+        updateEngine.doUpdate(new BasicDBObject("field", Util.list("baab", "bb")), update));
   }
 
   @Test
