@@ -220,7 +220,7 @@ public class Project extends PipelineKeyword {
     public static final String KEYWORD = "$ifNull";
 
     private final String field;
-    private final String valueIfNull;
+    private final Object valueIfNull;
 
     public ProjectedIfNull(String destName, DBCollection coll, DBObject object) {
       super(KEYWORD, destName, object);
@@ -236,7 +236,7 @@ public class Project extends PipelineKeyword {
     @Override
     void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field, field, namespace, this);
-      createMapping(coll, projectResult, projectedFields, valueIfNull, valueIfNull, namespace, this);
+      createMapping(coll, projectResult, projectedFields, String.valueOf(valueIfNull), valueIfNull, namespace, this);
     }
 
     @Override

@@ -401,6 +401,35 @@ public class FongoAggregateProjectTest {
    * See http://docs.mongodb.org/manual/reference/aggregation/ifNull/
    */
   @Test
+  public void testIfNullWithPrimitiveDataTypeValue() {
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
+        "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
+        "{ _id: 3, item: { sec: \"main\", category: \"pie\", type: \"shepherd's\" } },\n" +
+        "{ _id: 4, item: { sec: \"main\", category: \"pie\" } }]");
+
+    DBObject project = fongoRule.parseDBObject("{ $project: { food:\n" +
+        "                                       { $ifNull: [ \"$item.type\",\n" +
+        "                                                    true\n" +
+        "                                                  ]\n" +
+        "                                       }\n" +
+        "                                }\n" +
+        "                   }");
+
+    AggregationOutput output = coll.aggregate(Arrays.asList(project));
+
+    Iterable<DBObject> result = output.results();
+    assertNotNull(result);
+    assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
+        "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
+        "                    { \"_id\" : 3, \"food\" : \"shepherd's\" },\n" +
+        "                    { \"_id\" : 4, \"food\" : true }]\n"), result);
+  }
+
+  /**
+   * See http://docs.mongodb.org/manual/reference/aggregation/ifNull/
+   */
+  @Test
   public void testIfNullWithField() {
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
