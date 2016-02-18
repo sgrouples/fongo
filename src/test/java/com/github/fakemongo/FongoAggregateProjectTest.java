@@ -1,5 +1,23 @@
 package com.github.fakemongo;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+
+import org.assertj.core.api.Assertions;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
+
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.AggregationOutput;
@@ -7,21 +25,6 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
-import org.assertj.core.api.Assertions;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TestRule;
 
 public class FongoAggregateProjectTest {
 
@@ -417,6 +420,36 @@ public class FongoAggregateProjectTest {
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
         "                    { \"_id\" : 3, \"food\" : \"shepherd's\" },\n" +
         "                    { \"_id\" : 4, \"food\" : \"wasNull\" }]\n"), result);
+  }
+
+  /**
+   * See http://docs.mongodb.org/manual/reference/aggregation/ifNull/
+   */
+  @Test
+  public void testIfNullWithPrimitiveDataTypeValue() {
+	  DBCollection coll = fongoRule.newCollection();
+	  fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
+			  "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
+			  "{ _id: 3, item: { sec: \"main\", category: \"pie\", type: \"shepherd's\" } },\n" +
+			  "{ _id: 4, item: { sec: \"main\", category: \"pie\" } }]");
+	  
+	  DBObject project = fongoRule.parseDBObject("{ $project: { food:\n" +
+			  "                                       { $ifNull: [ \"$item.type\",\n" +
+			  "                                                    true\n" +
+			  "                                                  ]\n" +
+			  "                                       }\n" +
+			  "                                }\n" +
+			  "                   }");
+	  
+	  AggregationOutput output = coll.aggregate(Arrays.asList(project));
+	  assertTrue(output.getCommandResult().ok());
+	  
+	  List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+	  assertNotNull(result);
+	  assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
+			  "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
+			  "                    { \"_id\" : 3, \"food\" : \"shepherd's\" },\n" +
+			  "                    { \"_id\" : 4, \"food\" : true }]\n"), result);
   }
 
   /**
