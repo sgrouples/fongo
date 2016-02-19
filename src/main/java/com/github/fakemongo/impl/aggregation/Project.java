@@ -1,13 +1,5 @@
 package com.github.fakemongo.impl.aggregation;
 
-import com.github.fakemongo.impl.ExpressionParser;
-import com.github.fakemongo.impl.Util;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.FongoDB;
-import com.mongodb.FongoDBCollection;
-import com.mongodb.MongoException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -17,9 +9,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TimeZone;
+
 import org.bson.util.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.github.fakemongo.impl.ExpressionParser;
+import com.github.fakemongo.impl.Util;
+import com.mongodb.BasicDBObject;
+import com.mongodb.DBCollection;
+import com.mongodb.DBObject;
+import com.mongodb.FongoDB;
+import com.mongodb.FongoDBCollection;
+import com.mongodb.MongoException;
 
 /**
  * TODO : { project : { _id : 0} } must remove the _id field. If a $sort exist after...
@@ -219,7 +221,7 @@ public class Project extends PipelineKeyword {
     public static final String KEYWORD = "$ifNull";
 
     private final String field;
-    private final String valueIfNull;
+    private final Object valueIfNull;
 
     public ProjectedIfNull(String destName, DBCollection coll, DBObject object) {
       super(KEYWORD, destName, object);
@@ -235,7 +237,7 @@ public class Project extends PipelineKeyword {
     @Override
     void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field, field, namespace, this);
-      createMapping(coll, projectResult, projectedFields, valueIfNull, valueIfNull, namespace, this);
+      createMapping(coll, projectResult, projectedFields, String.valueOf(valueIfNull), valueIfNull, namespace, this);
     }
 
     @Override
