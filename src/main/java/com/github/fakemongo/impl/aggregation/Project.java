@@ -1,19 +1,5 @@
 package com.github.fakemongo.impl.aggregation;
 
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.TimeZone;
-
-import org.bson.util.annotations.ThreadSafe;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBObject;
@@ -22,6 +8,19 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.MongoException;
+import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TimeZone;
+import org.bson.util.annotations.ThreadSafe;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * TODO : { project : { _id : 0} } must remove the _id field. If a $sort exist after...
@@ -39,6 +38,7 @@ public class Project extends PipelineKeyword {
     static final Map<String, Class<? extends ProjectedAbstract>> projectedAbstractMap = new HashMap<String, Class<? extends ProjectedAbstract>>();
 
     static {
+      projectedAbstractMap.put(ProjectedSize.KEYWORD, ProjectedSize.class);
       projectedAbstractMap.put(ProjectedStrcasecmp.KEYWORD, ProjectedStrcasecmp.class);
       projectedAbstractMap.put(ProjectedCmp.KEYWORD, ProjectedCmp.class);
       projectedAbstractMap.put(ProjectedSubstr.KEYWORD, ProjectedSubstr.class);
@@ -217,6 +217,47 @@ public class Project extends PipelineKeyword {
     }
   }
 
+
+  static class ProjectedSize extends ProjectedAbstract<ProjectedSize> {
+    public static final String KEYWORD = "$size";
+
+    private final String field;
+
+    private final DBCollection coll;
+
+    public ProjectedSize(String destName, DBCollection coll, DBObject object) {
+      this(KEYWORD, destName, coll, object);
+    }
+
+    ProjectedSize(String keyword, String destName, DBCollection coll, DBObject object) {
+      super(KEYWORD, destName, object);
+      this.coll = coll;
+      Object value = object.get(keyword);
+      if (!(value instanceof List) || ((List) value).size() != 1) {
+        errorResult(coll, 16020, "the " + keyword + " operator requires an array of 1 operands");
+      }
+      List values = (List) value;
+      field = (String) values.get(0);
+    }
+
+    @Override
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+      createMapping(coll, projectResult, projectedFields, destName, destName, namespace, this);
+    }
+
+    @Override
+    public void unapply(DBObject result, DBObject object, String key) {
+      int size = 0;
+      Object value = extractValue(object, field);
+      if (value instanceof Collection) {
+        size = ((Collection) value).size();
+      } else {
+        errorResult(coll, 17124, "the " + KEYWORD + " operator requires an list.");
+      }
+      result.put(destName, size);
+    }
+  }
+
   static class ProjectedIfNull extends ProjectedAbstract<ProjectedIfNull> {
     public static final String KEYWORD = "$ifNull";
 
@@ -269,7 +310,7 @@ public class Project extends PipelineKeyword {
     void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
       for (Object field : toConcat) {
         if (field instanceof String) {
-          createMapping(coll, projectResult, projectedFields, (String) field, (String) field, namespace, this);
+          createMapping(coll, projectResult, projectedFields, (String) field, field, namespace, this);
         } else if (ExpressionParser.isDbObject(field)) {
           // $concat : [ { $ifnull : [ "$item", "item is null" ] } ]
         }

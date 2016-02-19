@@ -1,23 +1,5 @@
 package com.github.fakemongo;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Locale;
-import java.util.TimeZone;
-
-import org.assertj.core.api.Assertions;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.RuleChain;
-import org.junit.rules.TestRule;
-
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.AggregationOutput;
@@ -25,6 +7,21 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
+import org.assertj.core.api.Assertions;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import org.junit.Ignore;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.ExpectedException;
+import org.junit.rules.RuleChain;
+import org.junit.rules.TestRule;
 
 public class FongoAggregateProjectTest {
 
@@ -427,29 +424,29 @@ public class FongoAggregateProjectTest {
    */
   @Test
   public void testIfNullWithPrimitiveDataTypeValue() {
-	  DBCollection coll = fongoRule.newCollection();
-	  fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
-			  "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
-			  "{ _id: 3, item: { sec: \"main\", category: \"pie\", type: \"shepherd's\" } },\n" +
-			  "{ _id: 4, item: { sec: \"main\", category: \"pie\" } }]");
-	  
-	  DBObject project = fongoRule.parseDBObject("{ $project: { food:\n" +
-			  "                                       { $ifNull: [ \"$item.type\",\n" +
-			  "                                                    true\n" +
-			  "                                                  ]\n" +
-			  "                                       }\n" +
-			  "                                }\n" +
-			  "                   }");
-	  
-	  AggregationOutput output = coll.aggregate(Arrays.asList(project));
-	  assertTrue(output.getCommandResult().ok());
-	  
-	  List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-	  assertNotNull(result);
-	  assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
-			  "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
-			  "                    { \"_id\" : 3, \"food\" : \"shepherd's\" },\n" +
-			  "                    { \"_id\" : 4, \"food\" : true }]\n"), result);
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
+        "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
+        "{ _id: 3, item: { sec: \"main\", category: \"pie\", type: \"shepherd's\" } },\n" +
+        "{ _id: 4, item: { sec: \"main\", category: \"pie\" } }]");
+
+    DBObject project = fongoRule.parseDBObject("{ $project: { food:\n" +
+        "                                       { $ifNull: [ \"$item.type\",\n" +
+        "                                                    true\n" +
+        "                                                  ]\n" +
+        "                                       }\n" +
+        "                                }\n" +
+        "                   }");
+
+    AggregationOutput output = coll.aggregate(Arrays.asList(project));
+    assertTrue(output.getCommandResult().ok());
+
+    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    assertNotNull(result);
+    assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
+        "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
+        "                    { \"_id\" : 3, \"food\" : \"shepherd's\" },\n" +
+        "                    { \"_id\" : 4, \"food\" : true }]\n"), result);
   }
 
   /**
@@ -1078,6 +1075,47 @@ public class FongoAggregateProjectTest {
 
     // Then
     Assertions.assertThat(output.results()).isEqualTo(fongoRule.parseList("[{_id:1, \"day\":8}]"));
+  }
+
+  @Test
+  public void should_$size_give_the_size_of_the_collection() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    calendar.set(Calendar.DAY_OF_YEAR, 110);
+    calendar.set(Calendar.HOUR, 5);
+    calendar.set(Calendar.MINUTE, 6);
+    calendar.set(Calendar.SECOND, 7);
+    calendar.set(Calendar.MILLISECOND, 8);
+    collection.insert(new BasicDBObject("_id", 1).append("liked", Util.list("one", "two", "three")).append("viewCount", 2000));
+    collection.insert(new BasicDBObject("_id", 2).append("liked", Util.list("one", "two", "three", "four")).append("viewCount", 2000));
+    collection.insert(new BasicDBObject("_id", 3).append("liked", Util.list("one", "two", "three")).append("viewCount", 2000));
+    collection.insert(new BasicDBObject("_id", 4).append("liked", Util.list("one", "two", "three")));
+
+    // When
+    AggregationOutput output = collection.aggregate(fongoRule.parseList("[{$match: {liked: {$ne: null}}}, {$project: {viewCount: 1, likedCount: {$size: [\"$liked\"]}, liked: 1} }, {$sort: {viewCount: -1, likedCount: -1}}, {$limit: 1}]"));
+
+    // Then
+    Assertions.assertThat(output.results()).isEqualTo(fongoRule.parseList("[{\"_id\":2, \"liked\":[\"one\", \"two\", \"three\", \"four\"], \"viewCount\":2000, \"likedCount\":4}]"));
+  }
+
+  @Test
+  public void should_$size_give_an_exception() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    calendar.set(Calendar.DAY_OF_YEAR, 110);
+    calendar.set(Calendar.HOUR, 5);
+    calendar.set(Calendar.MINUTE, 6);
+    calendar.set(Calendar.SECOND, 7);
+    calendar.set(Calendar.MILLISECOND, 8);
+    collection.insert(new BasicDBObject("_id", 1).append("liked", true).append("viewCount", 2000));
+
+    // When
+    ExpectedMongoException.expectCommandFailure(exception, 17124);
+    collection.aggregate(fongoRule.parseList("[{$match: {liked: {$ne: null}}}, {$project: {viewCount: 1, likedCount: {$size: [\"$liked\"]}, liked: 1} }, {$sort: {viewCount: -1, likedCount: -1}}, {$limit: 1}]"));
   }
 
   private DBCollection createTestCollection() {
