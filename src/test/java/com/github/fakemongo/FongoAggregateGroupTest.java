@@ -6,6 +6,7 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.util.FongoJSON;
 import java.util.List;
+import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -52,5 +53,30 @@ public class FongoAggregateGroupTest {
         "             ]"), resultAggregate);
   }
 
+  @Test
+  public void should_$avg_return_the_average_value() {
+    // Given
+    DBCollection coll = fongoRule.newCollection();
+    fongoRule.insertJSON(coll, "[{ \"_id\" : \"1\", \"test\" : 1.0, \"City\" : \"Madrid\", \"groupType\" : \"control\"},\n" +
+        "{ \"_id\" : \"2\", \"test\" : 10.0, \"City\" : \"Madrid\", \"groupType\" : \"treatment\"},\n" +
+        "{ \"_id\" : \"3\", \"test\" : 2.0, \"City\" : \"Madrid\", \"groupType\" : \"control\"},\n" +
+        "{ \"_id\" : \"4\", \"test\" : 20.0, \"City\" : \"Madrid\", \"groupType\" : \"treatment\"},\n" +
+        "{ \"_id\" : \"5\", \"test\" : 3.0, \"City\" : \"London\", \"groupType\" : \"control\"},\n" +
+        "{ \"_id\" : \"6\", \"test\" : 30.0, \"City\" : \"London\", \"groupType\" : \"treatment\"},\n" +
+        "{ \"_id\" : \"7\", \"test\" : 4.0, \"City\" : \"Paris\", \"groupType\" : \"control\"},\n" +
+        "{ \"_id\" : \"8\", \"test\" : 40.0, \"City\" : \"Paris\", \"groupType\" : \"treatment\"},\n" +
+        "{ \"_id\" : \"9\", \"test\" : 5.0, \"City\" : \"Paris\", \"groupType\" : \"control\"},\n" +
+        "{ \"_id\" : \"10\", \"test\" : 50.0, \"City\" : \"Paris\", \"groupType\" : \"treatment\"}]");
 
+    // When
+    AggregationOutput output = coll.aggregate(fongoRule.parseList("[{ \n" +
+        "  \"$group\" : { \n" + //
+        "      \"_id\" : { \"groupType\" : \"$groupType\" , \"City\" : \"$City\"} , \n" + //
+        "      \"average\" : { \"$avg\" : \"$test\"}\n" +                                   //
+        "  }\n" +                                                                             //
+        "}]"));
+
+    // Then
+    Assertions.assertThat(output.results()).containsAll(fongoRule.parseList("[{\"_id\":{\"groupType\":\"treatment\", \"City\":\"Paris\"}, \"average\":45.0}, {\"_id\":{\"groupType\":\"treatment\", \"City\":\"London\"}, \"average\":30.0}, {\"_id\":{\"groupType\":\"control\", \"City\":\"London\"}, \"average\":3.0}, {\"_id\":{\"groupType\":\"control\", \"City\":\"Paris\"}, \"average\":4.5}, {\"_id\":{\"groupType\":\"treatment\", \"City\":\"Madrid\"}, \"average\":15.0}, {\"_id\":{\"groupType\":\"control\", \"City\":\"Madrid\"}, \"average\":1.5}]"));
+  }
 }
