@@ -68,8 +68,8 @@ MapReduce is in minimal way but will be enhanced soon.
 
 ## Implementation Details
 
-Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.13.0*
-and *3.0.1*.
+Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.14.0*
+and *3.2.1*.
 It also has a "provided" dependency on sl4j-api for logging. If you don't already have sl4j in your project, you can add a maven dependency to the logback implementation like this:
 
 ```xml
