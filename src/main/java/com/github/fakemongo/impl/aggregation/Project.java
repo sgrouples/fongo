@@ -3,6 +3,7 @@ package com.github.fakemongo.impl.aggregation;
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
@@ -679,13 +680,9 @@ public class Project extends PipelineKeyword {
 
   /**
    * Simple {@see http://docs.mongodb.org/manual/reference/aggregation/project/#pipe._S_project}
-   *
-   * @param coll
-   * @param object
-   * @return
    */
   @Override
-  public DBCollection apply(DBCollection coll, DBObject object) {
+  public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     LOG.debug("project() : {}", object);
 
     DBObject project = ExpressionParser.toDbObject(object.get(getKeyword()));

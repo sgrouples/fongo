@@ -1,19 +1,7 @@
 package com.github.fakemongo.junit;
 
-import static com.github.fakemongo.Fongo.DEFAULT_SERVER_VERSION;
-
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.UnknownHostException;
-import java.util.List;
-import java.util.UUID;
-
-import org.bson.Document;
-import org.junit.rules.ExternalResource;
-
 import com.github.fakemongo.Fongo;
+import static com.github.fakemongo.Fongo.DEFAULT_SERVER_VERSION;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -23,6 +11,15 @@ import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoDatabase;
 import com.mongodb.connection.ServerVersion;
 import com.mongodb.util.FongoJSON;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.UUID;
+import org.bson.Document;
+import org.junit.rules.ExternalResource;
 
 /**
  * Create a Junit Rule to use with annotation
@@ -122,6 +119,14 @@ public class FongoRule extends ExternalResource {
     return coll;
   }
 
+  public MongoCollection insertJSON(MongoCollection coll, String json) {
+    List<DBObject> objects = parseList(json);
+    for (DBObject object : objects) {
+      coll.insertOne(new Document(object.toMap()));
+    }
+    return coll;
+  }
+
   public DBCollection insertFile(DBCollection coll, String filename) throws IOException {
     InputStream is = this.getClass().getResourceAsStream(filename);
     try {
@@ -138,11 +143,11 @@ public class FongoRule extends ExternalResource {
     }
     return coll;
   }
-  
+
   public MongoCollection<Document> insertDocumentsFromFile(String filename) throws IOException {
-	  return insertDocumentsFromFile(newMongoCollection(), filename);
+    return insertDocumentsFromFile(newMongoCollection(), filename);
   }
-  
+
   public MongoCollection<Document> insertDocumentsFromFile(MongoCollection<Document> coll, String filename) throws IOException {
     InputStream is = this.getClass().getResourceAsStream(filename);
     try {
@@ -172,7 +177,7 @@ public class FongoRule extends ExternalResource {
   public <T> T parse(String json) {
     return (T) FongoJSON.parse(json);
   }
-  
+
   public DBCollection newCollection() {
     return newCollection(randomName());
   }
@@ -180,7 +185,7 @@ public class FongoRule extends ExternalResource {
   public DBCollection newCollection(String collectionName) {
     return db.getCollection(collectionName);
   }
-  
+
   public MongoCollection<Document> newMongoCollection() {
     return newMongoCollection(randomName());
   }
@@ -190,13 +195,13 @@ public class FongoRule extends ExternalResource {
   }
 
   public <T> MongoCollection<T> newMongoCollection(final Class<T> documentClass) {
-     return newMongoCollection(randomName(), documentClass);
+    return newMongoCollection(randomName(), documentClass);
   }
 
   public <T> MongoCollection<T> newMongoCollection(final String collectionName, final Class<T> documentClass) {
-     return mongoDatabase.getCollection(collectionName, documentClass);
+    return mongoDatabase.getCollection(collectionName, documentClass);
   }
-  
+
   private Fongo newFongo(ServerVersion serverVersion) {
     return new Fongo("test", serverVersion);
   }
@@ -240,7 +245,11 @@ public class FongoRule extends ExternalResource {
     return this.mongo;
   }
 
-  private static String randomName(){
-	  return UUID.randomUUID().toString();
+  public static String randomName() {
+    return UUID.randomUUID().toString();
+  }
+
+  public static String randomName(String prefix) {
+    return prefix + UUID.randomUUID().toString();
   }
 }

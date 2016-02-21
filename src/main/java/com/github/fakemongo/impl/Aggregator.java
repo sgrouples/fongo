@@ -3,12 +3,12 @@ package com.github.fakemongo.impl;
 import com.github.fakemongo.impl.aggregation.Group;
 import com.github.fakemongo.impl.aggregation.Limit;
 import com.github.fakemongo.impl.aggregation.Match;
+import com.github.fakemongo.impl.aggregation.Out;
 import com.github.fakemongo.impl.aggregation.PipelineKeyword;
 import com.github.fakemongo.impl.aggregation.Project;
 import com.github.fakemongo.impl.aggregation.Skip;
 import com.github.fakemongo.impl.aggregation.Sort;
 import com.github.fakemongo.impl.aggregation.Unwind;
-import com.github.fakemongo.impl.aggregation.Out;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
@@ -49,7 +49,7 @@ public class Aggregator {
         boolean found = false;
         for (PipelineKeyword keyword : keywords) {
           if (keyword.canApply(object)) {
-            coll = keyword.apply(coll, object);
+            coll = keyword.apply(this.fongoDBCollection.getDB(), coll, object);
             found = true;
             break;
           }

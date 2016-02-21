@@ -1,13 +1,17 @@
 package com.github.fakemongo;
 
 import com.github.fakemongo.junit.FongoRule;
+import static com.github.fakemongo.junit.FongoRule.randomName;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.MongoCollection;
 import java.util.Arrays;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
+import org.bson.Document;
 import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
@@ -105,5 +109,28 @@ public class FongoAggregateOutTest {
     assertEquals("apple", newCollection.find(fongoRule.parseDBObject("{_id:1}")).next().get("type"));
     assertEquals("pie", newCollection.find(fongoRule.parseDBObject("{_id:1}")).next().get("category"));
     assertEquals("chicken pot", newCollection.find(fongoRule.parseDBObject("{_id:4}")).next().get("type"));
+  }
+
+  /**
+   * See http://docs.mongodb.org/manual/reference/operator/aggregation/out/#pipe._S_out
+   */
+  @Test
+  public void should_out_in_non_empty_collection() {
+    MongoCollection coll = fongoRule.newMongoCollection(randomName("from"));
+    MongoCollection secondCollection = fongoRule.newMongoCollection(randomName("out"));
+    String data = "[{_id:3}, {_id:4}]";
+    fongoRule.insertJSON(coll, data);
+    fongoRule.insertJSON(secondCollection, "[{_id:1}, {_id:2}]");
+
+    List<DBObject> aggregate = fongoRule.parseList("[{$project:{_id:1}}," +
+        "{ $out: \"" + secondCollection.getNamespace().getCollectionName() + "\"}]"
+    );
+
+    AggregateIterable output = coll.aggregate(aggregate);
+    List<DBObject> resultAggregate = Lists.newArrayList(output);
+    System.out.println(resultAggregate);
+
+    assertThat(resultAggregate).isEqualTo(Arrays.asList(new Document("_id", 3), new Document("_id", 4)));
+    assertThat(secondCollection.find().iterator()).containsExactly(new Document("_id", 3), new Document("_id", 4));
   }
 }
