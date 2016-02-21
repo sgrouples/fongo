@@ -1175,15 +1175,21 @@ public class FongoDBCollection extends DBCollection {
   }
 
   protected synchronized void _dropIndex(String name) throws MongoException {
-    DBCollection indexColl = fongoDb.getCollection("system.indexes");
-    indexColl.remove(new BasicDBObject("name", name).append("ns", nsName()));
+    final DBCollection indexColl = fongoDb.getCollection("system.indexes");
+    final WriteResult wr = indexColl.remove(new BasicDBObject("name", name).append("ns", nsName()), WriteConcern.ACKNOWLEDGED);
+    boolean isDrop = wr.getN() == 1;
     ListIterator<IndexAbstract> iterator = indexes.listIterator();
+
     while (iterator.hasNext()) {
       IndexAbstract index = iterator.next();
       if (index.getName().equals(name)) {
         iterator.remove();
+        isDrop = true;
         break;
       }
+    }
+    if (!isDrop) {
+      fongoDb.notOkErrorResult("index not found with name [" + name + "]").throwOnError();
     }
   }
 
@@ -1192,7 +1198,7 @@ public class FongoDBCollection extends DBCollection {
   }
 
   protected synchronized void _dropIndexes() {
-    final List<DBObject> indexes = fongoDb.getCollection("system.indexes").find().toArray();
+    final List<DBObject> indexes = fongoDb.getCollection("system.indexes").find(new BasicDBObject("ns", nsName())).toArray();
     // Two step for no concurrent modification exception
     for (final DBObject index : indexes) {
       final String indexName = index.get("name").toString();
