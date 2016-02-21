@@ -107,7 +107,15 @@ public class FongoDBCollection extends DBCollection {
     return dbObject;
   }
 
-  @Override
+  /**
+   * Only for 2.13.X
+   */
+  @Deprecated
+  public synchronized WriteResult insert(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder) {
+    return insertImpl(toInsert, concern, encoder, null);
+  }
+
+  //    @Override
   protected synchronized WriteResult insertImpl(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder, Boolean aBoolean) {
     for (DBObject obj : toInsert) {
       DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, encoder)));
@@ -234,7 +242,16 @@ public class FongoDBCollection extends DBCollection {
   }
 
 
-  @Override
+  /**
+   * Only for 2.13 branch
+   */
+  @Deprecated
+  public synchronized WriteResult update(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
+                                         DBEncoder encoder) throws MongoException {
+    return updateImpl(q, o, upsert, multi, concern, null, encoder);
+  }
+
+  //    @Override
   protected synchronized WriteResult updateImpl(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
                                                 Boolean bypassDocumentValidation, DBEncoder encoder) {
     q = filterLists(q);
@@ -668,6 +685,24 @@ public class FongoDBCollection extends DBCollection {
     return list;
   }
 
+  /**
+   * Only for 2.13.X drivers
+   */
+  @Deprecated
+  DBObject replaceWithObjectClass(DBObject resultObject) {
+    if (resultObject == null || getObjectClass() == null) {
+      return resultObject;
+    }
+
+    final DBObject targetObject = instantiateObjectClassInstance();
+
+    for (final String key : resultObject.keySet()) {
+      targetObject.put(key, resultObject.get(key));
+    }
+    return targetObject;
+  }
+
+
   private List<DBObject> replaceWithObjectClass(List<DBObject> resultObjects) {
 
     final List<DBObject> targetObjects = new ArrayList<DBObject>(resultObjects.size());
@@ -946,7 +981,15 @@ public class FongoDBCollection extends DBCollection {
     return getCount(query, fields, 0, 0);
   }
 
-  @Override
+  /**
+   * Only for 2.13 drivers
+   */
+  @Deprecated
+  public synchronized DBObject findAndModify(DBObject query, DBObject fields, DBObject sort, boolean remove, DBObject update, boolean returnNew, boolean upsert) {
+    return findAndModifyImpl(query, fields, sort, remove, update, returnNew, upsert, null, 0, TimeUnit.DAYS, null);
+  }
+
+  //    @Override
   protected synchronized DBObject findAndModifyImpl(final DBObject pQuery, final DBObject fields, final DBObject sort,
                                                     final boolean remove, final DBObject pUpdate,
                                                     final boolean returnNew, final boolean upsert,
@@ -1026,7 +1069,15 @@ public class FongoDBCollection extends DBCollection {
     return Arrays.asList((Cursor) this.createQueryResultIterator(this._idIndex.values().iterator()));
   }
 
-  @Override
+  /**
+   * only for 2.13 drivers
+   */
+  @Deprecated
+  BulkWriteResult executeBulkWriteOperation(boolean ordered, List<WriteRequest> requests, WriteConcern aWriteConcern, DBEncoder encoder) {
+    return executeBulkWriteOperation(ordered, null, requests, aWriteConcern, encoder);
+  }
+
+  //    @Override
   BulkWriteResult executeBulkWriteOperation(final boolean ordered, final Boolean bypassDocumentValidation,
                                             final List<WriteRequest> requests, final WriteConcern aWriteConcern,
                                             final DBEncoder encoder) {
