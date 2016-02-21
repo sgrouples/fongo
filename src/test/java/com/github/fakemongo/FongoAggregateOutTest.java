@@ -4,18 +4,16 @@ import com.github.fakemongo.junit.FongoRule;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
-import org.junit.Ignore;
+import java.util.Arrays;
+import java.util.List;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
 import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
-
-import java.util.Arrays;
-import java.util.List;
-
-import static org.junit.Assert.*;
 
 
 /**

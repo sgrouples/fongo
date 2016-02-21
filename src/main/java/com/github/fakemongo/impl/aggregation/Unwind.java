@@ -2,6 +2,7 @@ package com.github.fakemongo.impl.aggregation;
 
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
+import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
@@ -37,7 +38,7 @@ public class Unwind extends PipelineKeyword {
    * @return
    */
   @Override
-  public DBCollection apply(DBCollection coll, DBObject object) {
+  public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     String fieldName = object.get(getKeyword()).toString();
     if (!fieldName.startsWith("$")) {
       throw new MongoException(""); // TODO

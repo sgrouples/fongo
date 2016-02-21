@@ -4,6 +4,7 @@ import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Util;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
+import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
@@ -131,7 +132,8 @@ public class Group extends PipelineKeyword {
     }
   }
 
-  public DBCollection apply(DBCollection coll, DBObject object) {
+  @Override
+  public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     DBObject group = ExpressionParser.toDbObject(object.get(getKeyword()));
 
     Object id = (ExpressionParser.toDbObject(object.get(getKeyword()))).removeField(FongoDBCollection.ID_KEY);

@@ -18,16 +18,16 @@ public abstract class PipelineKeyword {
   /**
    * Apply the keyword on the collection
    *
-   * @param coll   collection to be processed (will be destroyed).
-   * @param object parameters for keyword.
+   * @param originalDB original DB from collection.
+   * @param coll       collection to be processed (will be destroyed).
+   * @param object     parameters for keyword.
    * @return a new collection in result.
    */
-  public abstract DBCollection apply(DBCollection coll, DBObject object);
+  public abstract DBCollection apply(DB originalDB, DBCollection coll, DBObject object);
 
   /**
    * Return the keyword in the pipeline (like $sort, $group...).
    *
-   * @return
    */
   public abstract String getKeyword();
 
