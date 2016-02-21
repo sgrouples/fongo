@@ -62,13 +62,17 @@ public class FongoDBCollection extends DBCollection {
   private final IndexAbstract _idIndex;
 
   public FongoDBCollection(FongoDB db, String name) {
+    this(db, name, false);
+  }
+
+  public FongoDBCollection(FongoDB db, String name, boolean idIsNotUniq) {
     super(db, name);
     this.fongoDb = db;
     this.nonIdCollection = name.startsWith("system");
     this.expressionParser = new ExpressionParser();
     this.updateEngine = new UpdateEngine();
     this.objectComparator = expressionParser.buildObjectComparator(true);
-    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), true);
+    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), !idIsNotUniq);
     this.indexes.add(_idIndex);
     if (!this.nonIdCollection) {
       this.createIndex(new BasicDBObject(ID_KEY, 1), new BasicDBObject("name", ID_NAME_INDEX));

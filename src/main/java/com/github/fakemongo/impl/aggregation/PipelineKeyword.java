@@ -4,6 +4,7 @@ import com.github.fakemongo.Fongo;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.FongoDB;
 import java.util.List;
 import java.util.UUID;
 
@@ -12,7 +13,7 @@ import java.util.UUID;
  */
 public abstract class PipelineKeyword {
 
-  protected static final DB fongo = new Fongo("aggregation_pipeline").getDB("pipeline");
+  protected static final FongoDB fongo = new Fongo("aggregation_pipeline").getDB("pipeline");
 
 
   /**
@@ -27,7 +28,6 @@ public abstract class PipelineKeyword {
 
   /**
    * Return the keyword in the pipeline (like $sort, $group...).
-   *
    */
   public abstract String getKeyword();
 
@@ -44,7 +44,7 @@ public abstract class PipelineKeyword {
   }
 
   protected DBCollection createAndInsert(List<DBObject> objects) {
-    DBCollection coll = fongo.createCollection(UUID.randomUUID().toString(), null);
+    DBCollection coll = fongo.doGetCollection(UUID.randomUUID().toString(), true);
     coll.insert(objects);
     return coll;
   }

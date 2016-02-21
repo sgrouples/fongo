@@ -22,7 +22,7 @@ public class Sort extends PipelineKeyword {
    */
   @Override
   public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
-    List<DBObject> objects = coll.find().sort(ExpressionParser.toDbObject(object.get(getKeyword()))).toArray();
+    final List<DBObject> objects = coll.find().sort(ExpressionParser.toDbObject(object.get(getKeyword()))).toArray();
     return dropAndInsert(coll, objects);
   }
 
