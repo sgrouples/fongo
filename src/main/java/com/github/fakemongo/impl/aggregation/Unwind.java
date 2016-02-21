@@ -56,7 +56,7 @@ public class Unwind extends PipelineKeyword {
         for (Object sublist : list) {
           DBObject newValue = Util.clone(dbObject);
           Util.putValue(newValue, fieldName, sublist);
-          newValue.removeField("_id"); // TODO _id must be the same (but Fongo doesn't handle)
+//          newValue.removeField("_id"); // TODO _id must be the same (but Fongo doesn't handle)
           result.add(newValue);
         }
       }

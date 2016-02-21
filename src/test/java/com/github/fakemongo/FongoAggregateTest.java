@@ -224,9 +224,9 @@ public class FongoAggregateTest {
     assertEquals(3, result.size());
 
     // TODO : remove comment when _id can NOT be unique anymore.
-//    Assert.assertEquals(fongoRule.parseList("[ { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"scala\"} ," +
-//        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"java\"} ," +
-//        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"mongo\"}]"), result);
+    Assert.assertEquals(fongoRule.parseList("[ { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"scala\"} ," +
+        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"java\"} ," +
+        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"mongo\"}]"), result);
     assertEquals("william", Util.extractField(result.get(0), "author"));
     assertEquals("scala", Util.extractField(result.get(0), "tags"));
     assertEquals("william", Util.extractField(result.get(1), "author"));
