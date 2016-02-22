@@ -64,16 +64,9 @@ public class Project extends PipelineKeyword {
 
     final String destName;
 
-    final List<String> infos = new ArrayList<String>();
-
     private ProjectedAbstract(String keyword, String destName, DBObject object) {
       this.keyword = keyword;
       this.destName = destName;
-    }
-
-    public T addInfo(String info) {
-      infos.add(info);
-      return (T) this;
     }
 
     /**
@@ -85,9 +78,9 @@ public class Project extends PipelineKeyword {
      */
     public abstract void unapply(DBObject result, DBObject object, String key);
 
-    abstract void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace);
+    abstract void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace);
 
-    public final void apply(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, DBObject value, String namespace) {
+    public final void apply(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, DBObject value, String namespace) {
       doWork(coll, projectResult, projectedFields, key, value.get(this.keyword), namespace);
     }
 
@@ -101,7 +94,7 @@ public class Project extends PipelineKeyword {
      * @param namespace       "" if empty, "fieldname." elsewhere.
      * @param projected       use for unapplying.
      */
-    public static void createMapping(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object kvalue, String namespace, ProjectedAbstract projected) {
+    public static void createMapping(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object kvalue, String namespace, ProjectedAbstract projected) {
       // Simple case : nb : "$pop"
       if (kvalue instanceof String) {
         String value = kvalue.toString();
@@ -111,7 +104,7 @@ public class Project extends PipelineKeyword {
           // Extract filename from projection.
           String fieldName = kvalue.toString().substring(1);
           // Prepare for renaming.
-          projectedFields.put(fieldName, projected.addInfo(namespace + key));
+          multimapPut(projectedFields, fieldName, projected);
           projectResult.removeField(key);
 
           // Handle complex case like $bar.foo with a little trick.
@@ -121,7 +114,7 @@ public class Project extends PipelineKeyword {
             projectResult.put(fieldName, 1);
           }
         } else {
-          projectedFields.put(value, projected.addInfo(value));
+          multimapPut(projectedFields, value, projected);
         }
       } else if (ExpressionParser.isDbObject(kvalue)) {
         DBObject value = ExpressionParser.toDbObject(kvalue);
@@ -139,7 +132,17 @@ public class Project extends PipelineKeyword {
         }
       } else {
         // Case: {date : 1}
-        projectedFields.put(key, projected.addInfo(key));
+        multimapPut(projectedFields, key, projected);
+      }
+    }
+
+    private static void multimapPut(Map<String, List<ProjectedAbstract>> projectedFields, String key, ProjectedAbstract projected) {
+      if (projectedFields.containsKey(key)) {
+        projectedFields.get(key).add(projected);
+      } else {
+        List<ProjectedAbstract> list = new ArrayList<ProjectedAbstract>();
+        list.add(projected);
+        projectedFields.put(key, list);
       }
     }
 
@@ -180,11 +183,6 @@ public class Project extends PipelineKeyword {
 
     /**
      * Extract a value from a field name or value.
-     *
-     * @param object
-     * @param fieldOrValue
-     * @param <T>
-     * @return
      */
     static <T> T extractValue(DBObject object, Object fieldOrValue) {
       if (fieldOrValue instanceof String && fieldOrValue.toString().startsWith("$")) {
@@ -214,7 +212,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
     }
   }
 
@@ -242,7 +240,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, destName, destName, namespace, this);
     }
 
@@ -277,7 +275,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field, field, namespace, this);
       createMapping(coll, projectResult, projectedFields, String.valueOf(valueIfNull), valueIfNull, namespace, this);
     }
@@ -308,7 +306,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       for (Object field : toConcat) {
         if (field instanceof String) {
           createMapping(coll, projectResult, projectedFields, (String) field, field, namespace, this);
@@ -354,7 +352,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, destName, destName, namespace, this);
     }
 
@@ -398,7 +396,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field1, field1, namespace, this);
       createMapping(coll, projectResult, projectedFields, field2, field2, namespace, this);
     }
@@ -453,7 +451,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field, field, namespace, this);
     }
 
@@ -508,7 +506,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, destName, destName, namespace, this);
     }
 
@@ -536,7 +534,7 @@ public class Project extends PipelineKeyword {
     }
 
     @Override
-    void doWork(DBCollection coll, DBObject projectResult, Map<String, ProjectedAbstract> projectedFields, String key, Object value, String namespace) {
+    void doWork(DBCollection coll, DBObject projectResult, Map<String, List<ProjectedAbstract>> projectedFields, String key, Object value, String namespace) {
       createMapping(coll, projectResult, projectedFields, field, field, namespace, this);
     }
 
@@ -642,7 +640,7 @@ public class Project extends PipelineKeyword {
     DBObject projectResult = Util.clone(project);
 
     // Extract fields who will be renamed.
-    Map<String, ProjectedAbstract> projectedFields = new HashMap<String, ProjectedAbstract>();
+    Map<String, List<ProjectedAbstract>> projectedFields = new HashMap<String, List<ProjectedAbstract>>();
     for (Map.Entry<String, Object> entry : Util.entrySet(project)) {
       if (entry.getValue() != null) {
         ProjectedAbstract.createMapping(coll, projectResult, projectedFields, entry.getKey(), entry.getValue(), "", ProjectedRename.newInstance(entry.getKey(), coll, null));
@@ -656,19 +654,23 @@ public class Project extends PipelineKeyword {
     List<DBObject> objectsResults = new ArrayList<DBObject>(objects.size());
     for (DBObject result : objects) {
       DBObject renamed = new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY));
-      for (Map.Entry<String, ProjectedAbstract> entry : projectedFields.entrySet()) {
+      for (Map.Entry<String, List<ProjectedAbstract>> entry : projectedFields.entrySet()) {
         if (Util.containsField(result, entry.getKey())) {
-          entry.getValue().unapply(renamed, result, entry.getKey());
+          for (ProjectedAbstract projected : entry.getValue()) {
+            projected.unapply(renamed, result, entry.getKey());
+          }
         }
       }
 
       // TODO REFACTOR
       // Handle special case like ifNull who can doesn't have field in list.
-      for (ProjectedAbstract projected : projectedFields.values()) {
+      for (List<ProjectedAbstract> projecteds : projectedFields.values()) {
+        for (ProjectedAbstract projected : projecteds) {
 //        if (!projected.isDone() && (projected.keyword.recallIfNotFound)) {
-        projected.unapply(renamed, result, null);
+          projected.unapply(renamed, result, null);
 //        }
 //        projected.setDone(false);
+        }
       }
 
       objectsResults.add(renamed);
