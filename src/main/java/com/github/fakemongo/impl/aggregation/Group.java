@@ -141,7 +141,10 @@ public class Group extends PipelineKeyword {
   public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     DBObject group = ExpressionParser.toDbObject(object.get(getKeyword()));
 
-    Object id = (ExpressionParser.toDbObject(object.get(getKeyword()))).removeField(FongoDBCollection.ID_FIELD_NAME);
+    if (!group.containsField(FongoDBCollection.ID_FIELD_NAME)) {
+      fongo.errorResult(15955, "a group specification must include an _id").throwOnError();
+    }
+    Object id = group.removeField(FongoDBCollection.ID_FIELD_NAME);
     LOG.debug("group() for _id : {}", id);
     // Try to group in the mapping.
     Map<DBObject, Mapping> mapping = createMapping(coll, id);

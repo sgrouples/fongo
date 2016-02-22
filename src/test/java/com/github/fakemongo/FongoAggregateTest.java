@@ -566,7 +566,7 @@ public class FongoAggregateTest {
   public void should_$sum_return_long() {
     DBCollection collection = createTestCollection();
 
-    DBObject groupFields = new BasicDBObject("count", new BasicDBObject("$sum", 1L));
+    DBObject groupFields = new BasicDBObject("_id", null).append("count", new BasicDBObject("$sum", 1L));
     DBObject group = new BasicDBObject("$group", groupFields);
     AggregationOutput output = collection.aggregate(Lists.newArrayList(group));
 
@@ -574,19 +574,18 @@ public class FongoAggregateTest {
     Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
   }
 
-  @Ignore("soon")
+  //  @Ignore("soon")
   @Test
   public void should_$group_contains__id() {
-    ExpectedMongoException.expect(exception, MongoException.class);
-    ExpectedMongoException.expectCode(exception, 15955);
     DBCollection collection = createTestCollection();
 
     DBObject groupFields = new BasicDBObject("count", new BasicDBObject("$sum", 1L));
     DBObject group = new BasicDBObject("$group", groupFields);
-    AggregationOutput output = collection.aggregate(Lists.newArrayList(group));
 
-    Assertions.assertThat(output.results()).hasSize(1);
-    Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15955);
+    exception.expectMessage("a group specification must include an _id");
+    collection.aggregate(Lists.newArrayList(group));
   }
 
   // See https://github.com/fakemongo/fongo/issues/152
