@@ -721,6 +721,36 @@ public class FongoAggregateTest {
     AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
   }
 
+  @Test
+  public void should_specify_attribute_multiple_time() {
+    // Given
+    DBCollection collection = fongoRule.insertJSON(fongoRule.newCollection(),
+        "[{" +
+            "    _id: \"552f80885b663d29f1026376\",\n" +
+            "    startDate: \"2015-03-30T00:00:00Z\",\n" +
+            "    endDate: \"2015-03-30T00:05:00Z\",\n" +
+            "    message: \"hi there\"" +
+            "}]");
+
+    DBObject pipeline = fongoRule.parseDBObject(
+        "{ \"$project\": { " +
+            "a: \"$startDate\", " +
+            "b: \"$startDate\", " +
+            "c: \"$startDate\", " +
+            "d: \"$endDate\" " +
+            "}}");
+
+    // Aggregate
+    AggregationOutput output = collection.aggregate(Arrays.asList(pipeline));
+    // Assert
+
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertEquals(fongoRule.parseList("[{ \"_id\" : \"552f80885b663d29f1026376\" , " +
+        "\"a\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"b\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"c\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"d\" : \"2015-03-30T00:05:00Z\"}]"), resultAggregate);
+  }
 
   private DBCollection createTestCollection() {
     DBCollection collection = fongoRule.newCollection();
