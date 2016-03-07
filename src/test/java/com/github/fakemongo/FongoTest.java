@@ -3406,6 +3406,17 @@ public class FongoTest {
     assertThat(dbObjects).containsExactly(new BasicDBObject("_id", 1).append("tags", new BasicDBList()));
   }
 
+  @Test
+  public void should_ping_fongo() {
+    // Given
+    // When
+    final CommandResult ping = fongoRule.getDB().command(new BasicDBObject("ping", 1));
+
+    // Then
+    Assertions.assertThat(ping.getErrorMessage()).isNullOrEmpty();
+    Assertions.assertThat(ping.ok()).isTrue();
+  }
+
   static class Seq {
     Object[] data;
 
