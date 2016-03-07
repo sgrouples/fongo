@@ -124,7 +124,7 @@ public class FongoDBCollection extends DBCollection {
     for (DBObject obj : toInsert) {
       DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, encoder)));
       if (LOG.isDebugEnabled()) {
-        LOG.debug("insert: " + cloned);
+        LOG.debug("insert: {}", cloned);
       }
       ObjectId id = putIdIfNotPresent(cloned);
       // Save the id field in the caller.
