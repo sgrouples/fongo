@@ -138,7 +138,7 @@ public class FongoConnection implements Connection {
         isUpdateOfExisting = true;
         count += writeResult.getN();
       } else {
-        if(update.isUpsert()) {
+        if (update.isUpsert()) {
           BsonValue updateId = update.getUpdate().get(DBCollection.ID_FIELD_NAME, null);
 
           if (updateId != null) {
@@ -281,7 +281,7 @@ public class FongoConnection implements Connection {
 
     int idx = 0, offset = 0;
     for (UpdateRequest update : updates) {
-      IndexMap indexMap = IndexMap.create(offset,1);
+      IndexMap indexMap = IndexMap.create(offset, 1);
       final BulkWriteOperation bulkWriteOperation = collection.initializeOrderedBulkOperation();
 
       if (Boolean.TRUE.equals(bypassDocumentValidation)) {
@@ -333,7 +333,7 @@ public class FongoConnection implements Connection {
 
 //      collection.executeBulkWriteOperation()
       final com.mongodb.BulkWriteResult bulkWriteResult = bulkWriteOperation.execute(writeConcern);
-      indexMap = indexMap.add(0,offset);
+      indexMap = indexMap.add(0, offset);
       BulkWriteResult bwr = bulkWriteResult(bulkWriteResult);
       int upsertCount = bwr.getUpserts().size();
       offset += upsertCount;
@@ -464,6 +464,8 @@ public class FongoConnection implements Connection {
     } else if (command.containsKey("dropDatabase")) {
       db.dropDatabase();
       return null;
+    } else if (command.containsKey("ping")) {
+      return (T) new Document("ok", 1.0);
     } else {
       LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));

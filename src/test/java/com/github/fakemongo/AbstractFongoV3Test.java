@@ -42,9 +42,9 @@ import java.util.List;
 import java.util.UUID;
 import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
-
 import org.assertj.core.api.Condition;
 import org.assertj.core.util.Lists;
+import org.bson.BsonDocument;
 import org.bson.BsonInt32;
 import org.bson.BsonString;
 import org.bson.Document;
@@ -744,83 +744,83 @@ public abstract class AbstractFongoV3Test {
 
   @Test
   public void bulkWrite_upsert_noIdInQuery() {
-        // Given
-        MongoCollection<Document> collection = newCollection();
+    // Given
+    MongoCollection<Document> collection = newCollection();
 
-        // When
-        final BulkWriteResult bulkWriteResult = collection.bulkWrite(
+    // When
+    final BulkWriteResult bulkWriteResult = collection.bulkWrite(
 
-            Arrays.asList(
-                    new UpdateOneModel<Document>(
-                            new Document("x", 1),
-                            new Document("$setOnInsert", new Document("new",true)),
-                            new UpdateOptions().upsert(true)),
-                    new UpdateOneModel<Document>(
-                                                new Document("x", 2).append("y","z"),
-                                                new Document("$setOnInsert", new Document("new",true)),
-                                                new UpdateOptions().upsert(true)),
-                    new UpdateOneModel<Document>(
-                                                new Document("x", 3),
-                                                new Document("$setOnInsert", new Document("new",true)),
-                                                new UpdateOptions())));
+        Arrays.asList(
+            new UpdateOneModel<Document>(
+                new Document("x", 1),
+                new Document("$setOnInsert", new Document("new", true)),
+                new UpdateOptions().upsert(true)),
+            new UpdateOneModel<Document>(
+                new Document("x", 2).append("y", "z"),
+                new Document("$setOnInsert", new Document("new", true)),
+                new UpdateOptions().upsert(true)),
+            new UpdateOneModel<Document>(
+                new Document("x", 3),
+                new Document("$setOnInsert", new Document("new", true)),
+                new UpdateOptions())));
 
-        // Then
-        Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isTrue();
-        Assertions.assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(0);
-        Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo(2);
-        Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo((int)collection.count());
-        Assertions.assertThat(bulkWriteResult.getUpserts().get(0).getIndex()).isEqualTo(0);
-        Assertions.assertThat(bulkWriteResult.getUpserts().get(1).getIndex()).isEqualTo(1);
+    // Then
+    Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isTrue();
+    Assertions.assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(0);
+    Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo(2);
+    Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo((int) collection.count());
+    Assertions.assertThat(bulkWriteResult.getUpserts().get(0).getIndex()).isEqualTo(0);
+    Assertions.assertThat(bulkWriteResult.getUpserts().get(1).getIndex()).isEqualTo(1);
 
-        Assertions.assertThat(collection.find()).are(new Condition<Document>() {
-          @Override
-          public boolean matches(Document doc) {
-            return doc.containsKey("new") && doc.getBoolean("new");
-          }
-        });
+    Assertions.assertThat(collection.find()).are(new Condition<Document>() {
+      @Override
+      public boolean matches(Document doc) {
+        return doc.containsKey("new") && doc.getBoolean("new");
+      }
+    });
   }
 
   @Test
-    public void bulkWrite_upsert_withIdInQuery() {
-          // Given
-          MongoCollection<Document> collection = newCollection();
-          collection.insertOne(new Document("_id",1).append("new",false));
-          collection.insertOne(new Document("_id",2).append("new",false));
+  public void bulkWrite_upsert_withIdInQuery() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("_id", 1).append("new", false));
+    collection.insertOne(new Document("_id", 2).append("new", false));
 
-          // When
-          final BulkWriteResult bulkWriteResult = collection.bulkWrite(
+    // When
+    final BulkWriteResult bulkWriteResult = collection.bulkWrite(
 
-              Arrays.asList(
-                      new UpdateOneModel<Document>(
-                              new Document("_id", 3),
-                              new Document("$setOnInsert", new Document("new",true)),
-                              new UpdateOptions().upsert(true)),
-                      new UpdateOneModel<Document>(
-                                                  new Document("_id", 4).append("x",1),
-                                                  new Document("$setOnInsert", new Document("new",true)),
-                                                  new UpdateOptions().upsert(true)),
-                      new UpdateOneModel<Document>(
-                                                  new Document("_id", 1),
-                                                  new Document("$setOnInsert", new Document("new",true))
-                                                    .append("$set",new Document("updated",true)),
-                                                  new UpdateOptions().upsert(true))));
+        Arrays.asList(
+            new UpdateOneModel<Document>(
+                new Document("_id", 3),
+                new Document("$setOnInsert", new Document("new", true)),
+                new UpdateOptions().upsert(true)),
+            new UpdateOneModel<Document>(
+                new Document("_id", 4).append("x", 1),
+                new Document("$setOnInsert", new Document("new", true)),
+                new UpdateOptions().upsert(true)),
+            new UpdateOneModel<Document>(
+                new Document("_id", 1),
+                new Document("$setOnInsert", new Document("new", true))
+                    .append("$set", new Document("updated", true)),
+                new UpdateOptions().upsert(true))));
 
-          // Then
-          Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isTrue();
-          Assertions.assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(1);
-          Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo(2);
-          Assertions.assertThat(bulkWriteResult.getUpserts().get(0).getIndex()).isEqualTo(0);
-          Assertions.assertThat(bulkWriteResult.getUpserts().get(1).getIndex()).isEqualTo(1);
+    // Then
+    Assertions.assertThat(bulkWriteResult.wasAcknowledged()).isTrue();
+    Assertions.assertThat(bulkWriteResult.getMatchedCount()).isEqualTo(1);
+    Assertions.assertThat(bulkWriteResult.getUpserts().size()).isEqualTo(2);
+    Assertions.assertThat(bulkWriteResult.getUpserts().get(0).getIndex()).isEqualTo(0);
+    Assertions.assertThat(bulkWriteResult.getUpserts().get(1).getIndex()).isEqualTo(1);
 
-          Assertions.assertThat(collection.find(new Document("updated",true))).containsExactly(
-                  docId(1).append("new",false).append("updated",true)
-          );
+    Assertions.assertThat(collection.find(new Document("updated", true))).containsExactly(
+        docId(1).append("new", false).append("updated", true)
+    );
 
-          Assertions.assertThat(collection.find(new Document("new",true))).containsExactly(
-                      docId(3).append("new",true),docId(4).append("x",1).append("new",true)
-              );
+    Assertions.assertThat(collection.find(new Document("new", true))).containsExactly(
+        docId(3).append("new", true), docId(4).append("x", 1).append("new", true)
+    );
 
-    }
+  }
 
   @Test
   public void should_utf8_works() {
@@ -1104,6 +1104,18 @@ public abstract class AbstractFongoV3Test {
             new Document("a", 1).append("b", 2))
         .append("date", now)
     );
+  }
+
+
+  @Test
+  public void should_ping_fongo() {
+    // Given
+    // When
+    final Document ping = fongoRule.getDatabase().runCommand(new BsonDocument("ping", new BsonInt32(1)));
+
+    System.out.println(ping);
+    // Then
+    Assertions.assertThat(ping.getDouble("ok")).isEqualTo(1.0);
   }
 
   private Document docId(final Object value) {
