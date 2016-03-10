@@ -9,8 +9,6 @@ import com.mongodb.WriteConcern;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -56,7 +54,7 @@ public class Fongo {
    * @param dbname name of the db.
    * @return the DB associated to this name.
    */
-  public DB getDB(String dbname) {
+  public FongoDB getDB(String dbname) {
     synchronized (dbMap) {
       FongoDB fongoDb = dbMap.get(dbname);
       if (fongoDb == null) {

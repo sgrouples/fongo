@@ -1,5 +1,6 @@
 package com.github.fakemongo.impl.aggregation;
 
+import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import java.util.List;
@@ -17,12 +18,9 @@ public class Skip extends PipelineKeyword {
   }
 
   /**
-   * @param coll
-   * @param object
-   * @return
    */
   @Override
-  public DBCollection apply(DBCollection coll, DBObject object) {
+  public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     List<DBObject> objects = coll.find().skip(((Number) object.get(getKeyword())).intValue()).toArray();
     return dropAndInsert(coll, objects);
   }

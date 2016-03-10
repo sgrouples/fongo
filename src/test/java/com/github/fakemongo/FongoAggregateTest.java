@@ -242,9 +242,9 @@ public class FongoAggregateTest {
     assertEquals(3, result.size());
 
     // TODO : remove comment when _id can NOT be unique anymore.
-//    Assert.assertEquals(fongoRule.parseList("[ { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"scala\"} ," +
-//        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"java\"} ," +
-//        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"mongo\"}]"), result);
+    Assert.assertEquals(fongoRule.parseList("[ { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"scala\"} ," +
+        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"java\"} ," +
+        " { \"_id\" : 1 , \"author\" : \"william\" , \"tags\" : \"mongo\"}]"), result);
     assertEquals("william", Util.extractField(result.get(0), "author"));
     assertEquals("scala", Util.extractField(result.get(0), "tags"));
     assertEquals("william", Util.extractField(result.get(1), "author"));
@@ -611,6 +611,36 @@ public class FongoAggregateTest {
     Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
   }
 
+  @Test
+  public void should_specify_attribute_multiple_time() {
+    // Given
+    DBCollection collection = fongoRule.insertJSON(fongoRule.newCollection(),
+        "[{" +
+            "    _id: \"552f80885b663d29f1026376\",\n" +
+            "    startDate: \"2015-03-30T00:00:00Z\",\n" +
+            "    endDate: \"2015-03-30T00:05:00Z\",\n" +
+            "    message: \"hi there\"" +
+            "}]");
+
+    DBObject pipeline = fongoRule.parseDBObject(
+        "{ \"$project\": { " +
+            "a: \"$startDate\", " +
+            "b: \"$startDate\", " +
+            "c: \"$startDate\", " +
+            "d: \"$endDate\" " +
+            "}}");
+
+    // Aggregate
+    AggregationOutput output = collection.aggregate(Arrays.asList(pipeline));
+    // Assert
+
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertEquals(fongoRule.parseList("[{ \"_id\" : \"552f80885b663d29f1026376\" , " +
+        "\"a\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"b\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"c\" : \"2015-03-30T00:00:00Z\" , " +
+        "\"d\" : \"2015-03-30T00:05:00Z\"}]"), resultAggregate);
+  }
 
   private DBCollection createTestCollection() {
     DBCollection collection = fongoRule.newCollection();

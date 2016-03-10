@@ -176,6 +176,24 @@ public class FongoIndexTest {
     assertEquals(1, indexes.size());
   }
 
+  @Test
+  public void should_dropIndex_on_unexpected_index_throw_exception() {
+    DBCollection collection = fongoRule.newCollection("coll");
+    collection.createIndex("n");
+
+    List<DBObject> indexes = collection.getIndexInfo();
+    assertEquals(
+        Arrays.asList(
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("_id", 1)).append("ns", "db.coll").append("name", "_id_"),
+            new BasicDBObject("v", 1).append("key", new BasicDBObject("n", 1)).append("ns", "db.coll").append("name", "n_1")
+        ), indexes
+    );
+
+    collection.dropIndex(new BasicDBObject("n", 1));
+    exception.expectMessage("index not found with name [n_1]");
+    collection.dropIndex(new BasicDBObject("n", 1));
+  }
+
   // Data are already here, but duplicated.
   @Test
   public void testCreateIndexOnDuplicatedData() {

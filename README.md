@@ -17,7 +17,7 @@ Add dependency to your project:
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>2.0.5</version>
+  <version>2.0.6</version>
   <scope>test</scope>
 </dependency>
 ```
@@ -30,7 +30,7 @@ Add dependency to your project:
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>1.6.5</version>
+  <version>1.6.7</version>
   <scope>test</scope>
 </dependency>
 ```
@@ -68,8 +68,8 @@ MapReduce is in minimal way but will be enhanced soon.
 
 ## Implementation Details
 
-Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.13.0*
-and *3.0.1*.
+Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.14.0*
+and *3.2.1*.
 It also has a "provided" dependency on sl4j-api for logging. If you don't already have sl4j in your project, you can add a maven dependency to the logback implementation like this:
 
 ```xml

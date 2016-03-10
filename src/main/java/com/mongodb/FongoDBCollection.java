@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.bson.BSON;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
@@ -61,13 +62,17 @@ public class FongoDBCollection extends DBCollection {
   private final IndexAbstract _idIndex;
 
   public FongoDBCollection(FongoDB db, String name) {
+    this(db, name, false);
+  }
+
+  public FongoDBCollection(FongoDB db, String name, boolean idIsNotUniq) {
     super(db, name);
     this.fongoDb = db;
     this.nonIdCollection = name.startsWith("system");
     this.expressionParser = new ExpressionParser();
     this.updateEngine = new UpdateEngine();
     this.objectComparator = expressionParser.buildObjectComparator(true);
-    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), true);
+    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), !idIsNotUniq);
     this.indexes.add(_idIndex);
     if (!this.nonIdCollection) {
       this.createIndex(new BasicDBObject(ID_KEY, 1), new BasicDBObject("name", ID_NAME_INDEX));
@@ -106,12 +111,20 @@ public class FongoDBCollection extends DBCollection {
     return dbObject;
   }
 
-  @Override
+  /**
+   * Only for 2.13.X
+   */
+  @Deprecated
   public synchronized WriteResult insert(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder) {
+    return insertImpl(toInsert, concern, encoder, null);
+  }
+
+  //    @Override
+  protected synchronized WriteResult insertImpl(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder, Boolean aBoolean) {
     for (DBObject obj : toInsert) {
       DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, encoder)));
       if (LOG.isDebugEnabled()) {
-        LOG.debug("insert: " + cloned);
+        LOG.debug("insert: {}", cloned);
       }
       ObjectId id = putIdIfNotPresent(cloned);
       // Save the id field in the caller.
@@ -233,10 +246,18 @@ public class FongoDBCollection extends DBCollection {
   }
 
 
-  @Override
+  /**
+   * Only for 2.13 branch
+   */
+  @Deprecated
   public synchronized WriteResult update(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
                                          DBEncoder encoder) throws MongoException {
+    return updateImpl(q, o, upsert, multi, concern, null, encoder);
+  }
 
+  //    @Override
+  protected synchronized WriteResult updateImpl(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
+                                                Boolean bypassDocumentValidation, DBEncoder encoder) {
     q = filterLists(q);
     o = filterLists(o);
 
@@ -669,13 +690,10 @@ public class FongoDBCollection extends DBCollection {
   }
 
   /**
-   * Replaces the result {@link DBObject} with the configured object class of this collection. If the object class is
-   * <code>null</code> the result object itself will be returned.
-   *
-   * @param resultObject the original result value from the command.
-   * @return replaced {@link DBObject} if necessary, or resultObject.
+   * Only for 2.13.X drivers
    */
-  private DBObject replaceWithObjectClass(DBObject resultObject) {
+  @Deprecated
+  DBObject replaceWithObjectClass(DBObject resultObject) {
     if (resultObject == null || getObjectClass() == null) {
       return resultObject;
     }
@@ -685,9 +703,9 @@ public class FongoDBCollection extends DBCollection {
     for (final String key : resultObject.keySet()) {
       targetObject.put(key, resultObject.get(key));
     }
-
     return targetObject;
   }
+
 
   private List<DBObject> replaceWithObjectClass(List<DBObject> resultObjects) {
 
@@ -751,8 +769,8 @@ public class FongoDBCollection extends DBCollection {
         projectionFields.add(projectionKey);
       } else if (!projectionValue.toString().equals("text")) {
         final String msg = "Projection `" + projectionKey
-                + "' has a value that Fongo doesn't know how to handle: " + projectionValue
-                + " (" + (projectionValue == null ? " " : projectionValue.getClass() + ")");
+            + "' has a value that Fongo doesn't know how to handle: " + projectionValue
+            + " (" + (projectionValue == null ? " " : projectionValue.getClass() + ")");
 
         throw new IllegalArgumentException(msg);
       }
@@ -967,11 +985,24 @@ public class FongoDBCollection extends DBCollection {
     return getCount(query, fields, 0, 0);
   }
 
-  @Override
+  /**
+   * Only for 2.13 drivers
+   */
+  @Deprecated
   public synchronized DBObject findAndModify(DBObject query, DBObject fields, DBObject sort, boolean remove, DBObject update, boolean returnNew, boolean upsert) {
-    LOG.debug("findAndModify({}, {}, {}, {}, {}, {}, {}", query, fields, sort, remove, update, returnNew, upsert);
-    query = filterLists(query);
-    update = filterLists(update);
+    return findAndModifyImpl(query, fields, sort, remove, update, returnNew, upsert, null, 0, TimeUnit.DAYS, null);
+  }
+
+  //    @Override
+  protected synchronized DBObject findAndModifyImpl(final DBObject pQuery, final DBObject fields, final DBObject sort,
+                                                    final boolean remove, final DBObject pUpdate,
+                                                    final boolean returnNew, final boolean upsert,
+                                                    final Boolean bypassDocumentValidation,
+                                                    final long maxTime, final TimeUnit maxTimeUnit,
+                                                    final WriteConcern writeConcern) {
+    LOG.debug("findAndModify({}, {}, {}, {}, {}, {}, {}", pQuery, fields, sort, remove, pUpdate, returnNew, upsert);
+    DBObject query = filterLists(pQuery);
+    DBObject update = filterLists(pUpdate);
     Filter filter = expressionParser.buildFilter(query);
 
     Iterable<DBObject> objectsToSearch = sortObjects(sort, filterByIndexes(query));
@@ -1042,8 +1073,18 @@ public class FongoDBCollection extends DBCollection {
     return Arrays.asList((Cursor) this.createQueryResultIterator(this._idIndex.values().iterator()));
   }
 
-  @Override
+  /**
+   * only for 2.13 drivers
+   */
+  @Deprecated
   BulkWriteResult executeBulkWriteOperation(boolean ordered, List<WriteRequest> requests, WriteConcern aWriteConcern, DBEncoder encoder) {
+    return executeBulkWriteOperation(ordered, null, requests, aWriteConcern, encoder);
+  }
+
+  //    @Override
+  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final Boolean bypassDocumentValidation,
+                                            final List<WriteRequest> requests, final WriteConcern aWriteConcern,
+                                            final DBEncoder encoder) {
     isTrue("no operations", !requests.isEmpty());
     WriteConcern writeConcern = aWriteConcern == null ? getWriteConcern() : aWriteConcern;
     // TODO: unordered
@@ -1134,15 +1175,21 @@ public class FongoDBCollection extends DBCollection {
   }
 
   protected synchronized void _dropIndex(String name) throws MongoException {
-    DBCollection indexColl = fongoDb.getCollection("system.indexes");
-    indexColl.remove(new BasicDBObject("name", name).append("ns", nsName()));
+    final DBCollection indexColl = fongoDb.getCollection("system.indexes");
+    final WriteResult wr = indexColl.remove(new BasicDBObject("name", name).append("ns", nsName()), WriteConcern.ACKNOWLEDGED);
+    boolean isDrop = wr.getN() == 1;
     ListIterator<IndexAbstract> iterator = indexes.listIterator();
+
     while (iterator.hasNext()) {
       IndexAbstract index = iterator.next();
       if (index.getName().equals(name)) {
         iterator.remove();
+        isDrop = true;
         break;
       }
+    }
+    if (!isDrop) {
+      fongoDb.notOkErrorResult("index not found with name [" + name + "]").throwOnError();
     }
   }
 
@@ -1151,7 +1198,7 @@ public class FongoDBCollection extends DBCollection {
   }
 
   protected synchronized void _dropIndexes() {
-    final List<DBObject> indexes = fongoDb.getCollection("system.indexes").find().toArray();
+    final List<DBObject> indexes = fongoDb.getCollection("system.indexes").find(new BasicDBObject("ns", nsName())).toArray();
     // Two step for no concurrent modification exception
     for (final DBObject index : indexes) {
       final String indexName = index.get("name").toString();

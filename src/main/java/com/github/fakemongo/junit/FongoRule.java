@@ -175,4 +175,11 @@ public class FongoRule extends ExternalResource {
     return this.mongo;
   }
 
+  public static String randomName() {
+    return UUID.randomUUID().toString();
+  }
+
+  public static String randomName(String prefix) {
+    return prefix + UUID.randomUUID().toString();
+  }
 }

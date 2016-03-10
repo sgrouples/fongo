@@ -1,6 +1,7 @@
 package com.github.fakemongo.impl.aggregation;
 
 import com.github.fakemongo.impl.ExpressionParser;
+import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import java.util.List;
@@ -23,13 +24,9 @@ public class Match extends PipelineKeyword {
 
   /**
    * {@see http://docs.mongodb.org/manual/reference/aggregation/match/#pipe._S_match}
-   *
-   * @param coll
-   * @param object
-   * @return
    */
   @Override
-  public DBCollection apply(DBCollection coll, DBObject object) {
+  public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     LOG.debug("computeResult() match : {}", object);
 
     List<DBObject> objects = coll.find(ExpressionParser.toDbObject(object.get(getKeyword()))).toArray();
