@@ -454,7 +454,7 @@ public class UpdateEngine {
               }
             } else if (object != null) {
               for (Object item : currentList) {
-                if (!object.equals(item)) {
+                if (expressionParser.compareObjects(object, item) != 0) {
                   newList.add(item);
                 }
               }

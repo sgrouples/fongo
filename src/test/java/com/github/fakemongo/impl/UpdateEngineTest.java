@@ -320,7 +320,7 @@ public class UpdateEngineTest {
   @Test
   public void testSimplePullOperation() {
     UpdateEngine updateEngine = new UpdateEngine();
-    DBObject update = new BasicDBObjectBuilder().push("$pull").append("a", 1).pop().get();
+    DBObject update = new BasicDBObjectBuilder().push("$pull").append("a", 1L).pop().get();
 
     assertEquals(new BasicDBObject("a", Util.list(2, 3)),
         updateEngine.doUpdate(new BasicDBObject("a", Util.list(1, 2, 1, 3, 1)), update));
