@@ -1328,7 +1328,14 @@ public class FongoDBCollection extends DBCollection {
       if (!error.isEmpty()) {
         // TODO formatting : E11000 duplicate key error index: test.zip.$city_1_state_1_pop_1  dup key: { : "BARRE", : "MA", : 4546.0 }
         if (enforceDuplicates(concern)) {
-          throw fongoDb.duplicateKeyException(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }");
+          String err = "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }";
+          if (oldObject == null) {
+            // insert
+            throw fongoDb.duplicateKeyException(11000, err);
+          } else {
+            // update (MongoDB throws a different exception in case of an update, see issue #200)
+            throw fongoDb.mongoCommandException(11000, err);
+          }
         }
         return; // silently ignore.
       }
