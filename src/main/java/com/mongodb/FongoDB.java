@@ -435,6 +435,11 @@ public class FongoDB extends DB {
     return new DuplicateKeyException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
   }
 
+  public MongoCommandException mongoCommandException(int code, String err) {
+     final BsonDocument result = bsonResultNotOk(code, err);
+     return new MongoCommandException(result, fongo.getServerAddress());
+  }
+
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
     CommandResult result = notOkErrorResult(err, errmsg);
     result.put("code", code);

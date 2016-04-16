@@ -5,6 +5,7 @@ import com.mongodb.BasicDBObject;
 import com.mongodb.BulkWriteOperation;
 import com.mongodb.DBCollection;
 import com.mongodb.MongoBulkWriteException;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.bulk.BulkWriteResult;
@@ -384,6 +385,19 @@ public abstract class AbstractFongoV3Test {
     // Then
     exception.expect(UnsupportedOperationException.class);
     deleteResult.getDeletedCount();
+  }
+
+  @Test
+  public void insertOneWithDuplicateValueForUniqueColumn_throwsMongoCommandException() {
+    // Given
+    MongoCollection collection = newCollection();
+    collection.createIndex(new Document("a", 1), new IndexOptions().name("a").unique(true));
+    collection.insertOne(new Document("_id", 1).append("a", 1));
+    collection.insertOne(new Document("_id", 2).append("a", 2));
+
+    // When
+    exception.expect(MongoCommandException.class);
+    collection.findOneAndUpdate(docId(2), new Document("$set", new Document("a", 1)));
   }
 
   @Test
