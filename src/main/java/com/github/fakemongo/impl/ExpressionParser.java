@@ -27,9 +27,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
-import org.bson.BSON;
 import org.bson.LazyBSONList;
-import org.bson.codecs.Encoder;
 import org.bson.types.Binary;
 import org.bson.types.MaxKey;
 import org.bson.types.MinKey;
@@ -371,7 +369,7 @@ public class ExpressionParser {
 
   private ValueFilter buildValueFilter(final Object object) {
     if (isDbObject(object)) {
-        return buildValueFilter(buildFilter(toDbObject(object)));
+      return buildValueFilter(buildFilter(toDbObject(object)));
     }
     if (object instanceof Pattern) {
       return buildValueFilter((Pattern) object);
@@ -615,9 +613,10 @@ public class ExpressionParser {
         if (matchCount == 0) {
           return simpleFilter(path, expression);
         }
-        if (matchCount > 2) {
-          throw new FongoException("Invalid expression for key " + path + ": " + expression);
-        }
+        // WDEL : remove when trying to correct #201
+//        if (matchCount > 2) {
+//          throw new FongoException("Invalid expression for key " + path + ": " + expression);
+//        }
         return andFilter;
       }
     } else if (expression instanceof Pattern) {

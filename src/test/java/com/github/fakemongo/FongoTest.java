@@ -3407,6 +3407,37 @@ public class FongoTest {
   }
 
   @Test
+  public void should_$ne_on_empty_array_works() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1).append("tags", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 2).append("tags", Util.list("Hi")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("tags", new BasicDBObject("$ne", new BasicDBList()))).toArray();
+
+    // Then
+    assertThat(dbObjects).containsExactly(new BasicDBObject("_id", 2).append("tags", Util.list("Hi")));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/201
+  @Test
+  public void should_$and_have_more_than_2_operands() {
+    // Given
+    DBCollection collection = fongoRule.newCollection("db");
+    collection.insert(new BasicDBObject("_id", 1).append("tags", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 2).append("tags", Util.list("2")));
+    collection.insert(new BasicDBObject("_id", 3).append("tags", Util.list("4")));
+    collection.insert(new BasicDBObject("_id", 5).append("ntags", Util.list("4")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("tags", new BasicDBObject("$exists", true).append("$ne", new BasicDBList()).append("$nin", Util.list("1", "2")))).toArray();
+
+    // Then
+    assertThat(dbObjects).containsExactly(new BasicDBObject("_id", 3).append("tags", Util.list("4")));
+  }
+
+  @Test
   public void should_ping_fongo() {
     // Given
     // When
