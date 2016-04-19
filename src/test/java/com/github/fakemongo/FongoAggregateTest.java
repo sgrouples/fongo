@@ -3,8 +3,10 @@ package com.github.fakemongo;
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
 import com.google.common.collect.Iterables;
+import com.mongodb.AggregationOptions;
 import com.mongodb.AggregationOutput;
 import com.mongodb.BasicDBObject;
+import com.mongodb.Cursor;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
@@ -749,6 +751,26 @@ public class FongoAggregateTest {
         "\"b\" : \"2015-03-30T00:00:00Z\" , " +
         "\"c\" : \"2015-03-30T00:00:00Z\" , " +
         "\"d\" : \"2015-03-30T00:05:00Z\"}]"), resultAggregate);
+  }
+
+  // https://github.com/fakemongo/fongo/issues/202
+  @Test
+  public void should_cursor_next_works() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    AggregationOptions options = AggregationOptions.builder()
+        .outputMode(AggregationOptions.OutputMode.CURSOR).batchSize(100)
+        .allowDiskUse(true).build();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t"))));
+    Cursor cursor = collection.aggregate(Arrays.asList(obj), options);
+
+    // Then
+    Assertions.assertThat(cursor.hasNext()).isTrue();
+    Assertions.assertThat(cursor.next()).isEqualTo(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))));
   }
 
   private DBCollection createTestCollection() {

@@ -418,10 +418,7 @@ public class FongoConnection implements Connection {
       if (!v3) {
         return reencode(commandResultDecoder, resultField, results);
       } else {
-        final List<Document> each = documents(results);
-        return (T) new BsonDocument("cursor", new BsonDocument("id", new BsonInt64(0))
-            .append("ns", new BsonString(dbCollection.getFullName()))
-            .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
+        return reencode(commandResultDecoder, "cursor", new BasicDBObject("id", 0L).append("ns", dbCollection.getFullName()).append("firstBatch", results));
       }
     } else if (command.containsKey("renameCollection")) {
       ((FongoDB) db).renameCollection(command.getString("renameCollection").getValue(), command.getString("to").getValue(), command.getBoolean("dropTarget", BsonBoolean.FALSE).getValue());

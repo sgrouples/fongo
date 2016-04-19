@@ -1127,7 +1127,6 @@ public abstract class AbstractFongoV3Test {
     // When
     final Document ping = fongoRule.getDatabase().runCommand(new BsonDocument("ping", new BsonInt32(1)));
 
-    System.out.println(ping);
     // Then
     Assertions.assertThat(ping.getDouble("ok")).isEqualTo(1.0);
   }
