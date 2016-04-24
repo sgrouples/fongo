@@ -8,22 +8,22 @@ import com.github.fakemongo.test.beans.TestParentBean;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import org.apache.commons.lang3.RandomUtils;
+import org.assertj.core.api.Assertions;
+import org.assertj.core.api.Condition;
+import org.junit.Rule;
+import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
-import org.apache.commons.lang3.RandomUtils;
-import org.assertj.core.api.Assertions;
-import org.assertj.core.api.Condition;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import org.junit.Rule;
-import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.junit.Assert.*;
 
 /**
  * @author rkolliva
