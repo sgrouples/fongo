@@ -14,5 +14,8 @@ node {
    stage 'Build'
    // Run the maven build
    sh "${mvnHome}/bin/mvn clean install"
+   
+   stage 'Notify'
+   mail body: 'Please go to ${env.BUILD_URL}', charset: 'UTF-8', mimeType: 'text/plain', subject: 'Job \'${env.JOB_NAME}\' (${env.BUILD_NUMBER}) is ${currentBuild.result}', to: 'william.delanoue@gmail.com'
 }
 
