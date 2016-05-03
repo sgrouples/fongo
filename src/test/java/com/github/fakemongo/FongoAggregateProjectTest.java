@@ -924,6 +924,34 @@ public class FongoAggregateProjectTest {
   }
 
   @Test
+  public void should_$year_give_the_year_of_the_date_in_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    collection.insert(new BasicDBObject("date_created", calendar.getTime()).append("_id", 1));
+
+    // When
+    AggregationOutput output = collection.aggregate(fongoRule.parseList("[{ $project: { day: { $year: [\"$date_created\" ] } } }]"));
+
+    // Then
+    Assertions.assertThat(output.results()).isEqualTo(fongoRule.parseList("[{\"_id\":1, \"day\":2014}]"));
+  }
+
+  @Test
+  public void should_$year_fail_if_more_than_one_operand_in_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    collection.insert(new BasicDBObject("date_created", calendar.getTime()).append("_id", 1));
+
+    // When
+    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    AggregationOutput output = collection.aggregate(fongoRule.parseList("[{ $project: { day: { $year: [\"$date_created\", \"second\" ] } } }]"));
+  }
+
+  @Test
   public void should_$month_give_the_month_of_the_date() {
     // Given
     DBCollection collection = fongoRule.newCollection();

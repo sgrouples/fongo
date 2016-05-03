@@ -527,6 +527,13 @@ public class Project extends PipelineKeyword {
       Object value = object.get(keyword);
       this.fromCalendar = fromCalendar;
       this.modifier = modifier;
+      if (value instanceof List) {
+        List list = (List) value;
+        if (list.size() != 1) {
+          errorResult(coll, 16020, "Expression " + keyword + " takes exactly 1 arguments. " + list.size() + " were passed in.");
+        }
+        value = list.get(0);
+      }
       if (!(value instanceof String)) {
         errorResult(coll, 16020, "the " + keyword + " operator requires a field name");
       }
