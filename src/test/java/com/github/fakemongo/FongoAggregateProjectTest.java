@@ -882,7 +882,7 @@ public class FongoAggregateProjectTest {
     collection.insert(new BasicDBObject("date_created", calendar.getTime()).append("_id", 1));
 
     // When
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     AggregationOutput output = collection.aggregate(fongoRule.parseList("[{ $project: { day: { $year: [\"$date_created\", \"second\" ] } } }]"));
   }
 
