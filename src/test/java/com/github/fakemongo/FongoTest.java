@@ -2486,8 +2486,8 @@ public class FongoTest {
 
   @Test
   public void should_$min_int_insert() {
-    long now = new Date().getTime();
     // Given
+    long now = new Date().getTime();
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1)
         .append("a", 100)
@@ -2536,6 +2536,32 @@ public class FongoTest {
         .append("c", 103)
         .append("z", -1.0)
         .append("new", new Date(now)));
+  }
+
+  @Test
+  public void should_$max_long_insert() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1)
+        .append("b", 200)
+    );
+
+    // When
+    collection
+        .update(
+            new BasicDBObject("_id", 1),
+            new BasicDBObject("$max", new BasicDBObject()
+                .append("b", Long.MAX_VALUE)
+            ),
+            true,
+            true
+        );
+
+    // Then
+    DBObject result = collection.findOne();
+    Assertions.assertThat(result).isEqualTo(new BasicDBObject("_id", 1)
+        .append("b", Long.MAX_VALUE)
+    );
   }
 
   @Test
