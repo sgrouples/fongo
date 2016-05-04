@@ -17,14 +17,14 @@ Add dependency to your project:
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>2.0.5</version>
+  <version>2.0.6</version>
   <scope>test</scope>
 </dependency>
 ```
 
 [Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|2.0.0)
 
-### If you use 2.X drivers
+### If you use 2.X drivers (this branch *fongo-drivers-2.x*) will be deprecated soon
 
 ```xml
 <dependency>
