@@ -1131,11 +1131,11 @@ public abstract class AbstractFongoV3Test {
     Assertions.assertThat(ping.getDouble("ok")).isEqualTo(1.0);
   }
 
-  private Document docId(final Object value) {
+  public static Document docId(final Object value) {
     return new Document("_id", value);
   }
 
-  private <T> List<T> toList(final MongoIterable<T> iterable) {
+  private static <T> List<T> toList(final MongoIterable<T> iterable) {
     return iterable.into(new ArrayList<T>());
   }
 
