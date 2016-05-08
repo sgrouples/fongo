@@ -13,6 +13,8 @@ import com.mongodb.MongoException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
 import org.junit.Assert;
@@ -687,7 +689,7 @@ public class FongoAggregateTest {
     AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
 
     // Then
-    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))));
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH))));
   }
 
   // https://github.com/fakemongo/fongo/issues/163
@@ -703,7 +705,7 @@ public class FongoAggregateTest {
     AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
 
     // Then
-    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH)).append("month", Calendar.getInstance().get(Calendar.MONTH) + 1)));
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH)).append("month", Calendar.getInstance().get(Calendar.MONTH) + 1)));
   }
 
   // https://github.com/fakemongo/fongo/issues/163
@@ -770,7 +772,7 @@ public class FongoAggregateTest {
 
     // Then
     Assertions.assertThat(cursor.hasNext()).isTrue();
-    Assertions.assertThat(cursor.next()).isEqualTo(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance().get(Calendar.DAY_OF_MONTH))));
+    Assertions.assertThat(cursor.next()).isEqualTo(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH))));
   }
 
   private DBCollection createTestCollection() {
