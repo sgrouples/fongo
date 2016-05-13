@@ -28,7 +28,7 @@ public class Unwind extends PipelineKeyword {
    * $unwind is most useful in combination with $group.
    * You may undo the effects of unwind operation with the $group pipeline operator.
    * If you specify a target field for $unwind that does not exist in an input document, the pipeline ignores the input document, and will generate no result documents.
-   * If you specify a target field for $unwind that is not an array, db.collection.aggregate() generates an error.
+   * If the operand does not resolve to an array but is not missing, null, or an empty array, $unwind treats the operand as a single element array.
    * If you specify a target field for $unwind that holds an empty array ([]) in an input document, the pipeline ignores the input document, and will generates no result documents.
    * </pre>
    *
@@ -50,14 +50,17 @@ public class Unwind extends PipelineKeyword {
         Object oValue = Util.extractField(dbObject, fieldName);
         if (!(oValue instanceof BasicDBList)) {
 //          throw fongoDB..errorResult(15978, "$unwind:  value at end of field path must be an array").getException;
-          throw new MongoException(15978, "exception: $unwind:  value at end of field path must be an array");
-        }
-        BasicDBList list = (BasicDBList) oValue;
-        for (Object sublist : list) {
+//          throw new MongoException(15978, "exception: $unwind:  value at end of field path must be an array");
           DBObject newValue = Util.clone(dbObject);
-          Util.putValue(newValue, fieldName, sublist);
-//          newValue.removeField("_id"); // TODO _id must be the same (but Fongo doesn't handle)
           result.add(newValue);
+        } else {
+          BasicDBList list = (BasicDBList) oValue;
+          for (Object sublist : list) {
+            DBObject newValue = Util.clone(dbObject);
+            Util.putValue(newValue, fieldName, sublist);
+//          newValue.removeField("_id"); // TODO _id must be the same (but Fongo doesn't handle)
+            result.add(newValue);
+          }
         }
       }
     }
