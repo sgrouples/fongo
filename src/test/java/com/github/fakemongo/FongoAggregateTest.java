@@ -20,6 +20,7 @@ import org.assertj.core.util.Lists;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -53,15 +54,17 @@ public class FongoAggregateTest {
 
   @Test
   public void shouldGenerateErrorOnNonList() {
-    ExpectedMongoException.expect(exception, MongoException.class);
-    ExpectedMongoException.expectCode(exception, 15978);
+    //    ExpectedMongoException.expect(exception, MongoException.class);
+    //    ExpectedMongoException.expectCode(exception, 15978);
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("author", "william").append("tags", "value"));
     DBObject matching = new BasicDBObject("$match", new BasicDBObject("author", "william"));
     DBObject unwind = new BasicDBObject("$unwind", "$tags");
 
-    collection.aggregate(Arrays.asList(matching, unwind));
-    //    assert(output.getMessage === "exception: $unwind:  value at end of field path must be an array")
+    AggregationOutput output = collection.aggregate(Arrays.asList(matching, unwind));
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    assertNotNull(resultAggregate);
+    assertEquals("value", resultAggregate.get("tags"));
   }
 
 
