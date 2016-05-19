@@ -15,11 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.function.Consumer;
+import java.util.*;
 
 import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.junit.Assert.*;
@@ -40,32 +36,32 @@ public class LookupTest {
     // start with 2 collections
     DBCollection primaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(primaryColl, "[\n" +
-                                      "    {\n" +
-                                      "        \"_id\" : \"p1\"\n" +
-                                      "    },\n" +
-                                      "    {\n" +
-                                      "        \"_id\" : \"p2\"\n" +
-                                      "    }\n" +
-                                      "]\n");
+        "    {\n" +
+        "        \"_id\" : \"p1\"\n" +
+        "    },\n" +
+        "    {\n" +
+        "        \"_id\" : \"p2\"\n" +
+        "    }\n" +
+        "]\n");
     DBCollection secondaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(secondaryColl, "[" +
-                                        "    {\n" +
-                                        "        \"_id\" : \"s1\",\n" +
-                                        "        \"parentId\" : \"p1\"\n" +
-                                        "    },\n" +
-                                        "    {\n" +
-                                        "        \"_id\" : \"s2\",\n" +
-                                        "        \"parentId\" : \"p1\"\n" +
-                                        "    },\n" +
-                                        "    {\n" +
-                                        "        \"_id\" : \"s3\",\n" +
-                                        "        \"parentId\" : \"p2\"\n" +
-                                        "    },\n" +
-                                        "    {\n" +
-                                        "        \"_id\" : \"s4\",\n" +
-                                        "        \"parentId\" : \"p2\"\n" +
-                                        "    }\n" +
-                                        "]");
+        "    {\n" +
+        "        \"_id\" : \"s1\",\n" +
+        "        \"parentId\" : \"p1\"\n" +
+        "    },\n" +
+        "    {\n" +
+        "        \"_id\" : \"s2\",\n" +
+        "        \"parentId\" : \"p1\"\n" +
+        "    },\n" +
+        "    {\n" +
+        "        \"_id\" : \"s3\",\n" +
+        "        \"parentId\" : \"p2\"\n" +
+        "    },\n" +
+        "    {\n" +
+        "        \"_id\" : \"s4\",\n" +
+        "        \"parentId\" : \"p2\"\n" +
+        "    }\n" +
+        "]");
     DBObject lookup = getLookupQuery(secondaryColl);
     List<DBObject> pipeline = new ArrayList<DBObject>();
     pipeline.add(lookup);
@@ -146,32 +142,31 @@ public class LookupTest {
     Iterable<DBObject> result = output.results();
     assertNotNull(result);
     final int[] actualCount = {0};
-    result.forEach(new Consumer<DBObject>() {
-      @Override
-      public void accept(DBObject dbObject) {
-        actualCount[0]++;
-        try {
-          TestParentBean actualParentBean = objectMapper.readValue(dbObject.toString(), TestParentBean.class);
-          assertTrue(actualParentBean.equals(parentBeanMap.get(actualParentBean.getId())));
-          assertEquals(actualParentBean.getSecondaryCollItems().size(), 0);
-        }
-        catch (IOException e) {
-          LOG.error("Error deserializing dbobject", e);
-          assertTrue(false);
-        }
+    final Iterator<DBObject> iterator = result.iterator();
+    while (iterator.hasNext()) {
+      DBObject dbObject = iterator.next();
+      actualCount[0]++;
+      try {
+        TestParentBean actualParentBean = objectMapper.readValue(dbObject.toString(), TestParentBean.class);
+        assertTrue(actualParentBean.equals(parentBeanMap.get(actualParentBean.getId())));
+        assertEquals(actualParentBean.getSecondaryCollItems().size(), 0);
       }
-    });
+      catch (IOException e) {
+        LOG.error("Error deserializing dbobject", e);
+        assertTrue(false);
+      }
+    }
     assertEquals(actualCount[0], randomParentCount);
   }
 
   private DBObject getLookupQuery(DBCollection secondaryColl) {
     return fongoRule.parseDBObject("{$lookup : {\n" +
-                                   "        \"from\" :\"" + secondaryColl.getName() + "\"," +
-                                   "        \"localField\" : \"_id\",\n" +
-                                   "        \"foreignField\" : \"parentId\",\n" +
-                                   "        \"as\" : \"secondaryCollItems\"\n" +
-                                   "    }\n" +
-                                   "}");
+                                       "        \"from\" :\"" + secondaryColl.getName() + "\"," +
+                                       "        \"localField\" : \"_id\",\n" +
+                                       "        \"foreignField\" : \"parentId\",\n" +
+                                       "        \"as\" : \"secondaryCollItems\"\n" +
+                                       "    }\n" +
+                                       "}");
   }
 
   @Test
@@ -186,40 +181,37 @@ public class LookupTest {
     Iterable<DBObject> result = output.results();
     assertNotNull(result);
     final int[] actualCount = {0};
-    result.forEach(new Consumer<DBObject>() {
-      @Override
-      public void accept(DBObject dbObject) {
-        actualCount[0]++;
-      }
-    });
+    final Iterator<DBObject> iterator = result.iterator();
+    while (iterator.hasNext()) {
+      actualCount[0]++;
+    }
     assertEquals(actualCount[0], 0);
   }
 
   private void verifyResults(Iterable<DBObject> result, final Map<String, TestParentBean> parentBeanMap,
                              final Map<String, TestParentBean> childBeanMap, final Map<String, Integer> childCountMap) {
     final ObjectMapper mapper = new ObjectMapper();
-    result.forEach(new Consumer<DBObject>() {
-      @Override
-      public void accept(DBObject dbObject) {
-        String jsonString = dbObject.toString();
-        try {
-          TestParentBean parentBean = mapper.readValue(jsonString, TestParentBean.class);
-          final String parentBeanId = parentBean.getId();
-          assertTrue("Parent bean equality", parentBean.equals(parentBeanMap.get(parentBeanId)));
-          int childCount = parentBean.getSecondaryCollItems() != null ? parentBean.getSecondaryCollItems().size() : 0;
-          assertTrue("Match child counts", childCount == childCountMap.get(parentBeanId));
-          // finally match all the children
-          for (TestChildBean childBean : parentBean.getSecondaryCollItems()) {
-            final String childBeanId = childBean.getId();
-            assertTrue("Child bean equality", childBean.equals(childBeanMap.get(childBeanId)));
-          }
-        }
-        catch (IOException e) {
-          LOG.error("Error deserializing JSON {}", jsonString, e);
-          assertTrue(false);
+    final Iterator<DBObject> iterator = result.iterator();
+    while (iterator.hasNext()) {
+      DBObject dbObject = iterator.next();
+      String jsonString = dbObject.toString();
+      try {
+        TestParentBean parentBean = mapper.readValue(jsonString, TestParentBean.class);
+        final String parentBeanId = parentBean.getId();
+        assertTrue("Parent bean equality", parentBean.equals(parentBeanMap.get(parentBeanId)));
+        int childCount = parentBean.getSecondaryCollItems() != null ? parentBean.getSecondaryCollItems().size() : 0;
+        assertTrue("Match child counts", childCount == childCountMap.get(parentBeanId));
+        // finally match all the children
+        for (TestChildBean childBean : parentBean.getSecondaryCollItems()) {
+          final String childBeanId = childBean.getId();
+          assertTrue("Child bean equality", childBean.equals(childBeanMap.get(childBeanId)));
         }
       }
-    });
+      catch (IOException e) {
+        LOG.error("Error deserializing JSON {}", jsonString, e);
+        assertTrue(false);
+      }
+    }
   }
 
   private TestChildBean getTestChildBean(TestParentBean parentBean) {
