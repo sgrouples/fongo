@@ -4,8 +4,8 @@ import com.github.fakemongo.impl.ExpressionParser;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.annotations.ThreadSafe;
 import java.util.List;
-import org.bson.util.annotations.ThreadSafe;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

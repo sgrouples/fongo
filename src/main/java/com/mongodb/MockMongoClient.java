@@ -1,6 +1,10 @@
 package com.mongodb;
 
 import com.github.fakemongo.Fongo;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.BufferProvider;
+import com.mongodb.internal.connection.PowerOfTwoBufferPool;
+import com.mongodb.operation.OperationExecutor;
 import java.net.UnknownHostException;
 import java.util.Collection;
 import java.util.Collections;
@@ -12,8 +16,11 @@ public class MockMongoClient extends MongoClient {
   // this is immutable 
   private final static MongoClientOptions clientOptions = MongoClientOptions.builder().build();
 
+  private volatile BufferProvider bufferProvider;
+
   private Fongo fongo;
   private MongoOptions options;
+  private ReadConcern readConcern;
 
   public static MockMongoClient create(Fongo fongo) {
     // using objenesis here to prevent default constructor from spinning up background threads.
@@ -21,11 +28,12 @@ public class MockMongoClient extends MongoClient {
     client.options = new MongoOptions(clientOptions);
     client.fongo = fongo;
     client.setWriteConcern(clientOptions.getWriteConcern());
+    client.setReadPreference(clientOptions.getReadPreference());
+    client.readConcern = clientOptions.getReadConcern() == null ? ReadConcern.DEFAULT : clientOptions.getReadConcern();
     return client;
   }
 
   public MockMongoClient() throws UnknownHostException {
-
   }
 
   @Override
@@ -45,27 +53,27 @@ public class MockMongoClient extends MongoClient {
 
   @Override
   public int getMaxBsonObjectSize() {
-    return Bytes.MAX_OBJECT_SIZE;
+    return 16 * 1024 * 1024;
   }
 
   @Override
   public DB getDB(String dbname) {
-    return fongo.getDB(dbname);
+    return this.fongo.getDB(dbname);
+  }
+
+  @Override
+  public MongoDatabase getDatabase(final String databaseName) {
+    return new FongoMongoDatabase(databaseName, this.fongo);
   }
 
   @Override
   public void dropDatabase(String dbName) {
-    fongo.dropDatabase(dbName);
-  }
-
-  @Override
-  boolean isMongosConnection() {
-    return false;
+    this.fongo.dropDatabase(dbName);
   }
 
   @Override
   public MongoOptions getMongoOptions() {
-    return options;
+    return this.options;
   }
 
   @Override
@@ -75,7 +83,85 @@ public class MockMongoClient extends MongoClient {
 
   @Override
   public List<ServerAddress> getAllAddress() {
-    if (super.getConnector() != null) return super.getAllAddress();
-    return Collections.emptyList();
+    return super.getAllAddress();
+  }
+
+  @Override
+  public List<ServerAddress> getServerAddressList() {
+    return Collections.singletonList(fongo.getServerAddress());
+  }
+
+//  @Override
+//  public Cluster getCluster() {
+//    return new Cluster() {
+//      @Override
+//      public ClusterDescription getDescription() {
+//        return null;
+//      }
+//
+//      @Override
+//      public Server selectServer(ServerSelector serverSelector) {
+//        return new Server() {
+//          @Override
+//          public ServerDescription getDescription() {
+//            return new ObjenesisStd().getInstantiatorOf(ServerDescription.class).newInstance();
+//          }
+//
+//          @Override
+//          public Connection getConnection() {
+//            return new FongoConnection(fongo);
+//          }
+//
+//          /**
+//           * <p>Gets a connection to this server asynchronously.  The connection should be released after the caller is done with it.</p>
+//           * <p/>
+//           * <p> Implementations of this method will likely pool the underlying connection, so the effect of closing the returned connection will
+//           * be to return the connection to the pool. </p>
+//           *
+//           * @param callback the callback to execute when the connection is available or an error occurs
+//           */
+//          @Override
+//          public void getConnectionAsync(SingleResultCallback<AsyncConnection> callback) {
+//          }
+//
+//        };
+//      }
+//
+//      @Override
+//      public void selectServerAsync(ServerSelector serverSelector, SingleResultCallback<Server> callback) {
+//
+//      }
+//
+//      @Override
+//      public void close() {
+//
+//      }
+//
+//      @Override
+//      public boolean isClosed() {
+//        return false;
+//      }
+//    };
+//  }
+
+  OperationExecutor createOperationExecutor() {
+    return fongo;
+  }
+
+  @Override
+  public void close() {
+  }
+
+  @Override
+  synchronized BufferProvider getBufferProvider() {
+    if (bufferProvider == null) {
+      bufferProvider = new PowerOfTwoBufferPool();
+    }
+    return bufferProvider;
+  }
+
+  @Override
+  public ReadConcern getReadConcern() {
+    return readConcern;
   }
 }

@@ -5,11 +5,11 @@ import com.github.fakemongo.impl.geo.GeoUtil;
 import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBObject;
-import com.mongodb.DBRefBase;
+import com.mongodb.DBRef;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.LazyDBObject;
 import com.mongodb.QueryOperators;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
 import java.math.BigDecimal;
@@ -54,6 +54,7 @@ public class ExpressionParser {
   public static final String SIZE = "$size";
   public static final String NOT = "$not";
   public static final String OR = "$or";
+  public static final String NOR = QueryOperators.NOR;
   public static final String AND = "$and";
   public static final String REGEX = "$regex";
   public static final String REGEX_OPTIONS = "$options";
@@ -189,6 +190,10 @@ public class ExpressionParser {
           Collection<?> queryList = typecast(command + " clause", queryValue, Collection.class);
           List storedList = typecast("value", storedValue, List.class);
           if (storedList == null) {
+            return false;
+          }
+
+          if (queryList.isEmpty()) {
             return false;
           }
 
@@ -364,7 +369,7 @@ public class ExpressionParser {
 
   private ValueFilter buildValueFilter(final Object object) {
     if (isDbObject(object)) {
-        return buildValueFilter(buildFilter(toDbObject(object)));
+      return buildValueFilter(buildFilter(toDbObject(object)));
     }
     if (object instanceof Pattern) {
       return buildValueFilter((Pattern) object);
@@ -502,13 +507,11 @@ public class ExpressionParser {
     return getEmbeddedValues(Util.split(key), 0, dbo);
   }
 
-  public List<Object> extractDBRefValue(DBRefBase ref, String refKey) {
+  public List<Object> extractDBRefValue(DBRef ref, String refKey) {
     if ("$id".equals(refKey)) {
       return Collections.singletonList(ref.getId());
     } else if ("$ref".equals(refKey)) {
-      return Collections.<Object>singletonList(ref.getRef());
-    } else if ("$db".equals(refKey)) {
-      return Collections.<Object>singletonList(ref.getDB());
+      return Collections.<Object>singletonList(ref.getCollectionName());
     } else return Collections.emptyList();
   }
 
@@ -531,15 +534,15 @@ public class ExpressionParser {
           if (isDbObject(listValue)) {
             List<Object> embeddedListValue = getEmbeddedValues(path, i + 1, toDbObject(listValue));
             results.addAll(embeddedListValue);
-          } else if (listValue instanceof DBRefBase) {
-            results.addAll(extractDBRefValue((DBRefBase) listValue, path.get(i + 1)));
+          } else if (listValue instanceof DBRef) {
+            results.addAll(extractDBRefValue((DBRef) listValue, path.get(i + 1)));
           }
         }
         if (!results.isEmpty()) {
           return results;
         }
-      } else if (value instanceof DBRefBase) {
-        return extractDBRefValue((DBRefBase) value, path.get(i + 1));
+      } else if (value instanceof DBRef) {
+        return extractDBRefValue((DBRef) value, path.get(i + 1));
       } else {
         return Collections.emptyList();
       }
@@ -560,12 +563,31 @@ public class ExpressionParser {
     if (OR.equals(path.get(0))) {
       Collection<?> queryList = typecast(path + " operator", expression, Collection.class);
       OrFilter orFilter = new OrFilter();
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
+
       for (Object query : queryList) {
         orFilter.addFilter(buildFilter(toDbObject(query)));
       }
       return orFilter;
+    } else if (NOR.equals(path.get(0))) {
+      @SuppressWarnings(
+          "unchecked") Collection<DBObject> queryList = typecast(path + " operator", expression, Collection.class);
+      OrFilter orFilter = new OrFilter();
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
+
+      for (DBObject query : queryList) {
+        orFilter.addFilter(buildFilter(query));
+      }
+      return new NotFilter(orFilter);
     } else if (AND.equals(path.get(0))) {
       Collection<?> queryList = typecast(path + " operator", expression, Collection.class);
+      if (queryList.isEmpty()) {
+        throw new FongoException(2, "$and/$or/$nor must be a nonempty array");
+      }
       AndFilter andFilter = new AndFilter();
       for (Object query : queryList) {
         andFilter.addFilter(buildFilter(toDbObject(query)));
@@ -591,9 +613,10 @@ public class ExpressionParser {
         if (matchCount == 0) {
           return simpleFilter(path, expression);
         }
-        if (matchCount > 2) {
-          throw new FongoException("Invalid expression for key " + path + ": " + expression);
-        }
+        // WDEL : remove when trying to correct #201
+//        if (matchCount > 2) {
+//          throw new FongoException("Invalid expression for key " + path + ": " + expression);
+//        }
         return andFilter;
       }
     } else if (expression instanceof Pattern) {
@@ -682,7 +705,8 @@ public class ExpressionParser {
     } else {
       Object queryComp = typecast("query value", queryValue, Object.class);
       if (comparableFilter && !(storedValue instanceof Comparable)) {
-        if (queryComp.equals(storedValue)) {
+        // Handle null
+        if (queryComp == storedValue || queryComp.equals(storedValue)) {
           return 0;
         }
         return null;
@@ -748,9 +772,9 @@ public class ExpressionParser {
           checkTypes = false;
         }
       }
-      if (cc1 instanceof DBRefBase && cc2 instanceof DBRefBase) {
-        DBRefBase a1 = (DBRefBase) cc1;
-        DBRefBase a2 = (DBRefBase) cc2;
+      if (cc1 instanceof DBRef && cc2 instanceof DBRef) {
+        DBRef a1 = (DBRef) cc1;
+        DBRef a2 = (DBRef) cc2;
         if (a1.equals(a2)) {
           return 0;
         }
@@ -1171,7 +1195,7 @@ public class ExpressionParser {
 
       try {
         Scriptable scope = cx.initStandardObjects();
-        String json = JSON.serialize(o);
+        String json = FongoJSON.serialize(o);
         String expr = "obj=" + json + ";\n" + expression.replace("this.", "obj.") + ";\n";
         try {
           return (Boolean) cx.evaluateString(scope, expr, "<$where>", 0, null);
@@ -1198,7 +1222,13 @@ public class ExpressionParser {
 
     @Override
     public Filter createFilter(final List<String> path, final DBObject refExpression) {
-      Collection<?> queryList = typecast(command + " clause", refExpression.get(command), Collection.class);
+      final Collection queryList;
+      final Object expression = refExpression.get(command);
+      if (expression.getClass().isArray()) {
+        queryList = Util.toCollection(expression);
+      } else {
+        queryList = typecast(command + " clause", expression, Collection.class);
+      }
       final Set<?> querySet = new HashSet<Object>(queryList);
       return new Filter() {
         @Override
@@ -1210,7 +1240,7 @@ public class ExpressionParser {
             return querySet.contains(null) ? direction : !direction;
           } else {
             for (Object storedValue : storedList) {
-              if (compare(refExpression.get(command), storedValue, querySet) == direction) {
+              if (compare(expression, storedValue, querySet) == direction) {
                 return direction;
               }
             }
@@ -1317,6 +1347,10 @@ public class ExpressionParser {
           if (aValue != null && singleCompare(queryValue, aValue)) {
             return true;
           }
+        }
+        if (queryValue instanceof List) {
+          List q = (List) queryValue;
+          return q.isEmpty() && ((List) storedValue).isEmpty();
         }
         return false;
       } else {

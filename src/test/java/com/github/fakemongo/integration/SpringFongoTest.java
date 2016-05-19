@@ -36,7 +36,6 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import static org.springframework.data.mongodb.core.query.Criteria.where;
 import org.springframework.data.mongodb.core.query.NearQuery;
 import org.springframework.data.mongodb.core.query.Query;
-import static org.springframework.data.mongodb.core.query.Query.query;
 import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.hateoas.Identifiable;
 
@@ -203,7 +202,7 @@ public class SpringFongoTest {
     SpringModelMap map = new SpringModelMap(springModelBarcode);
     springModelMapRepository.save(map);
     MongoOperations mongoOperations = (MongoOperations) ctx.getBean("mongoTemplate");
-    Query query = query(where("barcode.serial").is(serial).and("barcode.time").is(time));
+    Query query = Query.query(where("barcode.serial").is(serial).and("barcode.time").is(time));
     List<SpringModelMap> receipts = mongoOperations.find(query, SpringModelMap.class);
     assertEquals(1, receipts.size());
   }

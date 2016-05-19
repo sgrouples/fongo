@@ -5,7 +5,7 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.BasicDBObjectBuilder;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 
 import java.util.Date;
 import java.util.List;
@@ -417,15 +417,15 @@ public class UpdateEngineTest {
     String random1 = UUID.randomUUID().toString();
     String random2 = UUID.randomUUID().toString();
     
-    DBObject object = (DBObject) JSON.parse("{ \"name\" : \"Tenant 1\", \"appAllocations\" : [ { \"appId\" : \"" 
-                                      + random1 + "\" , \"maxUser\" : 4} , { \"appId\""
-                                      + ": \"" + random2 + "\" , \"maxUser\" : 42}]}");
-    DBObject update = (DBObject) JSON.parse("{ \"$set\" : { \"appAllocations.$.maxUser\" : 9}}");
-    DBObject query = (DBObject) JSON.parse("{ \"appAllocations\" : { \"$elemMatch\" : { \"appId\" : \"" + random1 + "\"}}}");
+    DBObject object = (DBObject) FongoJSON.parse("{ \"name\" : \"Tenant 1\", \"appAllocations\" : [ { \"appId\" : \""
+        + random1 + "\" , \"maxUser\" : 4} , { \"appId\""
+        + ": \"" + random2 + "\" , \"maxUser\" : 42}]}");
+    DBObject update = (DBObject) FongoJSON.parse("{ \"$set\" : { \"appAllocations.$.maxUser\" : 9}}");
+    DBObject query = (DBObject) FongoJSON.parse("{ \"appAllocations\" : { \"$elemMatch\" : { \"appId\" : \"" + random1 + "\"}}}");
 
-    DBObject expected = (DBObject) JSON.parse("{ \"name\" : \"Tenant 1\", \"appAllocations\" : [ { \"appId\" : \"" 
-            + random1 + "\" , \"maxUser\" : 9} , { \"appId\""
-            + ": \"" + random2 + "\" , \"maxUser\" : 42}]}");
+    DBObject expected = (DBObject) FongoJSON.parse("{ \"name\" : \"Tenant 1\", \"appAllocations\" : [ { \"appId\" : \""
+        + random1 + "\" , \"maxUser\" : 9} , { \"appId\""
+        + ": \"" + random2 + "\" , \"maxUser\" : 42}]}");
     UpdateEngine updateEngine = new UpdateEngine();
 
     assertEquals(expected.toString(),
@@ -437,11 +437,11 @@ public class UpdateEngineTest {
     String random1 = UUID.randomUUID().toString();
     String random2 = UUID.randomUUID().toString();
     
-    DBObject object = (DBObject) JSON.parse("{ \"_id\" : \"1234\" , \"var1\" : \"val1\" , \"parentObject\" : { \"var2\" : \"val21\" , \"subObject\" : [ { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val31\"}, { \"_id\" : \"" + random2 + "\" , \"var3\" : \"val32\"}]}}");
-    DBObject update = (DBObject) JSON.parse("{ \"$set\" : { \"parentObject.subObject.$\" : { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val33\"}}}");
-    DBObject query = (DBObject) JSON.parse("{ \"_id\" : \"1234\" , \"parentObject.subObject._id\" : \"" + random1 + "\"}");
+    DBObject object = (DBObject) FongoJSON.parse("{ \"_id\" : \"1234\" , \"var1\" : \"val1\" , \"parentObject\" : { \"var2\" : \"val21\" , \"subObject\" : [ { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val31\"}, { \"_id\" : \"" + random2 + "\" , \"var3\" : \"val32\"}]}}");
+    DBObject update = (DBObject) FongoJSON.parse("{ \"$set\" : { \"parentObject.subObject.$\" : { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val33\"}}}");
+    DBObject query = (DBObject) FongoJSON.parse("{ \"_id\" : \"1234\" , \"parentObject.subObject._id\" : \"" + random1 + "\"}");
 
-    DBObject expected = (DBObject) JSON.parse("{ \"_id\" : \"1234\" , \"var1\" : \"val1\" , \"parentObject\" : { \"var2\" : \"val21\" , \"subObject\" : [ { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val33\"} , { \"_id\" : \"" + random2 + "\" , \"var3\" : \"val32\"}]}}");
+    DBObject expected = (DBObject) FongoJSON.parse("{ \"_id\" : \"1234\" , \"var1\" : \"val1\" , \"parentObject\" : { \"var2\" : \"val21\" , \"subObject\" : [ { \"_id\" : \"" + random1 + "\" , \"var3\" : \"val33\"} , { \"_id\" : \"" + random2 + "\" , \"var3\" : \"val32\"}]}}");
     UpdateEngine updateEngine = new UpdateEngine();
 
     assertEquals(expected.toString(),

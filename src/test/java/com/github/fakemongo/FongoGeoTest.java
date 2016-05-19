@@ -442,7 +442,7 @@ public class FongoGeoTest {
     collection.createIndex(new BasicDBObject("geoJsonObject", "2dsphere"));
 
     expectWriteConcernException(exception, 16755);
-//        exception.expectMessage("\"insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: { _id: 1, geoJsonObject: { coordinates: [ 93.22196492435961, 61.1911266473824 ] } }\"");
+//  com.mongodb.WriteConcernException: Write failed with error code 16755 and error message 'insertDocument :: caused by :: 16755 Can't extract geo keys from object, malformed geometry?: { _id: 1, geoJsonObject: { coordinates: [ 93.22196492435961, 61.1911266473824 ] } }'
 
     collection.insert(fongoRule.parseDBObject("{ \"_id\":1, \"geoJsonObject\" : { \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}}), coordinates:{ \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}"));
   }

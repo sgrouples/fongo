@@ -14,6 +14,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import org.bson.BsonBoolean;
+import org.bson.BsonDocument;
+import org.bson.BsonDouble;
+import org.bson.BsonInt32;
+import org.bson.BsonString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +34,7 @@ public class FongoDB extends DB {
 
   private final Map<String, FongoDBCollection> collMap = new ConcurrentHashMap<String, FongoDBCollection>();
   private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
-  private final Fongo fongo;
-
-  private MongoCredential mongoCredential;
+  final Fongo fongo;
 
   public FongoDB(Fongo fongo, String name) {
     super(fongo.getMongo(), name);
@@ -42,15 +45,36 @@ public class FongoDB extends DB {
   }
 
   @Override
-  public void requestStart() {
+  public synchronized DBCollection createCollection(final String collectionName, final DBObject options) {
+    // See getCreateCollectionOperation()
+    if (options.get("size") != null && !(options.get("size") instanceof Number)) {
+      throw new IllegalArgumentException("'size' should be Number");
+    }
+    if (options.get("max") != null && !(options.get("max") instanceof Number)) {
+      throw new IllegalArgumentException("'max' should be Number");
+    }
+    if (options.get("capped") != null && !(options.get("capped") instanceof Boolean)) {
+      throw new IllegalArgumentException("'capped' should be Boolean");
+    }
+    if (options.get("autoIndexId") != null && !(options.get("capped") instanceof Boolean)) {
+      throw new IllegalArgumentException("'capped' should be Boolean");
+    }
+    if (options.get("storageEngine") != null && !(options.get("storageEngine") instanceof DBObject)) {
+      throw new IllegalArgumentException("storageEngine' should be DBObject");
+    }
+
+    if (this.collMap.containsKey(collectionName)) {
+      this.notOkErrorResult("collection already exists").throwOnError();
+    }
+
+    final DBCollection collection = getCollection(collectionName);
+    this.addCollection((FongoDBCollection) collection);
+    return collection;
   }
 
   @Override
-  public void requestDone() {
-  }
-
-  @Override
-  public void requestEnsureConnection() {
+  public FongoDBCollection getCollection(final String name) {
+    return doGetCollection(name);
   }
 
   @Override
@@ -83,10 +107,17 @@ public class FongoDB extends DB {
     return aggregator.computeResult();
   }
 
-  private DBObject doMapReduce(String collection, String map, String reduce, String finalize, Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
+  private MapReduceOutput doMapReduce(String collection, String map, String reduce, String finalize, Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
     FongoDBCollection coll = doGetCollection(collection);
-    MapReduce mapReduce = new MapReduce(this.fongo, coll, map, reduce, finalize, scope, out, query, sort, limit);
-    return mapReduce.computeResult();
+    MapReduceCommand mapReduceCommand = new MapReduceCommand(coll, map, reduce, null, null, query);
+    mapReduceCommand.setSort(sort);
+    if (limit != null) {
+      mapReduceCommand.setLimit(limit.intValue());
+    }
+    mapReduceCommand.setFinalize(finalize);
+    mapReduceCommand.setOutputDB((String) out.get("db"));
+    mapReduceCommand.setScope(scope);
+    return coll.mapReduce(mapReduceCommand);
   }
 
   private List<DBObject> doGeoNearCollection(String collection, Coordinate near, DBObject query, Number limit, Number maxDistance, boolean spherical) {
@@ -118,10 +149,6 @@ public class FongoDB extends DB {
 //  }
 
   @Override
-  public void cleanCursors(boolean force) throws MongoException {
-  }
-
-  @Override
   public DB getSisterDB(String name) {
     return fongo.getDB(name);
   }
@@ -132,42 +159,47 @@ public class FongoDB extends DB {
   }
 
   @Override
+  public ReadConcern getReadConcern() {
+    return fongo.getReadConcern();
+  }
+
+  @Override
   public ReadPreference getReadPreference() {
     return ReadPreference.primaryPreferred();
   }
 
   @Override
-  public void dropDatabase() throws MongoException {
+  public synchronized void dropDatabase() throws MongoException {
     this.fongo.dropDatabase(this.getName());
     for (FongoDBCollection c : new ArrayList<FongoDBCollection>(collMap.values())) {
       c.drop();
     }
   }
 
-  @Override
-  CommandResult doAuthenticate(MongoCredential credentials) {
-    this.mongoCredential = credentials;
-    return okResult();
-  }
-
-  @Override
-  MongoCredential getAuthenticationCredentials() {
-    return this.mongoCredential;
-  }
+  // TODO WDEL
+//  @Override
+//  CommandResult doAuthenticate(MongoCredential credentials) {
+//    this.mongoCredential = credentials;
+//    return okResult();
+//  }
+//
+//  @Override
+//  MongoCredential getAuthenticationCredentials() {
+//    return this.mongoCredential;
+//  }
 
   /**
    * Executes a database command.
    *
-   * @param cmd       dbobject representing the command to execute
-   * @param options   query options to use
-   * @param readPrefs ReadPreferences for this command (nodes selection is the biggest part of this)
+   * @param cmd            dbobject representing the command to execute
+   * @param readPreference ReadPreferences for this command (nodes selection is the biggest part of this)
    * @return result of command from the database
    * @throws MongoException
    * @dochub commands
    * @see <a href="http://mongodb.onconfluence.com/display/DOCS/List+of+Database+Commands">List of Commands</a>
    */
   @Override
-  public CommandResult command(DBObject cmd, int options, ReadPreference readPrefs) throws MongoException {
+  public CommandResult command(final DBObject cmd, final ReadPreference readPreference, final DBEncoder encoder) {
     if (LOG.isDebugEnabled()) {
       LOG.debug("Fongo got command " + cmd);
     }
@@ -206,8 +238,7 @@ public class FongoDB extends DB {
       } else {
         doGetCollection(collectionName)._dropIndex(indexName);
       }
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("aggregate")) {
       @SuppressWarnings(
           "unchecked") List<DBObject> result = doAggregateCollection((String) cmd.get("aggregate"), (List<DBObject>) cmd.get("pipeline"));
@@ -224,20 +255,18 @@ public class FongoDB extends DB {
     } else if (cmd.containsField("findandmodify")) {
       return runFindAndModify(cmd, "findandmodify");
     } else if (cmd.containsField("ping")) {
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("validate")) {
-      CommandResult okResult = okResult();
-      return okResult;
+      return okResult();
     } else if (cmd.containsField("buildInfo") || cmd.containsField("buildinfo")) {
       CommandResult okResult = okResult();
-      okResult.put("version", "2.4.5");
+      List<Integer> versionList = fongo.getServerVersion().getVersionList();
+      okResult.put("version", versionList.get(0) + "." + versionList.get(1) + "." + versionList.get(2));
       okResult.put("maxBsonObjectSize", 16777216);
       return okResult;
     } else if (cmd.containsField("forceerror")) {
       // http://docs.mongodb.org/manual/reference/command/forceerror/
-      CommandResult result = notOkErrorResult(10038, null, "exception: forced error");
-      return result;
+      return notOkErrorResult(10038, null, "exception: forced error");
     } else if (cmd.containsField("mapreduce")) {
       return runMapReduce(cmd, "mapreduce");
     } else if (cmd.containsField("mapReduce")) {
@@ -261,8 +290,7 @@ public class FongoDB extends DB {
         okResult.put("results", list);
         return okResult;
       } catch (MongoException me) {
-        CommandResult result = errorResult(me.getCode(), me.getMessage());
-        return result;
+        return errorResult(me.getCode(), me.getMessage());
       }
     } else if (cmd.containsField("renameCollection")) {
       final String renameCollection = (String) cmd.get("renameCollection");
@@ -308,7 +336,7 @@ public class FongoDB extends DB {
     return notOkErrorResult(null, "no such cmd: " + command);
   }
 
-  private void renameCollection(String renameCollection, String to, Boolean dropTarget) {
+  public void renameCollection(String renameCollection, String to, Boolean dropTarget) {
     String dbRename = renameCollection.substring(0, renameCollection.indexOf('.'));
     String collectionRename = renameCollection.substring(renameCollection.indexOf('.') + 1);
     String dbTo = to.substring(0, to.indexOf('.'));
@@ -338,14 +366,12 @@ public class FongoDB extends DB {
    *
    * @return the names of collections in this database
    * @throws com.mongodb.MongoException
-   * @mongodb.driver.manual reference/method/db.getCollectionNames/ getCollectionNames()
    */
-//  @Override
+  @Override
   public Set<String> getCollectionNames() {
     List<String> collectionNames = new ArrayList<String>();
-    Iterator<DBObject> collections = getCollection("system.namespaces")
-        .find(new BasicDBObject(), null, 0, 0, 0, getOptions(), ReadPreference.primary(), null);
-    for (; collections.hasNext(); ) {
+    Iterator<DBObject> collections = getCollection("system.namespaces").find(new BasicDBObject());
+    while (collections.hasNext()) {
       String collectionName = collections.next().get("name").toString();
       if (!collectionName.contains("$")) {
         collectionNames.add(collectionName.substring(getName().length() + 1));
@@ -357,18 +383,25 @@ public class FongoDB extends DB {
   }
 
   public CommandResult okResult() {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 1.0);
-    return result;
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult okErrorResult(int code, String err) {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 1.0);
-    result.put("code", code);
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
+    result.put("code", new BsonInt32(code));
     if (err != null) {
-      result.put("err", err);
+      result.put("err", new BsonString(err));
     }
+    return new CommandResult(result, fongo.getServerAddress());
+  }
+
+  private BsonDocument bsonResultNotOk(int code, String err) {
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
     return result;
   }
 
@@ -377,21 +410,34 @@ public class FongoDB extends DB {
   }
 
   public CommandResult notOkErrorResult(String err, String errmsg) {
-    CommandResult result = new CommandResult(fongo.getServerAddress());
-    result.put("ok", 0);
+    final BsonDocument result = new BsonDocument("ok", new BsonDouble(0.0));
     if (err != null) {
-      result.put("err", err);
+      result.put("err", new BsonString(err));
     }
     if (errmsg != null) {
-      result.put("errmsg", errmsg);
+      result.put("errmsg", new BsonString(errmsg));
     }
-    return result;
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(int code, String err) {
-    CommandResult result = notOkErrorResult(err);
-    result.put("code", code);
-    return result;
+    final BsonDocument result = bsonResultNotOk(code, err);
+    return new CommandResult(result, fongo.getServerAddress());
+  }
+
+  public WriteConcernException writeConcernException(int code, String err) {
+    final BsonDocument result = bsonResultNotOk(code, err);
+    return new WriteConcernException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
+  }
+
+  public WriteConcernException duplicateKeyException(int code, String err) {
+    final BsonDocument result = bsonResultNotOk(code, err);
+    return new DuplicateKeyException(result, fongo.getServerAddress(), WriteConcernResult.unacknowledged());
+  }
+
+  public MongoCommandException mongoCommandException(int code, String err) {
+     final BsonDocument result = bsonResultNotOk(code, err);
+     return new MongoCommandException(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
@@ -401,11 +447,13 @@ public class FongoDB extends DB {
   }
 
   public CommandResult errorResult(int code, String err) {
-    CommandResult result = okResult();
-    result.put("err", err);
-    result.put("code", code);
-    result.put("ok", false);
-    return result;
+    final BsonDocument result = new BsonDocument();
+    if (err != null) {
+      result.put("err", new BsonString(err));
+    }
+    result.put("code", new BsonInt32(code));
+    result.put("ok", BsonBoolean.FALSE);
+    return new CommandResult(result, fongo.getServerAddress());
   }
 
   @Override
@@ -423,9 +471,9 @@ public class FongoDB extends DB {
     this.collMap.put(collection.getName(), collection);
     if (!collection.getName().startsWith("system.")) {
       if (!this.namespaceDeclarated.contains(collection.getFullName())) {
-        this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getFullName()));
+        this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getFullName()).append("options", new BasicDBObject()));
         if (this.namespaceDeclarated.size() == 0) {
-          this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes"));
+          this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes").append("options", new BasicDBObject()));
         }
         this.namespaceDeclarated.add(collection.getFullName());
       }
@@ -433,6 +481,10 @@ public class FongoDB extends DB {
   }
 
   private CommandResult runFindAndModify(DBObject cmd, String key) {
+    if (!cmd.containsField("remove") && !cmd.containsField("update")) {
+      return notOkErrorResult(null, "need remove or update");
+    }
+
     DBObject result = findAndModify(
         (String) cmd.get(key),
         ExpressionParser.toDbObject(cmd.get("query")),
@@ -448,25 +500,25 @@ public class FongoDB extends DB {
   }
 
   private CommandResult runMapReduce(DBObject cmd, String key) {
-    DBObject result = doMapReduce(
-        (String) cmd.get(key),
-        (String) cmd.get("map"),
-        (String) cmd.get("reduce"),
-        (String) cmd.get("finalize"),
-        (Map) cmd.get("scope"),
-        ExpressionParser.toDbObject(cmd.get("out")),
-        ExpressionParser.toDbObject(cmd.get("query")),
-        ExpressionParser.toDbObject(cmd.get("sort")),
-        (Number) cmd.get("limit"));
+    MapReduceOutput result = doMapReduce(
+            (String) cmd.get(key),
+            (String) cmd.get("map"),
+            (String) cmd.get("reduce"),
+            (String) cmd.get("finalize"),
+            (Map) cmd.get("scope"),
+            ExpressionParser.toDbObject(cmd.get("out")),
+            ExpressionParser.toDbObject(cmd.get("query")),
+            ExpressionParser.toDbObject(cmd.get("sort")),
+            (Number) cmd.get("limit"));
     if (result == null) {
       return notOkErrorResult("can't mapReduce");
     }
     CommandResult okResult = okResult();
-    if (result instanceof List) {
+    if (result.results() instanceof List) {
       // INLINE case.
-      okResult.put("results", result);
+      okResult.put("results", result.results());
     } else {
-      okResult.put("result", result);
+      okResult.put("result", result.getCommand());
     }
     return okResult;
   }

@@ -9,11 +9,10 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.DBRef;
+import java.util.HashSet;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.junit.Rule;
 import org.junit.Test;
-
-import java.util.HashSet;
 
 
 public class FongoFindTest {
@@ -100,7 +99,7 @@ public class FongoFindTest {
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("_id", 1).append("lang", "de"));
     assertThat(collection.findOne(
-            new BasicDBObject("lang", new BasicDBObject("$in", new HashSet<String>(newArrayList("de")))))
+        new BasicDBObject("lang", new BasicDBObject("$in", new HashSet<String>(newArrayList("de")))))
     ).isNotNull();
   }
 }

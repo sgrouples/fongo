@@ -2,20 +2,27 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
+import com.google.common.collect.Iterables;
+import com.mongodb.AggregationOptions;
 import com.mongodb.AggregationOutput;
 import com.mongodb.BasicDBObject;
+import com.mongodb.Cursor;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.MongoException;
 import java.util.Arrays;
-import java.util.Iterator;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.TimeZone;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -47,15 +54,17 @@ public class FongoAggregateTest {
 
   @Test
   public void shouldGenerateErrorOnNonList() {
-    ExpectedMongoException.expect(exception, MongoException.class);
-    ExpectedMongoException.expectCode(exception, 15978);
+    //    ExpectedMongoException.expect(exception, MongoException.class);
+    //    ExpectedMongoException.expectCode(exception, 15978);
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("author", "william").append("tags", "value"));
     DBObject matching = new BasicDBObject("$match", new BasicDBObject("author", "william"));
     DBObject unwind = new BasicDBObject("$unwind", "$tags");
 
-    collection.aggregate(Arrays.asList(matching, unwind));
-    //    assert(output.getMessage === "exception: $unwind:  value at end of field path must be an array")
+    AggregationOutput output = collection.aggregate(Arrays.asList(matching, unwind));
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    assertNotNull(resultAggregate);
+    assertEquals("value", resultAggregate.get("tags"));
   }
 
 
@@ -69,12 +78,12 @@ public class FongoAggregateTest {
     // Aggregate
     AggregationOutput output = collection.aggregate(Arrays.asList(match, sort, group));
     int result = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+//    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
+//    }
 
     assertEquals(7, result);
   }
@@ -89,12 +98,10 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     boolean result = false;
 
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        assertNull(resultAggregate.get("date"));
-        result = true;
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      assertNull(resultAggregate.get("date"));
+      result = true;
     }
     assertTrue("Result not found", result);
   }
@@ -107,11 +114,9 @@ public class FongoAggregateTest {
     DBObject group = new BasicDBObject("$group", new BasicDBObject("_id", "0").append("date", new BasicDBObject("$first", "$date")));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     int result = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
 
     assertEquals(1, result);
@@ -125,12 +130,10 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     boolean result = false;
 
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        assertNull(resultAggregate.get("date"));
-        result = true;
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      assertNull(resultAggregate.get("date"));
+      result = true;
     }
     assertTrue("Result not found", result);
   }
@@ -143,11 +146,9 @@ public class FongoAggregateTest {
     DBObject group = new BasicDBObject("$group", new BasicDBObject("_id", "0").append("date", new BasicDBObject("$min", "$date")));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     int result = 0;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
 
     assertEquals(1, result);
@@ -160,11 +161,9 @@ public class FongoAggregateTest {
     DBObject group = new BasicDBObject("$group", new BasicDBObject("_id", "0").append("date", new BasicDBObject("$max", "$date")));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     int result = 0;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
 
     assertEquals(6, result);
@@ -178,11 +177,9 @@ public class FongoAggregateTest {
     DBObject group = new BasicDBObject("$group", new BasicDBObject("_id", "0").append("date", new BasicDBObject("$max", "$date")));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, limit, group));
     int result = 0;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
 
     assertEquals(3, result);
@@ -196,11 +193,9 @@ public class FongoAggregateTest {
     DBObject group = new BasicDBObject("$group", new BasicDBObject("_id", "0").append("date", new BasicDBObject("$min", "$date")));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, skip, group));
     int result = 0;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date")).intValue();
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date")).intValue();
     }
 
     assertEquals(4, result);
@@ -213,13 +208,10 @@ public class FongoAggregateTest {
     DBObject sort = new BasicDBObject("$sort", new BasicDBObject("date", 1));
     AggregationOutput output = collection.aggregate(Arrays.asList(match, sort));
     int lastDate = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      Iterator<DBObject> it = ((java.util.List<DBObject>) (output.getCommandResult().get("result"))).iterator();
-      while (it.hasNext()) {
-        int date = ((Number) it.next().get("date")).intValue();
-        assertTrue(lastDate < date);
-        lastDate = date;
-      }
+    for (DBObject result : output.results()) {
+      int date = ((Number) result.get("date")).intValue();
+      assertTrue(lastDate < date);
+      lastDate = date;
     }
 
     Assert.assertEquals(7, lastDate);
@@ -235,10 +227,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(matching, unwind));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(3, result.size());
 
     // TODO : remove comment when _id can NOT be unique anymore.
@@ -265,11 +254,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(matching, project, unwind));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertEquals(0, result.size());
+    Assertions.assertThat(output.results()).hasSize(0);
   }
 
   @Test
@@ -281,11 +266,9 @@ public class FongoAggregateTest {
     // Aggregate
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     Number result = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date"));
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date"));
     }
 
     assertTrue("must be a Double but was a " + result.getClass(), result instanceof Double);
@@ -310,11 +293,9 @@ public class FongoAggregateTest {
     // Aggregate
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     Number result = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date"));
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date"));
     }
 
     assertTrue("must be a Double but was a " + result.getClass(), result instanceof Double);
@@ -333,11 +314,9 @@ public class FongoAggregateTest {
     // Aggregate
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
     Number result = -1;
-    if (output.getCommandResult().ok() && output.getCommandResult().containsField("result")) {
-      DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
-      if (resultAggregate != null && resultAggregate.containsField("date")) {
-        result = ((Number) resultAggregate.get("date"));
-      }
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
+    if (resultAggregate != null && resultAggregate.containsField("date")) {
+      result = ((Number) resultAggregate.get("date"));
     }
 
     assertEquals(21, result);
@@ -354,11 +333,8 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
     Number result = -1;
-    DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
     if (resultAggregate != null && resultAggregate.containsField("sum")) {
       result = ((Number) resultAggregate.get("sum"));
     }
@@ -377,10 +353,8 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
     Number result = -1;
-    DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
     if (resultAggregate != null && resultAggregate.containsField("sum")) {
       result = ((Number) resultAggregate.get("sum"));
     }
@@ -398,10 +372,8 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
     Number result = -1;
-    DBObject resultAggregate = (DBObject) ((DBObject) output.getCommandResult().get("result")).get("0");
+    DBObject resultAggregate = Iterables.getFirst(output.results(), null);
     if (resultAggregate != null && resultAggregate.containsField("sum")) {
       result = ((Number) resultAggregate.get("sum"));
     }
@@ -421,10 +393,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group, sort));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     assertEquals(2, resultAggregate.size());
     Assert.assertEquals(Arrays.asList(
         new BasicDBObject("_id", "p0").append("count", 15),
@@ -442,10 +411,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(match, group, sort));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     Assert.assertEquals(Arrays.asList(
         new BasicDBObject("_id", "p0").append("count", 12),
         new BasicDBObject("_id", "p1").append("count", 2)), resultAggregate);
@@ -468,10 +434,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     assertEquals(fongoRule.parseList("[ " +
         "{ \"_id\" : 1 , \"name\" : [ \"n1\" , \"n3\" , \"n4\"]} , " +
         "{ \"_id\" : 2 , \"name\" : [ \"n2\" , \"n5\"]}]"), resultAggregate);
@@ -493,10 +456,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     assertEquals(fongoRule.parseList("[ " +
         "{ \"_id\" : 1 , \"name\" : [ \"n1\" , \"n1\" , \"n2\"]} , " +
         "{ \"_id\" : 2 , \"name\" : [ \"n5\" , \"n5\"]}]"), resultAggregate);
@@ -518,10 +478,7 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> resultAggregate = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
     assertEquals(fongoRule.parseList("[ " +
         "{ \"_id\" : 1 , \"name\" : [ \"n1\" , \"n3\" , \"n4\"]} , " +
         "{ \"_id\" : 2 , \"name\" : [ \"n2\" , \"n5\"]}]"), resultAggregate);
@@ -543,13 +500,10 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
 
     // Take care, order is not same on MongoDB (n2,n1) // TODO
-    Assertions.assertThat(result).isEqualTo(fongoRule.parseList("[ " +
+    Assertions.assertThat(resultAggregate).isEqualTo(fongoRule.parseList("[ " +
         "{ \"_id\" : 1 , \"name\" : [ \"n1\" , \"n2\"]} , " +
         "{ \"_id\" : 2 , \"name\" : [ \"n5\"]}]"));
   }
@@ -559,7 +513,7 @@ public class FongoAggregateTest {
     DBCollection collection = fongoRule.insertJSON(fongoRule.newCollection(),
         "[{uuid:\"2\", version:1, _class:\"A\"},{uuid:\"2\", version:2, _class:\"B\"}]"
     );
-    collection.ensureIndex(new BasicDBObject("uuid", 1).append("version", 1), null, true);
+    collection.createIndex(new BasicDBObject("uuid", 1).append("version", 1), null, true);
 
     DBObject group = fongoRule.parseDBObject("{$group: { '_id': '$uuid', 'event': { $addToSet: '$_class'}}}");
 
@@ -567,19 +521,38 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
 
     // Take care, order is not same on MongoDB (B,A)
-    Assertions.assertThat(result).isEqualTo(fongoRule.parseList("[ { \"_id\" : \"2\" , \"event\" : [ \"A\" , \"B\"]}]"));
+    Assertions.assertThat(resultAggregate).isEqualTo(fongoRule.parseList("[ { \"_id\" : \"2\" , \"event\" : [ \"A\" , \"B\"]}]"));
   }
 
   @Test
   public void should_addToSet_extractField_with_index2() {
     DBCollection collection = fongoRule.insertJSON(fongoRule.newCollection("versioning"),
-        "[{ \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69b9\"} , \"_class\" : \"LogAlertCreated\" , \"uuidAlert\" : \"2\" , \"version\" : 1 , \"createdAt\" : 1394832973819 , \"alert\" : { \"uuid\" : { \"$uuid\" : \"951a2f50-586d-4bef-83c5-22f68354f4d0\"} , \"senderMessage\" : \"user\" , \"title\" : \"title\" , \"category\" : 12 , \"severity\" : 6 , \"message\" : \"message\" , \"start\" : 1394832973799 , \"area\" : { \"_class\" : \"zone.CircleZone\" , \"center\" : { \"_class\" : \"com.deveryware.mpa.model.v1.Coordinate\" , \"latitude\" : 42.2 , \"longitude\" : 38.2} , \"radius\" : 12.0}}}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69ba\"} , \"_class\" : \"LogAlertCreated\" , \"uuidAlert\" : \"1\" , \"version\" : 1 , \"createdAt\" : 1394832973907 , \"alert\" : { \"uuid\" : { \"$uuid\" : \"406a76c0-cdc3-4de0-a8aa-aae6211dc01e\"} , \"senderMessage\" : \"user\" , \"title\" : \"title\" , \"category\" : 12 , \"severity\" : 6 , \"message\" : \"message\" , \"start\" : 1394832973907 , \"area\" : { \"_class\" : \"zone.CircleZone\" , \"center\" : { \"_class\" : \"com.deveryware.mpa.model.v1.Coordinate\" , \"latitude\" : 42.2 , \"longitude\" : 38.2} , \"radius\" : 12.0}}}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bb\"} , \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"1\" , \"version\" : 3 , \"createdAt\" : 1394832973917 , \"message\" : \"notification3\"}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bc\"} , \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"1\" , \"version\" : 2 , \"createdAt\" : 1394832973933 , \"message\" : \"notification2\"}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bd\"} , \"_class\" : \"LogAlertEnded\" , \"uuidAlert\" : \"1\" , \"version\" : 4 , \"createdAt\" : 1394832973946}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69be\"} , \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"2\" , \"version\" : 3 , \"createdAt\" : 1394832973959 , \"message\" : \"modif3\"}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bf\"} , \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"2\" , \"version\" : 2 , \"createdAt\" : 1394832973969 , \"message\" : \"modif2\"}]"
+        "[{ \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69b9\"} , \"_class\" : \"LogAlertCreated\" ," +
+            " \"uuidAlert\" : \"2\" , \"version\" : 1 , \"createdAt\" : 1394832973819 , " +
+            "\"alert\" : { \"uuid\" : { \"$uuid\" : \"951a2f50-586d-4bef-83c5-22f68354f4d0\"} ," +
+            " \"senderMessage\" : \"user\" , \"title\" : \"title\" , \"category\" : 12 , \"severity\" : 6 ," +
+            " \"message\" : \"message\" , \"start\" : 1394832973799 , \"area\" : { \"_class\" : \"zone.CircleZone\" ," +
+            " \"center\" : { \"_class\" : \"com.deveryware.mpa.model.v1.Coordinate\" , \"latitude\" : 42.2 , " +
+            "\"longitude\" : 38.2} , \"radius\" : 12.0}}}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69ba\"} ," +
+            " \"_class\" : \"LogAlertCreated\" , \"uuidAlert\" : \"1\" , \"version\" : 1 ," +
+            " \"createdAt\" : 1394832973907 , \"alert\" : { \"uuid\" : { \"$uuid\" : \"406a76c0-cdc3-4de0-a8aa-aae6211dc01e\"} ," +
+            " \"senderMessage\" : \"user\" , \"title\" : \"title\" , \"category\" : 12 , \"severity\" : 6 ," +
+            " \"message\" : \"message\" , \"start\" : 1394832973907 , \"area\" : { \"_class\" : \"zone.CircleZone\" ," +
+            " \"center\" : { \"_class\" : \"com.deveryware.mpa.model.v1.Coordinate\" , \"latitude\" : 42.2 ," +
+            " \"longitude\" : 38.2} , \"radius\" : 12.0}}}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bb\"} ," +
+            " \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"1\" , \"version\" : 3 , " +
+            "\"createdAt\" : 1394832973917 , \"message\" : \"notification3\"}, " +
+            "{ \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bc\"} , \"_class\" : \"LogAlertMessageModified\" , " +
+            "\"uuidAlert\" : \"1\" , \"version\" : 2 , \"createdAt\" : 1394832973933 , \"message\" : \"notification2\"}, " +
+            "{ \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bd\"} , \"_class\" : \"LogAlertEnded\" , \"uuidAlert\" : \"1\" ," +
+            " \"version\" : 4 , \"createdAt\" : 1394832973946}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69be\"} ," +
+            " \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"2\" , \"version\" : 3 , \"createdAt\" : 1394832973959 ," +
+            " \"message\" : \"modif3\"}, { \"_id\" : { \"$oid\" : \"5323764d210663e62bdc69bf\"} ," +
+            " \"_class\" : \"LogAlertMessageModified\" , \"uuidAlert\" : \"2\" , \"version\" : 2 , " +
+            "\"createdAt\" : 1394832973969 , \"message\" : \"modif2\"}]"
     );
     collection.createIndex(new BasicDBObject("uuidAlert", 1).append("version", 1), new BasicDBObject("unique", Boolean.TRUE));
 
@@ -589,13 +562,10 @@ public class FongoAggregateTest {
     AggregationOutput output = collection.aggregate(Arrays.asList(group, new BasicDBObject("$sort", new BasicDBObject("_id", 1))));
 
     // Assert
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
 
     // Take care, order is not same on MongoDB (n2,n1)
-    Assertions.assertThat(result).isEqualTo(fongoRule.parseList("[ { \"_id\" : \"1\" , \"events\" : [ \"LogAlertCreated\" , \"LogAlertMessageModified\" , \"LogAlertEnded\"]} , { \"_id\" : \"2\" , \"events\" : [ \"LogAlertCreated\" , \"LogAlertMessageModified\"]}]"));
+    Assertions.assertThat(resultAggregate).isEqualTo(fongoRule.parseList("[ { \"_id\" : \"1\" , \"events\" : [ \"LogAlertCreated\" , \"LogAlertMessageModified\" , \"LogAlertEnded\"]} , { \"_id\" : \"2\" , \"events\" : [ \"LogAlertCreated\" , \"LogAlertMessageModified\"]}]"));
   }
 
   // See https://github.com/fakemongo/fongo/issues/45
@@ -603,12 +573,158 @@ public class FongoAggregateTest {
   public void should_$sum_return_long() {
     DBCollection collection = createTestCollection();
 
-    DBObject groupFields = new BasicDBObject("count", new BasicDBObject("$sum", 1L));
+    DBObject groupFields = new BasicDBObject("_id", null).append("count", new BasicDBObject("$sum", 1L));
     DBObject group = new BasicDBObject("$group", groupFields);
     AggregationOutput output = collection.aggregate(Lists.newArrayList(group));
 
     Assertions.assertThat(output.results()).hasSize(1);
     Assertions.assertThat(output.results().iterator().next().get("count")).isEqualTo(10L);
+  }
+
+  //  @Ignore("soon")
+  @Test
+  public void should_$group_contains__id() {
+    DBCollection collection = createTestCollection();
+
+    DBObject groupFields = new BasicDBObject("count", new BasicDBObject("$sum", 1L));
+    DBObject group = new BasicDBObject("$group", groupFields);
+
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15955);
+    exception.expectMessage("a group specification must include an _id");
+    collection.aggregate(Lists.newArrayList(group));
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/152
+  @Ignore
+  @Test
+  public void should_$cond_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/cond/)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("   [\n" +
+        "      {\n" +
+        "         $project:\n" +
+        "           {\n" +
+        "             item: 1,\n" +
+        "             discount:\n" +
+        "               {\n" +
+        "                 $cond: { if: { $gte: [ \"$qty\", 250 ] }, then: 30, else: 20 }\n" +
+        "               }\n" +
+        "           }\n" +
+        "      }\n" +
+        "   ]\n"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"discount\" : 30 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"discount\" : 20 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"discount\" : 30 }]"));
+  }
+
+  // See https://github.com/fakemongo/fongo/issues/152
+  @Ignore
+  @Test
+  public void should_$cond_in_simple_form_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/cond/)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("[\n" +
+        "      {\n" +
+        "         $project:\n" +
+        "           {\n" +
+        "             item: 1,\n" +
+        "             discount:\n" +
+        "               {\n" +
+        "                 $cond: [ { $gte: [ \"$qty\", 250 ] }, 30, 20 ]\n" +
+        "               }\n" +
+        "           }\n" +
+        "      }\n" +
+        "   ]"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"discount\" : 30 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"discount\" : 20 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"discount\" : 30 }]"));
+  }
+
+  @Test
+  public void should_$ifnull_return_value() {
+    // Given (https://docs.mongodb.org/manual/reference/operator/aggregation/ifNull/#exp._S_ifNull)
+    final DBCollection collection = fongoRule.newCollection();
+    fongoRule.insertJSON(collection, "[{ \"_id\" : 1, \"item\" : \"abc1\", description: \"product 1\", qty: 300 }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", description: null, qty: 200 }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", qty: 250 }]");
+
+    // When
+    final AggregationOutput aggregate = collection.aggregate(fongoRule.parseList("[\n" +
+        "      {\n" +
+        "         $project: {\n" +
+        "            item: 1,\n" +
+        "            description: { $ifNull: [ \"$description\", \"Unspecified\" ] }\n" +
+        "         }\n" +
+        "      }\n" +
+        "   ]"));
+
+    // Then
+    Assertions.assertThat(aggregate.results()).containsExactlyElementsOf(fongoRule.parseList("[{ \"_id\" : 1, \"item\" : \"abc1\", \"description\" : \"product 1\" }," +
+        "{ \"_id\" : 2, \"item\" : \"abc2\", \"description\" : \"Unspecified\" }," +
+        "{ \"_id\" : 3, \"item\" : \"xyz1\", \"description\" : \"Unspecified\" }\n]"));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_date_return_value() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
+
+    // Then
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH))));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_multiple_date_return_value() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t")).append("month", new BasicDBObject("$month", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
+
+    // Then
+    Assertions.assertThat(ao.results()).contains(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH)).append("month", Calendar.getInstance().get(Calendar.MONTH) + 1)));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/163
+  @Test
+  public void should_invalid_keyword_send_error() {
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15999);
+    exception.expectMessage("invalid operator '$NOTEXIST'");
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$NOTEXIST", "$t"))));
+    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
   }
 
   @Test
@@ -640,6 +756,26 @@ public class FongoAggregateTest {
         "\"b\" : \"2015-03-30T00:00:00Z\" , " +
         "\"c\" : \"2015-03-30T00:00:00Z\" , " +
         "\"d\" : \"2015-03-30T00:05:00Z\"}]"), resultAggregate);
+  }
+
+  // https://github.com/fakemongo/fongo/issues/202
+  @Test
+  public void should_cursor_next_works() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    AggregationOptions options = AggregationOptions.builder()
+        .outputMode(AggregationOptions.OutputMode.CURSOR).batchSize(100)
+        .allowDiskUse(true).build();
+    collection.insert(new BasicDBObject("t", new java.util.Date()));
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$group",
+        new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$dayOfMonth", "$t"))));
+    Cursor cursor = collection.aggregate(Arrays.asList(obj), options);
+
+    // Then
+    Assertions.assertThat(cursor.hasNext()).isTrue();
+    Assertions.assertThat(cursor.next()).isEqualTo(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH))));
   }
 
   private DBCollection createTestCollection() {

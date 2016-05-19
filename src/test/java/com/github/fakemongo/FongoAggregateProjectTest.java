@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import org.assertj.core.api.Assertions;
+import org.assertj.core.util.Lists;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -53,14 +54,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple pie\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry pie\" },\n" +
         "                    { \"_id\" : 3, \"food\" : \"shepherd's pie\" },\n" +
-        "                    { \"_id\" : 4, \"food\" : \"chicken pot pie\" }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : \"chicken pot pie\" }]\n"), resultAggregate);
   }
 
   /**
@@ -85,15 +84,13 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple pie\" },\n" +
         "               { \"_id\" : 2, \"food\" : \"cherry pie\" },\n" +
         "               { \"_id\" : 3, \"food\" : \"shepherd's pie\" },\n" +
         "               { \"_id\" : 4, \"food\" : \"chicken pot pie\" },\n" +
-        "               { \"_id\" : 5, \"food\" : null }]\n"), result);
+        "               { \"_id\" : 5, \"food\" : null }]\n"), resultAggregate);
   }
 
   /**
@@ -119,15 +116,13 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1, \"food\" : \"apple pie\" },\n" +
         "               { \"_id\" : 2, \"food\" : \"cherry pie\" },\n" +
         "               { \"_id\" : 3, \"food\" : \"shepherd's pie\" },\n" +
         "               { \"_id\" : 4, \"food\" : \"chicken pot pie\" },\n" +
-        "               { \"_id\" : 5, \"food\" : \"coffee <unknown category>\" }]\n"), result);
+        "               { \"_id\" : 5, \"food\" : \"coffee <unknown category>\" }]\n"), resultAggregate);
   }
 
   @Test
@@ -138,11 +133,10 @@ public class FongoAggregateProjectTest {
 
     // project doesn't handle array
     AggregationOutput output = coll.aggregate(new BasicDBObject("$project", new BasicDBObject("e", "$a.0")));
-    assertTrue(output.getCommandResult().ok());
 
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
-    assertEquals(new BasicDBList(), result.get(0).get("e"));
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
+    assertEquals(new BasicDBList(), resultAggregate.get(0).get("e"));
   }
 
   /**
@@ -165,14 +159,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : -1 },\n" +
         "                    { \"_id\" : 2, \"food\" : -1 },\n" +
         "                    { \"_id\" : 3, \"food\" : 1},\n" +
-        "                    { \"_id\" : 4, \"food\" : -1 }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : -1 }]\n"), resultAggregate);
   }
 
   /**
@@ -195,14 +187,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : 0 },\n" +
         "                    { \"_id\" : 2, \"food\" : 0 },\n" +
         "                    { \"_id\" : 3, \"food\" : 1 },\n" +
-        "                    { \"_id\" : 4, \"food\" : -1 }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : -1 }]\n"), resultAggregate);
   }
 
   /**
@@ -210,7 +200,7 @@ public class FongoAggregateProjectTest {
    */
   @Test
   public void testStrcasecmpMustBeAFailure() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -246,14 +236,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"a\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"a\" },\n" +
         "                    { \"_id\" : 3, \"food\" : \"a\" },\n" +
-        "                    { \"_id\" : 4, \"food\" : \"a\" }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : \"a\" }]\n"), resultAggregate);
   }
 
   /**
@@ -274,14 +262,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"a\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"c\" },\n" +
         "                    { \"_id\" : 3, \"food\" : \"s\" },\n" +
-        "                    { \"_id\" : 4, \"food\" : \"c\" }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : \"c\" }]\n"), resultAggregate);
   }
 
   /**
@@ -302,14 +288,12 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
-    assertNotNull(result);
+    List<DBObject> resultAggregate = Lists.newArrayList(output.results());
+    assertNotNull(resultAggregate);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"\" },\n" +
         "                    { \"_id\" : 3, \"food\" : \"\" },\n" +
-        "                    { \"_id\" : 4, \"food\" : \"\" }]\n"), result);
+        "                    { \"_id\" : 4, \"food\" : \"\" }]\n"), resultAggregate);
   }
 
   /**
@@ -330,9 +314,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
@@ -358,9 +340,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"a\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"c\" },\n" +
@@ -373,7 +353,7 @@ public class FongoAggregateProjectTest {
    */
   @Test
   public void testSubstrWithErrorParams() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -409,9 +389,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
@@ -439,9 +417,8 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
 
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    Iterable<DBObject> result = output.results();
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
@@ -469,9 +446,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
@@ -499,9 +474,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : \"apple\" },\n" +
         "                    { \"_id\" : 2, \"food\" : \"cherry\" },\n" +
@@ -530,9 +503,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : -1 },\n" +
         "                    { \"_id\" : 2, \"food\" : -1 },\n" +
@@ -557,9 +528,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[{ \"_id\" : 1, \"food\" : 0 },\n" +
         "                    { \"_id\" : 2, \"food\" : 1 },\n" +
@@ -569,7 +538,7 @@ public class FongoAggregateProjectTest {
 
   @Test
   public void testCmpMustBeAFailure() {
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"apple\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"cherry\" } },\n" +
@@ -602,9 +571,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"APPLE\"}," +
         " { \"_id\" : 2 , \"food\" : \"CHERRY\"}," +
@@ -627,9 +594,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"APPLE\"}," +
         " { \"_id\" : 2 , \"food\" : \"CHERRY\"}," +
@@ -652,9 +617,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"APPLE\"}," +
         " { \"_id\" : 2 , \"food\" : \"CHERRY\"}," +
@@ -676,9 +639,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"APPLE\"}," +
         " { \"_id\" : 2 , \"food\" : \"APPLE\"}," +
@@ -702,9 +663,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"apple\"}," +
         " { \"_id\" : 2 , \"food\" : \"cherry\"}," +
@@ -727,9 +686,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"apple\"}," +
         " { \"_id\" : 2 , \"food\" : \"cherry\"}," +
@@ -752,9 +709,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"apple\"}," +
         " { \"_id\" : 2 , \"food\" : \"cherry\"}," +
@@ -765,7 +720,7 @@ public class FongoAggregateProjectTest {
   @Test
   public void testToLowerMustNotHandleBigArray() {
     //com.mongodb.CommandFailureException: { "serverUsed" : "/127.0.0.1:27017" , "errmsg" : "exception: the $toLower operator requires 1 operand(s)" , "code" : 16020 , "ok" : 0.0}
-    ExpectedMongoException.expectCommandFailure(exception, 16020);
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
     DBCollection coll = fongoRule.newCollection();
     fongoRule.insertJSON(coll, "[{ _id: 1, item: { sec: \"dessert\", category: \"pie\", type: \"APPLE\" } },\n" +
         "{ _id: 2, item: { sec: \"dessert\", category: \"pie\", type: \"CHERRY\" } },\n" +
@@ -795,9 +750,7 @@ public class FongoAggregateProjectTest {
         "                   }");
 
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-
-    List<DBObject> result = (List<DBObject>) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertNotNull(result);
     assertEquals(fongoRule.parse("[ { \"_id\" : 1 , \"food\" : \"apple\"}," +
         " { \"_id\" : 2 , \"food\" : \"apple\"}," +
@@ -812,10 +765,7 @@ public class FongoAggregateProjectTest {
 
     // Test
     AggregationOutput output = coll.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = Util.extractField(output.getCommandResult(), "result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(10, result.size());
     assertTrue(((DBObject) result.get(0)).containsField("date"));
     assertTrue(((DBObject) result.get(0)).containsField("_id"));
@@ -829,10 +779,7 @@ public class FongoAggregateProjectTest {
 
     // Test
     AggregationOutput output = collection.aggregate(Arrays.asList(project));
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = Util.extractField(output.getCommandResult(), "result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(1, result.size());
     assertEquals(Util.list(1, 2, 3, 4), Util.extractField((DBObject) result.get(0), "a"));
   }
@@ -843,10 +790,7 @@ public class FongoAggregateProjectTest {
     DBObject project = new BasicDBObject("$project", new BasicDBObject("renamedDate", "$date"));
     AggregationOutput output = createTestCollection().aggregate(project);
 
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = (BasicDBList) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(10, result.size());
     assertTrue(((DBObject) result.get(0)).containsField("renamedDate"));
     assertTrue(((DBObject) result.get(0)).containsField("_id"));
@@ -861,10 +805,7 @@ public class FongoAggregateProjectTest {
     DBObject project = new BasicDBObject("$project", new BasicDBObject("bar", "$sub.obj.ect"));
     AggregationOutput output = collection.aggregate(matching, project);
 
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = (BasicDBList) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(1, result.size());
     assertTrue(((DBObject) result.get(0)).containsField("bar"));
     assertEquals(1, ((DBObject) result.get(0)).get("bar"));
@@ -879,10 +820,7 @@ public class FongoAggregateProjectTest {
     DBObject project = new BasicDBObject("$project", new BasicDBObject("bar", "$sub.obj.ect").append("foo", "$sub.obj.ect2"));
     AggregationOutput output = collection.aggregate(matching, project);
 
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = (BasicDBList) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(1, result.size());
     assertTrue(((DBObject) result.get(0)).containsField("bar"));
     assertEquals(1, ((DBObject) result.get(0)).get("bar"));
@@ -900,10 +838,7 @@ public class FongoAggregateProjectTest {
     DBObject project = new BasicDBObject("$project", new BasicDBObject("author", new BasicDBObject("name", "$name").append("lastname", "$lastname")));
     AggregationOutput output = collection.aggregate(Arrays.asList(project));
 
-    assertTrue(output.getCommandResult().ok());
-    assertTrue(output.getCommandResult().containsField("result"));
-
-    BasicDBList result = (BasicDBList) output.getCommandResult().get("result");
+    List<DBObject> result = Lists.newArrayList(output.results());
     assertEquals(Util.list(new BasicDBObject("_id", 1).append("author", new BasicDBObject("name", "jon").append("lastname", "hoff")),
         new BasicDBObject("_id", 2).append("author", new BasicDBObject("name", "will").append("lastname", "del"))), result);
   }
@@ -921,6 +856,34 @@ public class FongoAggregateProjectTest {
 
     // Then
     Assertions.assertThat(output.results()).isEqualTo(fongoRule.parseList("[{\"_id\":1, \"day\":2014}]"));
+  }
+
+  @Test
+  public void should_$year_give_the_year_of_the_date_in_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    collection.insert(new BasicDBObject("date_created", calendar.getTime()).append("_id", 1));
+
+    // When
+    AggregationOutput output = collection.aggregate(fongoRule.parseList("[{ $project: { day: { $year: [\"$date_created\" ] } } }]"));
+
+    // Then
+    Assertions.assertThat(output.results()).isEqualTo(fongoRule.parseList("[{\"_id\":1, \"day\":2014}]"));
+  }
+
+  @Test
+  public void should_$year_fail_if_more_than_one_operand_in_array() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    Calendar calendar = getCalendarInstance();
+    calendar.set(Calendar.YEAR, 2014);
+    collection.insert(new BasicDBObject("date_created", calendar.getTime()).append("_id", 1));
+
+    // When
+    ExpectedMongoException.expectMongoCommandException(exception, 16020);
+    AggregationOutput output = collection.aggregate(fongoRule.parseList("[{ $project: { day: { $year: [\"$date_created\", \"second\" ] } } }]"));
   }
 
   @Test
@@ -1114,7 +1077,7 @@ public class FongoAggregateProjectTest {
     collection.insert(new BasicDBObject("_id", 1).append("liked", true).append("viewCount", 2000));
 
     // When
-    ExpectedMongoException.expectCommandFailure(exception, 17124);
+    ExpectedMongoException.expectMongoCommandException(exception, 17124);
     collection.aggregate(fongoRule.parseList("[{$match: {liked: {$ne: null}}}, {$project: {viewCount: 1, likedCount: {$size: [\"$liked\"]}, liked: 1} }, {$sort: {viewCount: -1, likedCount: -1}}, {$limit: 1}]"));
   }
 

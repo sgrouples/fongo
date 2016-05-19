@@ -9,12 +9,17 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBCursor;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
+import com.mongodb.MongoException;
+import com.mongodb.annotations.ThreadSafe;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import org.bson.util.annotations.ThreadSafe;
+import java.util.TimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -54,7 +59,7 @@ public class Group extends PipelineKeyword {
   }
 
   @ThreadSafe
-  static enum GroupKeyword {
+  enum GroupKeyword {
     MIN("$min") {
       @Override
       Object work(DBCollection coll, Object keywordParameter) {
@@ -108,11 +113,11 @@ public class Group extends PipelineKeyword {
 
     private final boolean canReturnNull;
 
-    private GroupKeyword(String keyword) {
+    GroupKeyword(String keyword) {
       this(keyword, false);
     }
 
-    private GroupKeyword(String keyword, boolean canReturnNull) {
+    GroupKeyword(String keyword, boolean canReturnNull) {
       this.keyword = keyword;
       this.canReturnNull = canReturnNull;
     }
@@ -136,7 +141,10 @@ public class Group extends PipelineKeyword {
   public DBCollection apply(DB originalDB, DBCollection coll, DBObject object) {
     DBObject group = ExpressionParser.toDbObject(object.get(getKeyword()));
 
-    Object id = (ExpressionParser.toDbObject(object.get(getKeyword()))).removeField(FongoDBCollection.ID_KEY);
+    if (!group.containsField(FongoDBCollection.ID_FIELD_NAME)) {
+      fongo.errorResult(15955, "a group specification must include an _id").throwOnError();
+    }
+    Object id = group.removeField(FongoDBCollection.ID_FIELD_NAME);
     LOG.debug("group() for _id : {}", id);
     // Try to group in the mapping.
     Map<DBObject, Mapping> mapping = createMapping(coll, id);
@@ -196,7 +204,7 @@ public class Group extends PipelineKeyword {
         List<DBObject> newCollection = coll.find(criteria).toArray();
         // Delete them from collection (optim for laaaaaarge collection)
         for (DBObject o : newCollection) {
-          coll.remove(new BasicDBObject(FongoDBCollection.ID_KEY, o.get(FongoDBCollection.ID_KEY)));
+          coll.remove(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, o.get(FongoDBCollection.ID_FIELD_NAME)));
         }
         // Generate keyword
         DBObject key = keyForId(id, dbObject);
@@ -222,27 +230,90 @@ public class Group extends PipelineKeyword {
       //ex: { "state" : "$state" , "city" : "$city"}
       DBObject subKey = new BasicDBObject();
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) (ExpressionParser.toDbObject(id)).toMap().entrySet()) {
-        subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
-      }
-      result.put(FongoDBCollection.ID_KEY, subKey);
+      extractKeys(ExpressionParser.toDbObject(id), dbObject, subKey);
+      result.put(FongoDBCollection.ID_FIELD_NAME, subKey);
     } else if (id != null) {
       String field = fieldName(id);
-      result.put(FongoDBCollection.ID_KEY, Util.extractField(dbObject, field));
+      result.put(FongoDBCollection.ID_FIELD_NAME, Util.extractField(dbObject, field));
     } else {
-      result.put(FongoDBCollection.ID_KEY, null);
+      result.put(FongoDBCollection.ID_FIELD_NAME, null);
     }
     LOG.debug("keyForId() id:{}, dbObject:{}, result:{}", id, dbObject, result);
     return result;
+  }
+
+  private void extractKeys(DBObject id, DBObject dbObject, DBObject subKey) {
+    for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) id.toMap().entrySet()) {
+      if (entry.getValue() instanceof DBObject) {
+        DBObject keywordDBObject = (DBObject) entry.getValue();
+        String keywordString = keywordDBObject.keySet().iterator().next();
+        Keyword extracted = Keyword.keyword(keywordString);
+        if (extracted != null) {
+          subKey.put(entry.getKey(), extracted.apply(Util.extractField(dbObject, fieldName(keywordDBObject.get(keywordString)))));
+        } else {
+          LOG.error("cannot find keywork for {}", entry);
+          throw new MongoException(15999, String.format("invalid operator '%s'", keywordString));
+        }
+      } else {
+        subKey.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
+      }
+    }
+  }
+
+
+  enum Keyword {
+    // https://docs.mongodb.org/manual/reference/operator/aggregation-date/
+    DAYOFYEAR("$dayOfYear", Calendar.DAY_OF_YEAR),
+    DAYOFMONTH("$dayOfMonth", Calendar.DAY_OF_MONTH),
+    DAYOFWEEK("$dayOfWeek", Calendar.DAY_OF_WEEK),
+    YEAR("$year", Calendar.YEAR),
+    MONTH("$month", Calendar.MONTH, 1),
+    WEEK("$week", Calendar.WEEK_OF_YEAR, -1),
+    HOUR("$hour", Calendar.HOUR_OF_DAY),
+    MINUTE("$minute", Calendar.MINUTE),
+    SECOND("$second", Calendar.SECOND),
+    MILLISECOND("$millisecond", Calendar.MILLISECOND);
+//    DATETOSTRING("$dateToString",);
+
+    final String keyword;
+    final int fromCalendar;
+    final int modifier;
+
+    Keyword(String keyword, int fromCalendar, int modifier) {
+      this.keyword = keyword;
+      this.fromCalendar = fromCalendar;
+      this.modifier = modifier;
+    }
+
+    Keyword(String keyword, int fromCalendar) {
+      this(keyword, fromCalendar, 0);
+    }
+
+    Object apply(Object value) {
+      if (value == null) {
+        return null;
+      }
+      Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("GMT"), Locale.ENGLISH);
+      calendar.setTimeInMillis((((Date) value).getTime()));
+      int extracted = calendar.get(fromCalendar) + modifier;
+      return extracted;
+    }
+
+    static Keyword keyword(String word) {
+      for (Keyword keyword : Keyword.values()) {
+        if (keyword.keyword.equals(word)) {
+          return keyword;
+        }
+      }
+      return null;
+    }
   }
 
   private DBObject criteriaForId(Object id, DBObject dbObject) {
     DBObject result = new BasicDBObject();
     if (ExpressionParser.isDbObject(id)) {
       //noinspection unchecked
-      for (Map.Entry<String, Object> entry : (Set<Map.Entry<String, Object>>) (ExpressionParser.toDbObject(id)).toMap().entrySet()) {
-        result.put(entry.getKey(), Util.extractField(dbObject, fieldName(entry.getValue()))); // TODO : hierarchical, like "state" : {bar:"$foo"}
-      }
+      extractKeys(ExpressionParser.toDbObject(id), dbObject, result);
     } else if (id != null) {
       String field = fieldName(id);
       result.put(field, Util.extractField(dbObject, field));
@@ -263,16 +334,12 @@ public class Group extends PipelineKeyword {
 
   /**
    * {@see http://docs.mongodb.org/manual/reference/aggregation/sum/#grp._S_sum}
-   *
-   * @param coll
-   * @param value
-   * @return
    */
   private static Object sum(DBCollection coll, Object value) {
     Number result = null;
     if (value.toString().startsWith("$")) {
       String field = value.toString().substring(1);
-      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_KEY, 0)).toArray();
+      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_FIELD_NAME, 0)).toArray();
       for (DBObject object : objects) {
         if (Util.containsField(object, field)) {
           if (result == null) {
@@ -293,7 +360,7 @@ public class Group extends PipelineKeyword {
       } else if (iValue instanceof Long) {
         result = coll.count() * iValue.longValue();
       } else {
-        LOG.warn("type of field not handled for sum: {}", result.getClass());
+        LOG.warn("type of field not handled for sum:{}", result == null ? null : result.getClass());
       }
     }
     return result;
@@ -301,9 +368,6 @@ public class Group extends PipelineKeyword {
 
   /**
    * return Integer if the parameter could be safely cast to an integer
-   *
-   * @param number
-   * @return
    */
   private static Number intOrLong(long number) {
     if (number <= Integer.MAX_VALUE && number >= Integer.MIN_VALUE) {
@@ -325,7 +389,7 @@ public class Group extends PipelineKeyword {
     long count = 1;
     if (value.toString().startsWith("$")) {
       String field = value.toString().substring(1);
-      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_KEY, 0)).toArray();
+      List<DBObject> objects = coll.find(null, new BasicDBObject(field, 1).append(FongoDBCollection.ID_FIELD_NAME, 0)).toArray();
       for (DBObject object : objects) {
         LOG.debug("avg object {} ", object);
 

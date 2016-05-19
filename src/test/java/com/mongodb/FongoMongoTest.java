@@ -1,21 +1,13 @@
 package com.mongodb;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-
 import com.github.fakemongo.Fongo;
+import java.net.InetSocketAddress;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import org.junit.Test;
 
-import java.util.Collections;
-
 public class FongoMongoTest {
-
-  @Test
-  public void testIsMongosConnection() {
-    Mongo mongo = new Fongo("test").getMongo();
-    assertFalse("should be mocked", mongo.isMongosConnection());
-  }
 
   @Test
   public void mongoClientHasOptions() {
@@ -23,7 +15,7 @@ public class FongoMongoTest {
     assertNotNull(mongoClient.getMongoClientOptions());
     assertNotNull(mongoClient.getMongoOptions());
   }
-  
+
   @Test
   public void mongoHasWriteConcern() {
     Fongo fongo = new Fongo("test");
@@ -32,9 +24,9 @@ public class FongoMongoTest {
   }
 
   @Test
-  public void mongoAllAdressOverride() {
+  public void mongoAllAddressOverride() {
     MongoClient mongoClient = new Fongo("test").getMongo();
-    assertNotNull(mongoClient.getAllAddress());
-    assertEquals(Collections.emptyList(), mongoClient.getAllAddress());
+
+    assertThat(mongoClient.getAllAddress()).containsOnly(new ServerAddress(new InetSocketAddress(ServerAddress.defaultHost(), ServerAddress.defaultPort())));
   }
 }

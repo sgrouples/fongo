@@ -21,7 +21,7 @@ import com.mongodb.BasicDBList;
 import com.mongodb.BasicDBObject;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import com.mongodb.util.JSON;
+import com.mongodb.util.FongoJSON;
 import java.util.List;
 import org.assertj.core.api.Assertions;
 import static org.junit.Assert.assertEquals;
@@ -43,10 +43,10 @@ public class FongoTextSearchTest {
   @Before
   public void setUp() {
     collection = fongoRule.newCollection();
-    collection.insert((DBObject) JSON.parse("{ _id:1, textField: \"aaa bbb\", otherField: \"text1 aaa\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:2, textField: \"ccc ddd\", otherField: \"text2 aaa\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:3, textField: \"eee fff\", otherField: \"text3 aaa\" }"));
-    collection.insert((DBObject) JSON.parse("{ _id:4, textField: \"aaa eee\", otherField: \"text4 aaa\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:1, textField: \"aaa bbb\", otherField: \"text1 aaa\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:2, textField: \"ccc ddd\", otherField: \"text2 aaa\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:3, textField: \"eee fff\", otherField: \"text3 aaa\" }"));
+    collection.insert((DBObject) FongoJSON.parse("{ _id:4, textField: \"aaa eee\", otherField: \"text4 aaa\" }"));
 
     collection.createIndex(new BasicDBObject("textField", "text"));
 
@@ -81,7 +81,7 @@ public class FongoTextSearchTest {
     DBObject result = ts.findByTextSearch(searchString, project);
 
     DBObject expected = new BasicDBObject("language", "english");
-    expected.put("results", JSON.parse("[ { "
+    expected.put("results", FongoJSON.parse("[ { "
         + "\"score\" : 0.75 , "
         + "\"obj\" : { \"_id\" : 1 , \"textField\" : \"aaa bbb\"}}]"));
     expected.put("stats",
@@ -105,7 +105,7 @@ public class FongoTextSearchTest {
     DBObject result = ts.findByTextSearch(searchString, project, 2);
 
     DBObject expected = new BasicDBObject("language", "english");
-    expected.put("results", JSON.parse("[ "
+    expected.put("results", FongoJSON.parse("[ "
         + "{ \"score\" : 1.5 , "
         + "\"obj\" : { \"_id\" : 1 , \"textField\" : \"aaa bbb\" , \"otherField\" : \"text1 aaa\"}} , "
         + "{ \"score\" : 1.5 , "

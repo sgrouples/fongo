@@ -1,8 +1,10 @@
 package com.mongodb;
 
 import com.github.fakemongo.FongoException;
+import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.ExpressionParser;
 import com.github.fakemongo.impl.Filter;
+import com.github.fakemongo.impl.MapReduce;
 import com.github.fakemongo.impl.Tuple2;
 import com.github.fakemongo.impl.UpdateEngine;
 import com.github.fakemongo.impl.Util;
@@ -11,15 +13,15 @@ import com.github.fakemongo.impl.index.GeoIndex;
 import com.github.fakemongo.impl.index.IndexAbstract;
 import com.github.fakemongo.impl.index.IndexFactory;
 import com.github.fakemongo.impl.text.TextSearch;
+import static com.mongodb.assertions.Assertions.isTrueArgument;
 import com.vividsolutions.jts.geom.Coordinate;
 import com.vividsolutions.jts.geom.Geometry;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import static java.util.Collections.emptyList;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -28,12 +30,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.bson.BSON;
+import org.bson.BsonArray;
+import org.bson.BsonDocument;
+import org.bson.BsonDocumentReader;
+import org.bson.BsonDocumentWriter;
+import org.bson.BsonValue;
+import org.bson.codecs.Codec;
+import org.bson.codecs.Decoder;
+import org.bson.codecs.DecoderContext;
+import org.bson.codecs.EncoderContext;
+import org.bson.codecs.configuration.CodecRegistry;
 import org.bson.io.BasicOutputBuffer;
 import org.bson.io.OutputBuffer;
 import org.bson.types.Binary;
 import org.bson.types.ObjectId;
-import static org.bson.util.Assertions.isTrue;
-import org.objenesis.ObjenesisStd;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -46,8 +56,6 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  */
 public class FongoDBCollection extends DBCollection {
   private final static Logger LOG = LoggerFactory.getLogger(FongoDBCollection.class);
-
-  public static final String ID_KEY = "_id";
 
   public static final String FONGO_SPECIAL_ORDER_BY = "$$$$$FONGO_ORDER_BY$$$$$";
 
@@ -72,31 +80,15 @@ public class FongoDBCollection extends DBCollection {
     this.expressionParser = new ExpressionParser();
     this.updateEngine = new UpdateEngine();
     this.objectComparator = expressionParser.buildObjectComparator(true);
-    this._idIndex = IndexFactory.create(ID_KEY, new BasicDBObject(ID_KEY, 1), !idIsNotUniq);
+    this._idIndex = IndexFactory.create(ID_FIELD_NAME, new BasicDBObject(ID_FIELD_NAME, 1), !idIsNotUniq);
     this.indexes.add(_idIndex);
     if (!this.nonIdCollection) {
-      this.createIndex(new BasicDBObject(ID_KEY, 1), new BasicDBObject("name", ID_NAME_INDEX));
+      this.createIndex(new BasicDBObject(ID_FIELD_NAME, 1), new BasicDBObject("name", ID_NAME_INDEX));
     }
   }
 
-  private CommandResult insertResult(int updateCount) {
-    CommandResult result = fongoDb.okResult();
-    result.put("n", updateCount);
-    result.put("nInserted", updateCount);
-    return result;
-  }
-
-  private CommandResult updateResult(int updateCount, boolean updatedExisting) {
-    CommandResult result = fongoDb.okResult();
-    result.put("n", updateCount);
-    result.put("nModified", updateCount);
-    result.put("updatedExisting", updatedExisting);
-    return result;
-  }
-
-  @Override
-  public synchronized WriteResult insert(DBObject[] arr, WriteConcern concern, DBEncoder encoder) throws MongoException {
-    return insert(Arrays.asList(arr), concern, encoder);
+  private synchronized WriteResult updateResult(int updateCount, boolean updatedExisting, final Object upsertedId) {
+    return new WriteResult(updateCount, updatedExisting, upsertedId);
   }
 
   private DBObject encodeDecode(DBObject dbObject, DBEncoder encoder) {
@@ -111,49 +103,43 @@ public class FongoDBCollection extends DBCollection {
     return dbObject;
   }
 
-  /**
-   * Only for 2.13.X
-   */
-  @Deprecated
-  public synchronized WriteResult insert(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder) {
-    return insertImpl(toInsert, concern, encoder, null);
-  }
-
-  //    @Override
-  protected synchronized WriteResult insertImpl(List<DBObject> toInsert, WriteConcern concern, DBEncoder encoder, Boolean aBoolean) {
-    for (DBObject obj : toInsert) {
-      DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, encoder)));
+  @Override
+  public synchronized WriteResult insert(final List<? extends DBObject> documents, final InsertOptions insertOptions) {
+    WriteConcern writeConcern = insertOptions.getWriteConcern() != null ? insertOptions.getWriteConcern() : getWriteConcern();
+    for (final DBObject obj : documents) {
+      DBObject cloned = filterLists(Util.cloneIdFirst(encodeDecode(obj, insertOptions.getDbEncoder())));
       if (LOG.isDebugEnabled()) {
-        LOG.debug("insert: {}", cloned);
+        LOG.debug("insert: " + cloned);
       }
       ObjectId id = putIdIfNotPresent(cloned);
       // Save the id field in the caller.
-      if (!(obj instanceof LazyDBObject) && obj.get(ID_KEY) == null) {
-        obj.put(ID_KEY, Util.clone(id));
+      if (!(obj instanceof LazyDBObject) && obj.get(ID_FIELD_NAME) == null) {
+        obj.put(ID_FIELD_NAME, Util.clone(id));
       }
 
-      putSizeCheck(cloned, concern);
+      putSizeCheck(cloned, writeConcern);
     }
 //    Don't know why, but there is not more number of inserted results...
 //    return new WriteResult(insertResult(0), concern);
-    return new WriteResult(insertResult(toInsert.size()), concern);
+    if (!writeConcern.isAcknowledged()) {
+      return WriteResult.unacknowledged();
+    }
+    return new WriteResult(documents.size(), false, null);
   }
 
   boolean enforceDuplicates(WriteConcern concern) {
     WriteConcern writeConcern = concern == null ? getWriteConcern() : concern;
-    return writeConcern._w instanceof Number && ((Number) writeConcern._w).intValue() > 0;
+    return writeConcern.isAcknowledged();
   }
 
   public ObjectId putIdIfNotPresent(DBObject obj) {
-    Object object = obj.get(ID_KEY);
+    Object object = obj.get(ID_FIELD_NAME);
     if (object == null) {
-      ObjectId id = new ObjectId(new Date()); // No more "notNew"
-      id.notNew();
-      obj.put(ID_KEY, Util.clone(id));
+      ObjectId id = new ObjectId();
+      obj.put(ID_FIELD_NAME, id);
       return id;
     } else if (object instanceof ObjectId) {
       ObjectId id = (ObjectId) object;
-      id.notNew();
       return id;
     }
 
@@ -190,6 +176,8 @@ public class FongoDBCollection extends DBCollection {
         list.add(replaceListAndMap(listItem));
       }
       replacementValue = list;
+    } else if (replacementValue instanceof DBObject) {
+      replacementValue = filterLists((DBObject) replacementValue);
     } else if (replacementValue instanceof Object[]) {
       BasicDBList list = new BasicDBList();
       for (Object listItem : (Object[]) replacementValue) {
@@ -240,24 +228,16 @@ public class FongoDBCollection extends DBCollection {
   }
 
 
-  protected void fInsert(DBObject obj, WriteConcern concern) {
+  protected synchronized void fInsert(DBObject obj, WriteConcern concern) {
     putIdIfNotPresent(obj);
     putSizeCheck(obj, concern);
   }
 
 
-  /**
-   * Only for 2.13 branch
-   */
-  @Deprecated
+  @Override
   public synchronized WriteResult update(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
                                          DBEncoder encoder) throws MongoException {
-    return updateImpl(q, o, upsert, multi, concern, null, encoder);
-  }
 
-  //    @Override
-  protected synchronized WriteResult updateImpl(DBObject q, DBObject o, boolean upsert, boolean multi, WriteConcern concern,
-                                                Boolean bypassDocumentValidation, DBEncoder encoder) {
     q = filterLists(q);
     o = filterLists(o);
 
@@ -272,36 +252,38 @@ public class FongoDBCollection extends DBCollection {
     if (!o.keySet().isEmpty()) {
       // if 1st key doesn't start with $, then object will be inserted as is, need to check it
       String key = o.keySet().iterator().next();
-      if (!key.startsWith("$"))
+      if (!key.startsWith("$")) {
         _checkObject(o, false, false);
-    }
-
-    if (multi) {
-      try {
-        checkMultiUpdateDocument(o);
-      } catch (final IllegalArgumentException e) {
-        this.fongoDb.okErrorResult(9, e.getMessage()).throwOnError();
       }
     }
+
+//    if (multi) {
+//      try {
+//        checkMultiUpdateDocument(o);
+//      } catch (final IllegalArgumentException e) {
+//        this.fongoDb.notOkErrorResult(9, e.getMessage()).throwOnError();
+//      }
+//    }
 
     if (LOG.isDebugEnabled()) {
       LOG.debug("update(" + q + ", " + o + ", " + upsert + ", " + multi + ")");
     }
 
-    if (o.containsField(ID_KEY) && q.containsField(ID_KEY) && objectComparator.compare(o.get(ID_KEY), q.get(ID_KEY)) != 0) {
+    if (o.containsField(ID_FIELD_NAME) && q.containsField(ID_FIELD_NAME) && objectComparator.compare(o.get(ID_FIELD_NAME), q.get(ID_FIELD_NAME)) != 0) {
       LOG.warn("can not change _id of a document query={}, document={}", q, o);
-      throw new WriteConcernException(fongoDb.notOkErrorResult(16836, "can not change _id of a document " + ID_KEY));
+      throw fongoDb.writeConcernException(16837, "can not change _id of a document " + ID_FIELD_NAME);
     }
 
     int updatedDocuments = 0;
-    boolean idOnlyUpdate = q.containsField(ID_KEY) && q.keySet().size() == 1;
+    boolean idOnlyUpdate = q.containsField(ID_FIELD_NAME) && q.keySet().size() == 1;
     boolean updatedExisting = false;
+    Object upsertedId = null;
 
     if (idOnlyUpdate && isNotUpdateCommand(o)) {
-      if (!o.containsField(ID_KEY)) {
-        o.put(ID_KEY, Util.clone(q.get(ID_KEY)));
+      if (!o.containsField(ID_FIELD_NAME)) {
+        o.put(ID_FIELD_NAME, Util.clone(q.get(ID_FIELD_NAME)));
       } else {
-        o.put(ID_KEY, Util.clone(o.get(ID_KEY)));
+        o.put(ID_FIELD_NAME, Util.clone(o.get(ID_FIELD_NAME)));
       }
       @SuppressWarnings("unchecked") Iterator<DBObject> oldObjects = _idIndex.retrieveObjects(q).iterator();
       if (oldObjects.hasNext() || upsert) {
@@ -309,7 +291,7 @@ public class FongoDBCollection extends DBCollection {
         updatedDocuments++;
       }
     } else {
-      Filter filter = expressionParser.buildFilter(q);
+      Filter filter = buildFilter(q);
       for (DBObject obj : filterByIndexes(q)) {
         if (filter.apply(obj)) {
           DBObject newObject = Util.clone(obj);
@@ -331,16 +313,86 @@ public class FongoDBCollection extends DBCollection {
 
         updatedDocuments++;
         updatedExisting = false;
+        upsertedId = newObject.get(ID_FIELD_NAME);
       }
     }
-    return new WriteResult(updateResult(updatedDocuments, updatedExisting), concern);
+    return updateResult(updatedDocuments, updatedExisting, upsertedId);
   }
 
+  protected DBObject _checkObject(DBObject o, boolean canBeNull, boolean query) {
+    if (o == null) {
+      if (canBeNull)
+        return null;
+      throw new IllegalArgumentException("can't be null");
+    }
+
+    if (o.isPartialObject() && !query)
+      throw new IllegalArgumentException("can't save partial objects");
+
+    if (!query) {
+      _checkKeys(o);
+    }
+    return o;
+  }
+
+  /**
+   * Checks key strings for invalid characters.
+   */
+  private void _checkKeys(DBObject o) {
+    if (o instanceof LazyDBObject || o instanceof LazyDBList)
+      return;
+
+    for (String s : o.keySet()) {
+      validateKey(s);
+      _checkValue(o.get(s));
+    }
+  }
+
+  /**
+   * Checks key strings for invalid characters.
+   */
+  private void _checkKeys(Map<String, Object> o) {
+    for (Map.Entry<String, Object> cur : o.entrySet()) {
+      validateKey(cur.getKey());
+      _checkValue(cur.getValue());
+    }
+  }
+
+  private void _checkValues(final List list) {
+    for (Object cur : list) {
+      _checkValue(cur);
+    }
+  }
+
+  private void _checkValue(final Object value) {
+    if (value instanceof DBObject) {
+      _checkKeys((DBObject) value);
+    } else if (value instanceof Map) {
+      _checkKeys((Map<String, Object>) value);
+    } else if (value instanceof List) {
+      _checkValues((List) value);
+    }
+  }
+
+  /**
+   * Check for invalid key names
+   *
+   * @param s the string field/key to check
+   * @throws IllegalArgumentException if the key is not valid.
+   */
+  private void validateKey(String s) {
+    if (s.contains("\0"))
+      throw new IllegalArgumentException("Document field names can't have a NULL character. (Bad Key: '" + s + "')");
+    if (s.contains("."))
+      throw new IllegalArgumentException("Document field names can't have a . in them. (Bad Key: '" + s + "')");
+    if (s.startsWith("$"))
+      throw new IllegalArgumentException("Document field names can't start with '$' (Bad Key: '" + s + "')");
+  }
 
   private List idsIn(DBObject query) {
-    Object idValue = query.get(ID_KEY);
+    Object idValue = query != null ? query.get(ID_FIELD_NAME) : null;
     if (idValue == null || query.keySet().size() > 1) {
-      return Collections.emptyList();
+      return emptyList();
     } else if (ExpressionParser.isDbObject(idValue)) {
       DBObject idDbObject = ExpressionParser.toDbObject(idValue);
       Collection inList = (Collection) idDbObject.get(QueryOperators.IN);
@@ -356,7 +408,7 @@ public class FongoDBCollection extends DBCollection {
         return Arrays.asList(inListArray);
       }
       if (!isNotUpdateCommand(idValue)) {
-        return Collections.emptyList();
+        return emptyList();
       }
     }
     return Collections.singletonList(Util.clone(idValue));
@@ -368,14 +420,21 @@ public class FongoDBCollection extends DBCollection {
 //    List idsIn = idsIn(q);
 //
 //    if (!idsIn.isEmpty()) {
-//      newObject.put(ID_KEY, Util.clone(idsIn.get(0)));
+//      newObject.put(ID_FIELD_NAME, Util.clone(idsIn.get(0)));
 //    } else
 //    {
     BasicDBObject filteredQuery = new BasicDBObject();
     for (String key : q.keySet()) {
       Object value = q.get(key);
       if (isNotUpdateCommand(value)) {
-        filteredQuery.put(key, value);
+        if ("$and".equals(key)) {
+          List<DBObject> values = (List<DBObject>) value;
+          for (DBObject dbObject : values) {
+            filteredQuery.putAll(dbObject);
+          }
+        } else {
+          filteredQuery.put(key, value);
+        }
       }
     }
     updateEngine.mergeEmbeddedValueFromQuery(newObject, filteredQuery);
@@ -396,7 +455,8 @@ public class FongoDBCollection extends DBCollection {
   }
 
   @Override
-  protected void doapply(DBObject o) {
+  public WriteResult remove(final DBObject query, final WriteConcern writeConcern) {
+    return this.remove(query, writeConcern, null);
   }
 
   @Override
@@ -407,7 +467,7 @@ public class FongoDBCollection extends DBCollection {
     }
     int updatedDocuments = 0;
     Collection<DBObject> objectsByIndex = filterByIndexes(o);
-    Filter filter = expressionParser.buildFilter(o);
+    Filter filter = buildFilter(o);
     List<DBObject> ids = new ArrayList<DBObject>();
     // Double pass, objectsByIndex can be not "objects"
     for (DBObject object : objectsByIndex) {
@@ -421,22 +481,11 @@ public class FongoDBCollection extends DBCollection {
       removeFromIndexes(object);
       updatedDocuments++;
     }
-    return new WriteResult(updateResult(updatedDocuments, false), concern);
+    return updateResult(updatedDocuments, true, null);
   }
 
   @Override
-  QueryResultIterator find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options, ReadPreference readPref, DBDecoder decoder) {
-    return find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder, null);
-  }
-
-  @Override
-  synchronized QueryResultIterator find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options, ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
-    final Iterator<DBObject> values = __find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder, encoder);
-    return createQueryResultIterator(values);
-  }
-
-  @Override
-  public synchronized void createIndex(DBObject keys, DBObject options, DBEncoder encoder) throws MongoException {
+  public synchronized void createIndex(final DBObject keys, final DBObject options) {
     DBCollection indexColl = fongoDb.getCollection("system.indexes");
     BasicDBObject rec = new BasicDBObject();
     rec.append("v", 1);
@@ -457,7 +506,13 @@ public class FongoDBCollection extends DBCollection {
       rec.append("name", sb.toString());
     }
     // Ensure index doesn't exist.
-    if (indexColl.findOne(rec) != null) {
+    final DBObject oldIndex = indexColl.findOne(rec);
+    if (oldIndex != null) {
+      for (Map.Entry<String, Object> entry : Util.entrySet(options)) {
+        if (!entry.getValue().equals(oldIndex.get(entry.getKey()))) {
+          fongoDb.notOkErrorResult(85, String.format("Index with name: %s already exists with different options", nsName())).throwOnError();
+        }
+      }
       return;
     }
 
@@ -474,7 +529,7 @@ public class FongoDBCollection extends DBCollection {
       if (!notUnique.isEmpty()) {
         // Duplicate key.
         if (enforceDuplicates(getWriteConcern())) {
-          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
+          fongoDb.notOkErrorResult(11000, "E11000 duplicate key error index: " + getFullName() + ".$" + rec.get("name") + "  dup key: { : " + notUnique + " }").throwOnError();
         }
         return;
       }
@@ -487,32 +542,51 @@ public class FongoDBCollection extends DBCollection {
     indexColl.insert(rec);
   }
 
-  @Override
-  public DBObject findOne(DBObject query, DBObject fields, DBObject orderBy, ReadPreference readPref) {
-    QueryOpBuilder queryOpBuilder = new QueryOpBuilder().addQuery(query).addOrderBy(orderBy);
-    Iterator<DBObject> resultIterator = __find(queryOpBuilder.get(), fields, 0, 1, -1, 0, readPref, null);
-    return resultIterator.hasNext() ? replaceWithObjectClass(resultIterator.next()) : null;
+  // @Override
+  DBObject findOne(final DBObject pRef, final DBObject projection, final DBObject sort,
+                   final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit) {
+    final DBObject query = new BasicDBObject("$query", pRef);
+    if (sort != null) {
+      query.put("$orderby", sort);
+    }
+    final List<DBObject> objects = __find(query, projection, 0, 1, 1, 0, readPreference, null, null);
+    return objects.size() > 0 ? replaceWithObjectClass(objects.get(0)) : null;
   }
+
 
   /**
    * Used for older compatibility.
    * <p/>
    * note: encoder, decoder, readPref, options are ignored
    */
-  Iterator<DBObject> __find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options,
-                            ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
+  List<DBObject> __find(DBObject ref, DBObject fields, int numToSkip, int batchSize, int limit, int options,
+                        ReadPreference readPref, DBDecoder decoder, DBEncoder encoder) {
     return __find(ref, fields, numToSkip, batchSize, limit, options, readPref, decoder);
   }
+
+  @Override
+  public DBCursor find() {
+    return find(new BasicDBObject());
+  }
+
+  @Override
+  public DBCursor find(final DBObject query) {
+    return find(query, null);
+  }
+
+  public DBCursor find(final DBObject query, final DBObject projection) {
+    return new FongoDBCursor(this, query, projection);
+  }
+
 
   /**
    * Used for older compatibility.
    * <p/>
    * note: decoder, readPref, options are ignored
    */
-  synchronized Iterator<DBObject> __find(final DBObject pRef, DBObject fields, int numToSkip, int batchSize, int limit,
-                                         int options,
-                                         ReadPreference readPref, DBDecoder decoder) throws MongoException {
-    DBObject ref = filterLists(pRef);
+  synchronized List<DBObject> __find(final DBObject pRef, DBObject fields, int numToSkip, int batchSize, int limit,
+                                     int options, ReadPreference readPref, DBDecoder decoder) throws MongoException {
+    DBObject ref = filterLists(pRef == null ? new BasicDBObject() : pRef);
     long maxScan = Long.MAX_VALUE;
     if (LOG.isDebugEnabled()) {
       LOG.debug("find({}, {}).skip({}).limit({})", ref, fields, numToSkip, limit);
@@ -530,7 +604,7 @@ public class FongoDBCollection extends DBCollection {
       ref = ExpressionParser.toDbObject(ref.get("$query"));
     }
 
-    Filter filter = expressionParser.buildFilter(ref);
+    Filter filter = buildFilter(ref);
     int foundCount = 0;
     int upperLimit = Integer.MAX_VALUE;
     if (limit > 0) {
@@ -541,32 +615,32 @@ public class FongoDBCollection extends DBCollection {
     List<DBObject> results = new ArrayList<DBObject>();
     List objects = idsIn(ref);
     if (!objects.isEmpty()) {
-//      if (!(ref.get(ID_KEY) instanceof DBObject)) {
+//      if (!(ref.get(ID_FIELD_NAME) instanceof DBObject)) {
       // Special case : find({id:<val}) doesn't handle skip...
       // But : find({_id:{$in:[1,2,3]}).skip(3) will return empty list.
 //        numToSkip = 0;
 //      }
       if (orderby == null) {
-        orderby = new BasicDBObject(ID_KEY, 1);
+        orderby = new BasicDBObject(ID_FIELD_NAME, 1);
       } else {
         // Special case : if order by is wrong (field doesn't exist), the sort must be directed by _id.
-        objectsFromIndex = sortObjects(new BasicDBObject(ID_KEY, 1), objectsFromIndex);
+        objectsFromIndex = sortObjects(new BasicDBObject(ID_FIELD_NAME, 1), objectsFromIndex);
       }
     }
     int seen = 0;
     Iterable<DBObject> objectsToSearch = sortObjects(orderby, objectsFromIndex);
     for (Iterator<DBObject> iter = objectsToSearch.iterator();
-         iter.hasNext() && foundCount <= upperLimit && maxScan-- > 0; ) {
+         iter.hasNext() && foundCount < upperLimit && maxScan-- > 0; ) {
       DBObject dbo = iter.next();
       if (filter.apply(dbo)) {
         if (seen++ >= numToSkip) {
           foundCount++;
           DBObject clonedDbo = Util.clone(dbo);
           if (nonIdCollection) {
-            clonedDbo.removeField(ID_KEY);
+            clonedDbo.removeField(ID_FIELD_NAME);
           }
           clonedDbo.removeField(FONGO_SPECIAL_ORDER_BY);
-          handleDBRef(clonedDbo);
+//          handleDBRef(clonedDbo);
           results.add(clonedDbo);
         }
       }
@@ -578,30 +652,7 @@ public class FongoDBCollection extends DBCollection {
 
     LOG.debug("found results {}", results);
 
-    return replaceWithObjectClass(results).iterator();
-  }
-
-  private void handleDBRef(DBObject clonedDbo) {
-    for (Map.Entry<String, Object> entry : Util.entrySet(clonedDbo)) {
-      Object value = entry.getValue();
-      if (value instanceof DBRef && ((DBRef) value).getDB() == null) {
-        clonedDbo.put(entry.getKey(), new DBRef(this.getDB(), ((DBRef) value).getRef(), ((DBRef) value).getId()));
-      } else if (value instanceof List) {
-        BasicDBList newList = new BasicDBList();
-        for (Object o : ((Collection) value)) {
-          Object newObject = o;
-          if (ExpressionParser.isDbObject(o)) {
-            handleDBRef(ExpressionParser.toDbObject(newObject));
-          } else if (o instanceof DBRef && ((DBRef) o).getDB() == null) {
-            newObject = new DBRef(this.getDB(), ((DBRef) o).getRef(), ((DBRef) o).getId());
-          }
-          newList.add(newObject);
-        }
-        clonedDbo.put(entry.getKey(), newList);
-      } else if (ExpressionParser.isDbObject(value)) {
-        handleDBRef(ExpressionParser.toDbObject(value));
-      }
-    }
+    return replaceWithObjectClass(results);
   }
 
   /**
@@ -690,10 +741,13 @@ public class FongoDBCollection extends DBCollection {
   }
 
   /**
-   * Only for 2.13.X drivers
+   * Replaces the result {@link DBObject} with the configured object class of this collection. If the object class is
+   * <code>null</code> the result object itself will be returned.
+   *
+   * @param resultObject the original result value from the command.
+   * @return replaced {@link DBObject} if necessary, or resultObject.
    */
-  @Deprecated
-  DBObject replaceWithObjectClass(DBObject resultObject) {
+  private DBObject replaceWithObjectClass(DBObject resultObject) {
     if (resultObject == null || getObjectClass() == null) {
       return resultObject;
     }
@@ -703,9 +757,9 @@ public class FongoDBCollection extends DBCollection {
     for (final String key : resultObject.keySet()) {
       targetObject.put(key, resultObject.get(key));
     }
+
     return targetObject;
   }
-
 
   private List<DBObject> replaceWithObjectClass(List<DBObject> resultObjects) {
 
@@ -776,7 +830,7 @@ public class FongoDBCollection extends DBCollection {
       }
       List<String> projectionPath = Util.split(projectionKey);
 
-      if (!ID_KEY.equals(projectionKey)) {
+      if (!ID_FIELD_NAME.equals(projectionKey)) {
         if (included) {
           inclusionCount++;
         } else if (!project) {
@@ -803,10 +857,10 @@ public class FongoDBCollection extends DBCollection {
     } else {
       ret = new BasicDBObject();
       if (!wasIdExcluded) {
-        ret.append(ID_KEY, Util.clone(result.get(ID_KEY)));
+        ret.append(ID_FIELD_NAME, Util.clone(result.get(ID_FIELD_NAME)));
       } else if (inclusionCount == 0) {
         ret = (BasicDBObject) Util.clone(result);
-        ret.removeField(ID_KEY);
+        ret.removeField(ID_FIELD_NAME);
       }
     }
 
@@ -957,11 +1011,12 @@ public class FongoDBCollection extends DBCollection {
     return objectsToSearch;
   }
 
-
-  @Override
-  public synchronized long getCount(DBObject query, DBObject fields, long limit, long skip) {
-    query = filterLists(query);
-    Filter filter = query == null ? ExpressionParser.AllFilter : expressionParser.buildFilter(query);
+  // @Override
+  public synchronized long getCount(final DBObject pQuery, final DBObject projection, final long limit, final long skip,
+                                    final ReadPreference readPreference, final long maxTime, final TimeUnit maxTimeUnit,
+                                    final BsonValue hint) {
+    final DBObject query = filterLists(pQuery);
+    Filter filter = query == null ? ExpressionParser.AllFilter : buildFilter(query);
     long count = 0;
     long upperLimit = Long.MAX_VALUE;
     if (limit > 0) {
@@ -985,25 +1040,12 @@ public class FongoDBCollection extends DBCollection {
     return getCount(query, fields, 0, 0);
   }
 
-  /**
-   * Only for 2.13 drivers
-   */
-  @Deprecated
+  @Override
   public synchronized DBObject findAndModify(DBObject query, DBObject fields, DBObject sort, boolean remove, DBObject update, boolean returnNew, boolean upsert) {
-    return findAndModifyImpl(query, fields, sort, remove, update, returnNew, upsert, null, 0, TimeUnit.DAYS, null);
-  }
-
-  //    @Override
-  protected synchronized DBObject findAndModifyImpl(final DBObject pQuery, final DBObject fields, final DBObject sort,
-                                                    final boolean remove, final DBObject pUpdate,
-                                                    final boolean returnNew, final boolean upsert,
-                                                    final Boolean bypassDocumentValidation,
-                                                    final long maxTime, final TimeUnit maxTimeUnit,
-                                                    final WriteConcern writeConcern) {
-    LOG.debug("findAndModify({}, {}, {}, {}, {}, {}, {}", pQuery, fields, sort, remove, pUpdate, returnNew, upsert);
-    DBObject query = filterLists(pQuery);
-    DBObject update = filterLists(pUpdate);
-    Filter filter = expressionParser.buildFilter(query);
+    LOG.debug("findAndModify({}, {}, {}, {}, {}, {}, {}", query, fields, sort, remove, update, returnNew, upsert);
+    query = filterLists(query);
+    update = filterLists(update);
+    Filter filter = buildFilter(query);
 
     Iterable<DBObject> objectsToSearch = sortObjects(sort, filterByIndexes(query));
     DBObject beforeObject = null;
@@ -1042,12 +1084,11 @@ public class FongoDBCollection extends DBCollection {
   }
 
   @Override
-  public synchronized List distinct(String key, DBObject query) {
-    query = filterLists(query);
+  public synchronized List distinct(final String key, final DBObject pQuery, final ReadPreference readPreference) {
+    final DBObject query = filterLists(pQuery);
     Set<Object> results = new LinkedHashSet<Object>();
-    Filter filter = expressionParser.buildFilter(query);
-    for (Iterator<DBObject> iter = filterByIndexes(query).iterator(); iter.hasNext(); ) {
-      DBObject value = iter.next();
+    Filter filter = buildFilter(query);
+    for (DBObject value : filterByIndexes(query)) {
       if (filter.apply(value)) {
         List<Object> keyValues = expressionParser.getEmbeddedValues(key, value);
         for (Object keyValue : keyValues) {
@@ -1064,28 +1105,27 @@ public class FongoDBCollection extends DBCollection {
   }
 
   @Override
-  public Cursor aggregate(List<DBObject> pipeline, AggregationOptions options, ReadPreference readPreference) {
-    return this.createQueryResultIterator(this.aggregate(pipeline, readPreference).results().iterator());
+  public AggregationOutput aggregate(final List<? extends DBObject> pipeline, final ReadPreference readPreference) {
+    final Aggregator aggregator = new Aggregator(this.fongoDb, this, pipeline);
+
+    return new AggregationOutput(aggregator.computeResult());
   }
 
   @Override
-  public List<Cursor> parallelScan(ParallelScanOptions options) {
-    return Arrays.asList((Cursor) this.createQueryResultIterator(this._idIndex.values().iterator()));
+  public List<Cursor> parallelScan(final ParallelScanOptions options) {
+    List<Cursor> cursors = new ArrayList<Cursor>();
+    for (int i = 0; i < options.getNumCursors(); i++) {
+      cursors.add(new FongoDBCursor(this, new BasicDBObject(), new BasicDBObject()));
+    }
+    return cursors;
   }
 
-  /**
-   * only for 2.13 drivers
-   */
-  @Deprecated
-  BulkWriteResult executeBulkWriteOperation(boolean ordered, List<WriteRequest> requests, WriteConcern aWriteConcern, DBEncoder encoder) {
-    return executeBulkWriteOperation(ordered, null, requests, aWriteConcern, encoder);
-  }
 
-  //    @Override
+  @Override
   BulkWriteResult executeBulkWriteOperation(final boolean ordered, final Boolean bypassDocumentValidation,
-                                            final List<WriteRequest> requests, final WriteConcern aWriteConcern,
-                                            final DBEncoder encoder) {
-    isTrue("no operations", !requests.isEmpty());
+                                            final List<WriteRequest> writeRequests,
+                                            final WriteConcern aWriteConcern) {
+    isTrueArgument("writes is not an empty list", !writeRequests.isEmpty());
     WriteConcern writeConcern = aWriteConcern == null ? getWriteConcern() : aWriteConcern;
     // TODO: unordered
     List<BulkWriteUpsert> upserts = new ArrayList<BulkWriteUpsert>();
@@ -1094,66 +1134,65 @@ public class FongoDBCollection extends DBCollection {
     int removedCount = 0;
     int modifiedCount = 0;
     int idx = 0;
-    for (WriteRequest request : requests) {
+    for (WriteRequest req : writeRequests) {
       WriteResult wr;
-      switch (request.getType()) {
-        case REPLACE: // fallthrough
-        {
-          ModifyRequest r = (ModifyRequest) request;
-          _checkObject(r.getUpdateDocument(), false, false);
-          wr = update(r.getQuery(), r.getUpdateDocument(), r.isUpsert(), r.isMulti(), writeConcern, encoder);
-          matchedCount += wr.getN();
-          if (wr.isUpdateOfExisting()) {
+      if (req instanceof ReplaceRequest) {
+        ReplaceRequest r = (ReplaceRequest) req;
+        _checkObject(r.getDocument(), false, false);
+        wr = update(r.getQuery(), r.getDocument(), r.isUpsert(), /* r.isMulti()*/ false, writeConcern, null);
+        matchedCount += wr.getN();
+        modifiedCount += wr.getN();
+        if (!wr.isUpdateOfExisting()) {
+          if (wr.getUpsertedId() != null) {
             upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-          } else {
-            modifiedCount += wr.getN();
           }
-          break;
         }
-        case UPDATE: {
-          ModifyRequest r = (ModifyRequest) request;
-          // See com.mongodb.DBCollectionImpl.Run.executeUpdates()
-          final DBObject updateDocument = r.getUpdateDocument();
-          checkMultiUpdateDocument(updateDocument);
+      } else if (req instanceof UpdateRequest) {
+        UpdateRequest r = (UpdateRequest) req;
+        // See com.mongodb.DBCollectionImpl.Run.executeUpdates()
+        checkMultiUpdateDocument(r.getUpdate());
 
-          wr = update(r.getQuery(), updateDocument, r.isUpsert(), r.isMulti(), writeConcern, encoder);
+        wr = update(r.getQuery(), r.getUpdate(), r.isUpsert(), r.isMulti(), writeConcern, null);
+        if (wr.isUpdateOfExisting()) {
           matchedCount += wr.getN();
-          if (wr.isUpdateOfExisting()) {
+          modifiedCount += wr.getN();
+        } else {
+          if (wr.getUpsertedId() != null) {
             upserts.add(new BulkWriteUpsert(idx, wr.getUpsertedId()));
-          } else {
-            modifiedCount += wr.getN();
+//            insertedCount++;
           }
-          break;
         }
-        case REMOVE: {
-          RemoveRequest r = (RemoveRequest) request;
-          wr = remove(r.getQuery(), writeConcern, encoder);
-          matchedCount += wr.getN();
-          removedCount += wr.getN();
-          break;
-        }
-
-        case INSERT: {
-          InsertRequest r = (InsertRequest) request;
-          wr = insert(r.getDocument());
-          insertedCount += wr.getN();
-          break;
-        }
-        default:
-          throw new NotImplementedException();
+      } else if (req instanceof RemoveRequest) {
+        RemoveRequest r = (RemoveRequest) req;
+        wr = remove(r.getQuery(), writeConcern, null);
+        matchedCount += wr.getN();
+        removedCount += wr.getN();
+      } else if (req instanceof InsertRequest) {
+        InsertRequest r = (InsertRequest) req;
+        wr = insert(r.getDocument());
+        insertedCount += wr.getN();
+      } else {
+        throw new NotImplementedException();
       }
       idx++;
     }
-    if (writeConcern.getW() == 0) {
+    if (!writeConcern.isAcknowledged()) {
       return new UnacknowledgedBulkWriteResult();
     }
     return new AcknowledgedBulkWriteResult(insertedCount, matchedCount, removedCount, modifiedCount, upserts);
   }
 
+  // @Override
+  @Deprecated
+  BulkWriteResult executeBulkWriteOperation(final boolean ordered, final List<WriteRequest> writeRequests,
+                                            final WriteConcern aWriteConcern) {
+    return executeBulkWriteOperation(ordered, false, writeRequests, aWriteConcern);
+  }
+
   private void checkMultiUpdateDocument(DBObject updateDocument) throws IllegalArgumentException {
     for (String key : updateDocument.keySet()) {
       if (!key.startsWith("$")) {
-        throw new IllegalArgumentException("Update document keys must start with $: " + key);
+        throw new IllegalArgumentException("Invalid BSON field name " + key);
       }
     }
   }
@@ -1163,7 +1202,7 @@ public class FongoDBCollection extends DBCollection {
     BasicDBObject cmd = new BasicDBObject();
     cmd.put("ns", getFullName());
 
-    DBCursor cur = _db.getCollection("system.indexes").find(cmd);
+    DBCursor cur = getDB().getCollection("system.indexes").find(cmd);
 
     List<DBObject> list = new ArrayList<DBObject>();
 
@@ -1173,6 +1212,16 @@ public class FongoDBCollection extends DBCollection {
 
     return list;
   }
+
+  @Override
+  public void dropIndex(final String indexName) {
+    if ("*".equalsIgnoreCase(indexName)) {
+      _dropIndexes();
+    } else {
+      _dropIndex(indexName);
+    }
+  }
+
 
   protected synchronized void _dropIndex(String name) throws MongoException {
     final DBCollection indexColl = fongoDb.getCollection("system.indexes");
@@ -1279,7 +1328,14 @@ public class FongoDBCollection extends DBCollection {
       if (!error.isEmpty()) {
         // TODO formatting : E11000 duplicate key error index: test.zip.$city_1_state_1_pop_1  dup key: { : "BARRE", : "MA", : 4546.0 }
         if (enforceDuplicates(concern)) {
-          fongoDb.okErrorResult(11000, "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }").throwOnError();
+          String err = "E11000 duplicate key error index: " + this.getFullName() + "." + index.getName() + "  dup key : {" + error + " }";
+          if (oldObject == null) {
+            // insert
+            throw fongoDb.duplicateKeyException(11000, err);
+          } else {
+            // update (MongoDB throws a different exception in case of an update, see issue #200)
+            throw fongoDb.mongoCommandException(11000, err);
+          }
         }
         return; // silently ignore.
       }
@@ -1296,7 +1352,8 @@ public class FongoDBCollection extends DBCollection {
           index.remove(oldObject);
       }
     } catch (MongoException e) {
-      this.fongoDb.okErrorResult(e.getCode(), e.getMessage()).throwOnError();
+      LOG.info("", e);
+      throw this.fongoDb.writeConcernException(e.getCode(), e.getMessage());
     }
     this.fongoDb.addCollection(this);
   }
@@ -1337,20 +1394,189 @@ public class FongoDBCollection extends DBCollection {
     return ts.findByTextSearch(search, project == null ? new BasicDBObject() : project, limit == null ? 100 : limit.intValue());
   }
 
-  private QueryResultIterator createQueryResultIterator(Iterator<DBObject> values) {
-    try {
-      QueryResultIterator iterator = new ObjenesisStd().getInstantiatorOf(QueryResultIterator.class).newInstance();
-      Field field = QueryResultIterator.class.getDeclaredField("_cur");
-      field.setAccessible(true);
-      field.set(iterator, values);
-      return iterator;
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
+  // TODO WDEL
+//  private QueryResultIterator createQueryResultIterator(Iterator<DBObject> values) {
+//    try {
+//      QueryResultIterator iterator = new ObjenesisStd().getInstantiatorOf(QueryResultIterator.class).newInstance();
+//      Field field = QueryResultIterator.class.getDeclaredField("_cur");
+//      field.setAccessible(true);
+//      field.set(iterator, values);
+//      return iterator;
+//    } catch (Exception e) {
+//      throw new RuntimeException(e);
+//    }
+//  }
 
   @Override
   public long count() {
     return _idIndex.size();
   }
+
+  @Override
+  public MapReduceOutput mapReduce(final MapReduceCommand command) {
+    DBObject out = new BasicDBObject();
+    if (command.getOutputDB() != null) {
+      out.put("db", command.getOutputDB());
+    }
+    if (command.getOutputType() != null) {
+      out.put(command.getOutputType().name().toLowerCase(), command.getOutputTarget());
+    }
+    MapReduce mapReduce = new MapReduce(this.fongoDb.fongo, this, command.getMap(), command.getReduce(),
+        command.getFinalize(), command.getScope(), out, command.getQuery(), command.getSort(), command.getLimit());
+    return mapReduce.computeResult();
+  }
+
+  public static DBObject dbObject(BsonDocument document) {
+    if (document == null) {
+      return null;
+    }
+    return defaultDbObjectCodec().decode(new BsonDocumentReader(document),
+        decoderContext());
+  }
+
+  public static <T> List<T> decode(final Iterable<DBObject> objects, Decoder<T> resultDecoder) {
+    final List<T> list = new ArrayList<T>();
+    for (final DBObject object : objects) {
+      list.add(decode(object, resultDecoder));
+    }
+    return list;
+  }
+
+  public static <T> T decode(DBObject object, Decoder<T> resultDecoder) {
+    final BsonDocument document = bsonDocument(object);
+    return resultDecoder.decode(new BsonDocumentReader(document), decoderContext());
+  }
+
+  public static DecoderContext decoderContext() {
+    return DecoderContext.builder().build();
+  }
+
+  public static EncoderContext encoderContext() {
+    return EncoderContext.builder().build();
+  }
+  public static CodecRegistry defaultCodecRegistry() {
+    return MongoClient.getDefaultCodecRegistry();
+  }
+
+  public static Codec<DBObject> defaultDbObjectCodec() {
+    return defaultCodecRegistry().get(DBObject.class);
+  }
+
+  public static <T> Codec<T> codec(Class<T> clazz) {
+    return defaultCodecRegistry().get(clazz);
+  }
+
+  public static DBObject dbObject(final BsonDocument queryDocument, final String key) {
+    return queryDocument.containsKey(key) ? dbObject(queryDocument.getDocument(key)) : null;
+  }
+
+  public static List<DBObject> dbObjects(final BsonDocument queryDocument, final String key) {
+    final BsonArray values = queryDocument.containsKey(key) ? queryDocument.getArray(key) : null;
+    if (values == null) {
+      return null;
+    }
+    List<DBObject> list = new ArrayList<DBObject>();
+    for (BsonValue value : values) {
+      list.add(dbObject((BsonDocument) value));
+    }
+    return list;
+  }
+
+  public static BsonDocument bsonDocument(DBObject dbObject) {
+    if (dbObject == null) {
+      return null;
+    }
+
+    final BsonDocument bsonDocument = new BsonDocument();
+    defaultDbObjectCodec()
+        .encode(new BsonDocumentWriter(bsonDocument), dbObject, encoderContext());
+
+    return bsonDocument;
+  }
+
+  public static List<BsonDocument> bsonDocuments(Iterable<DBObject> dbObjects) {
+    if (dbObjects == null) {
+      return null;
+    }
+    List<BsonDocument> list = new ArrayList<BsonDocument>();
+    for (DBObject dbObject : dbObjects) {
+      list.add(bsonDocument(dbObject));
+    }
+    return list;
+  }
+
+
+  static com.mongodb.BulkWriteResult translateBulkWriteResult(final com.mongodb.bulk.BulkWriteResult bulkWriteResult,
+                                                              final Decoder<DBObject> decoder) {
+    if (bulkWriteResult.wasAcknowledged()) {
+      Integer modifiedCount = (bulkWriteResult.isModifiedCountAvailable()) ? bulkWriteResult.getModifiedCount() : null;
+      return new AcknowledgedBulkWriteResult(bulkWriteResult.getInsertedCount(), bulkWriteResult.getMatchedCount(),
+          bulkWriteResult.getDeletedCount(), modifiedCount,
+          translateBulkWriteUpserts(bulkWriteResult.getUpserts(), decoder));
+    } else {
+      return new UnacknowledgedBulkWriteResult();
+    }
+  }
+
+  public static List<com.mongodb.BulkWriteUpsert> translateBulkWriteUpserts(final List<com.mongodb.bulk.BulkWriteUpsert> upserts,
+                                                                            final Decoder<DBObject> decoder) {
+    List<com.mongodb.BulkWriteUpsert> retVal = new ArrayList<com.mongodb.BulkWriteUpsert>(upserts.size());
+    for (com.mongodb.bulk.BulkWriteUpsert cur : upserts) {
+      retVal.add(new com.mongodb.BulkWriteUpsert(cur.getIndex(), getUpsertedId(cur, decoder)));
+    }
+    return retVal;
+  }
+
+  public static List<com.mongodb.bulk.BulkWriteUpsert> translateBulkWriteUpsertsToNew(final List<com.mongodb.BulkWriteUpsert> upserts,
+                                                                                      final Decoder<BsonValue> decoder) {
+    List<com.mongodb.bulk.BulkWriteUpsert> retVal = new ArrayList<com.mongodb.bulk.BulkWriteUpsert>(upserts.size());
+    for (com.mongodb.BulkWriteUpsert cur : upserts) {
+      final BsonDocument document = bsonDocument(new BasicDBObject("_id", cur.getId()));
+      retVal.add(new com.mongodb.bulk.BulkWriteUpsert(cur.getIndex(), document.get("_id")));
+    }
+    return retVal;
+  }
+
+  public static Object getUpsertedId(final com.mongodb.bulk.BulkWriteUpsert cur, final Decoder<DBObject> decoder) {
+    return decoder.decode(new BsonDocumentReader(new BsonDocument("_id", cur.getId())), decoderContext()).get("_id");
+  }
+
+  public static BulkWriteException translateBulkWriteException(final MongoBulkWriteException e, final Decoder<DBObject> decoder) {
+    return new BulkWriteException(translateBulkWriteResult(e.getWriteResult(), decoder), translateWriteErrors(e.getWriteErrors()),
+        translateWriteConcernError(e.getWriteConcernError()), e.getServerAddress());
+  }
+
+  public static WriteConcernError translateWriteConcernError(final com.mongodb.bulk.WriteConcernError writeConcernError) {
+    return writeConcernError == null ? null : new WriteConcernError(writeConcernError.getCode(), writeConcernError.getMessage(),
+        dbObject(writeConcernError.getDetails()));
+  }
+
+  public static List<BulkWriteError> translateWriteErrors(final List<com.mongodb.bulk.BulkWriteError> errors) {
+    List<BulkWriteError> retVal = new ArrayList<BulkWriteError>(errors.size());
+    for (com.mongodb.bulk.BulkWriteError cur : errors) {
+      retVal.add(new BulkWriteError(cur.getCode(), cur.getMessage(), dbObject(cur.getDetails()), cur.getIndex()));
+    }
+    return retVal;
+  }
+
+  public static List<com.mongodb.bulk.WriteRequest> translateWriteRequestsToNew(final List<com.mongodb.WriteRequest> writeRequests,
+                                                                                final Codec<DBObject> objectCodec) {
+    List<com.mongodb.bulk.WriteRequest> retVal = new ArrayList<com.mongodb.bulk.WriteRequest>(writeRequests.size());
+    for (com.mongodb.WriteRequest cur : writeRequests) {
+      retVal.add(cur.toNew());
+    }
+    return retVal;
+  }
+
+  private Filter buildFilter(DBObject q) {
+    try {
+      return expressionParser.buildFilter(q);
+    } catch (FongoException e) {
+      if (e.getCode() != null) {
+        this.fongoDb.notOkErrorResult(e.getCode(), e.getMessage()).throwOnError();
+      }
+      throw e;
+    }
+  }
+
 }

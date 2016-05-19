@@ -24,13 +24,13 @@ Add dependency to your project:
 
 [Other dependency management](http://search.maven.org/#artifactdetails|com.github.fakemongo|fongo|2.0.0)
 
-### If you use 2.X drivers
+### If you use 2.X drivers (this branch *fongo-drivers-2.x*) will be deprecated soon
 
 ```xml
 <dependency>
   <groupId>com.github.fakemongo</groupId>
   <artifactId>fongo</artifactId>
-  <version>1.6.7</version>
+  <version>1.6.5</version>
   <scope>test</scope>
 </dependency>
 ```
@@ -68,8 +68,8 @@ MapReduce is in minimal way but will be enhanced soon.
 
 ## Implementation Details
 
-Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.14.0*
-and *3.2.1*.
+Fongo depends on [Objenesis](http://objenesis.org/) to hijack the `com.mongodb.MongoClient` class. It has a "provided" dependency on the mongo-java-driver and was tested with *2.13.0*
+and *3.0.1*.
 It also has a "provided" dependency on sl4j-api for logging. If you don't already have sl4j in your project, you can add a maven dependency to the logback implementation like this:
 
 ```xml
@@ -253,3 +253,5 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Daniil Gitelson] (https://github.com/daniilguit)
 * [Mark Crossfield] (https://github.com/mrmanc)
 * [Rory Douglas] (https://github.com/worrel)
+* [Georg Meyer] (https://github.com/scho)
+* [Igor] (https://github.com/ilaborie)

@@ -22,7 +22,7 @@ public class Index extends IndexAbstract<DBObject> {
 
   private static Map<DBObject, IndexedList<DBObject>> createMap(DBObject keys, boolean unique) {
     // Preserve order only for id.
-    if (keys.containsField(FongoDBCollection.ID_KEY) && keys.toMap().size() == 1) {
+    if (keys.containsField(FongoDBCollection.ID_FIELD_NAME) && keys.toMap().size() == 1) {
       return new LinkedHashMap<DBObject, IndexedList<DBObject>>();
     } else {
       //noinspection unchecked

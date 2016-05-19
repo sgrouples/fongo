@@ -4,14 +4,26 @@ import com.mongodb.DB;
 import com.mongodb.FongoDB;
 import com.mongodb.MockMongoClient;
 import com.mongodb.MongoClient;
+import com.mongodb.ReadConcern;
+import com.mongodb.ReadPreference;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
+import com.mongodb.binding.ConnectionSource;
+import com.mongodb.binding.ReadBinding;
+import com.mongodb.binding.WriteBinding;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.connection.ServerVersion;
+import com.mongodb.operation.OperationExecutor;
+import com.mongodb.operation.ReadOperation;
+import com.mongodb.operation.WriteOperation;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Faked out version of com.mongodb.Mongo
@@ -31,19 +43,33 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author jon
  * @author twillouer
  */
-public class Fongo {
+public class Fongo implements OperationExecutor {
+  private final static Logger LOG = LoggerFactory.getLogger(Fongo.class);
+
+  public static final ServerVersion DEFAULT_SERVER_VERSION = new ServerVersion(3, 0);
+  public static final ServerVersion OLD_SERVER_VERSION = new ServerVersion(0, 0);
 
   private final Map<String, FongoDB> dbMap = new ConcurrentHashMap<String, FongoDB>();
   private final ServerAddress serverAddress;
   private final MongoClient mongo;
   private final String name;
+  private final ServerVersion serverVersion;
 
   /**
    * @param name Used only for a nice toString in case you have multiple instances
    */
-  public Fongo(String name) {
+  public Fongo(final String name) {
+    this(name, DEFAULT_SERVER_VERSION);
+  }
+
+  /**
+   * @param name          Used only for a nice toString in case you have multiple instances
+   * @param serverVersion version of the server to use for fongo.
+   */
+  public Fongo(final String name, final ServerVersion serverVersion) {
     this.name = name;
     this.serverAddress = new ServerAddress(new InetSocketAddress(ServerAddress.defaultHost(), ServerAddress.defaultPort()));
+    this.serverVersion = serverVersion;
     this.mongo = createMongo();
   }
 
@@ -63,6 +89,10 @@ public class Fongo {
       }
       return fongoDb;
     }
+  }
+
+  public synchronized MongoDatabase getDatabase(final String databaseName) {
+    return mongo.getDatabase(databaseName);
   }
 
   /**
@@ -118,13 +148,76 @@ public class Fongo {
     return mongo.getWriteConcern();
   }
 
+  public ReadConcern getReadConcern() {
+    return mongo.getReadConcern();
+  }
+
+
   private MongoClient createMongo() {
     return MockMongoClient.create(this);
   }
 
+  public <T> T execute(final ReadOperation<T> operation, final ReadPreference readPreference) {
+    return operation.execute(new ReadBinding() {
+      @Override
+      public ReadPreference getReadPreference() {
+        return readPreference;
+      }
+
+      @Override
+      public ConnectionSource getReadConnectionSource() {
+        return new FongoConnectionSource(Fongo.this);
+      }
+
+      @Override
+      public ReadBinding retain() {
+        return this;
+      }
+
+      @Override
+      public int getCount() {
+        return 0;
+      }
+
+      @Override
+      public void release() {
+
+      }
+    });
+  }
+
+  public <T> T execute(final WriteOperation<T> operation) {
+    return operation.execute(new WriteBinding() {
+      @Override
+      public ConnectionSource getWriteConnectionSource() {
+        return new FongoConnectionSource(Fongo.this);
+      }
+
+      @Override
+      public WriteBinding retain() {
+        return this;
+      }
+
+      @Override
+      public int getCount() {
+        return 0;
+      }
+
+      @Override
+      public void release() {
+
+      }
+    });
+  }
+
+
   @Override
   public String toString() {
     return "Fongo (" + this.name + ")";
+  }
+
+  public ServerVersion getServerVersion() {
+    return serverVersion;
   }
 
 }

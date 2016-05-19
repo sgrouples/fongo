@@ -28,7 +28,7 @@ import org.junit.rules.RuleChain;
 
 public class JongoGeoTest {
 
-  public final FongoRule fongoRule = new FongoRule(!true);
+  public final FongoRule fongoRule = new FongoRule(false);
 
   public final ExpectedException exception = ExpectedException.none();
 
@@ -114,7 +114,6 @@ public class JongoGeoTest {
     Assertions.assertThat(jongoGeo.properties.get("nom_region")).isEqualTo("BASSE-NORMANDIE");
     Assertions.assertThat(jongoGeo.properties.get("insee_com")).isEqualTo("14580");
   }
-
 
   @Test
   public void should_command_geoNear_works() {

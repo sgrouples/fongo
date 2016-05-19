@@ -3,8 +3,8 @@ package com.github.fakemongo.impl.aggregation;
 import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
+import com.mongodb.annotations.ThreadSafe;
 import java.util.List;
-import org.bson.util.annotations.ThreadSafe;
 
 /**
  * User: william

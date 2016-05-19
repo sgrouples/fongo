@@ -128,25 +128,26 @@ public class TextSearch {
 
   private List<DBObject> findMatchesInCollection(DBCollection collection, List<String> stringsToSearch, DBObject project) {
     Iterator textKeyIterator = textIndexFields.iterator();
-    int wordsCount = stringsToSearch.size();
     BasicDBObject findQuery;
     BasicDBList ors = new BasicDBList();
     while (textKeyIterator.hasNext()) {
       String key = (String) textKeyIterator.next();
-      for (int i = 0; i < wordsCount; i++) {
+      for (String aStringsToSearch : stringsToSearch) {
         ors.add(new BasicDBObject(key,
-            java.util.regex.Pattern.compile("\\b" + stringsToSearch.get(i) + "\\b", Pattern.CASE_INSENSITIVE)));
+            Pattern.compile("\\b" + aStringsToSearch + "\\b", Pattern.CASE_INSENSITIVE)));
       }
     }
-    findQuery = new BasicDBObject("$or", ors);
-
-    DBCursor searchResultCursor = collection.find(findQuery, project);
-
     List<DBObject> result = new ArrayList<DBObject>();
+    if (!ors.isEmpty()) {
+      findQuery = new BasicDBObject("$or", ors);
 
-    while (searchResultCursor.hasNext()) {
-      result.add(searchResultCursor.next());
-      nscannedObjects++;
+      DBCursor searchResultCursor = collection.find(findQuery, project);
+
+
+      while (searchResultCursor.hasNext()) {
+        result.add(searchResultCursor.next());
+        nscannedObjects++;
+      }
     }
     return result;
   }

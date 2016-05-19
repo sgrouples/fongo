@@ -6,8 +6,10 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
 import com.mongodb.LazyDBList;
 import com.mongodb.gridfs.GridFSFile;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -238,27 +240,22 @@ public final class Util {
       return null;
     }
 
-    if (source instanceof BasicDBObject) {
-      @SuppressWarnings("unchecked")
-      T clone = (T) ((BasicDBObject) source).copy();
-      return clone;
-    }
-
     if (source instanceof BasicDBList) {
       @SuppressWarnings("unchecked")
       T clone = (T) ((BasicDBList) source).copy();
       return clone;
     }
 
-    if (source instanceof org.bson.LazyDBList) {
+    if (source instanceof org.bson.LazyBSONList) {
       BasicDBList clone = new BasicDBList();
-      for (Object o : ((org.bson.LazyDBList) source)) {
-        if (ExpressionParser.isDbObject(o)) {
+      for (Object o : ((org.bson.LazyBSONList) source)) {
+        if (o instanceof DBObject) {
           clone.add(clone(ExpressionParser.toDbObject(o)));
         } else {
           clone.add(o);
         }
       }
+      return (T) clone;
     } else if (source instanceof LazyDBList) {
       BasicDBList clone = new BasicDBList();
       for (Object o : ((LazyDBList) source)) {
@@ -269,6 +266,12 @@ public final class Util {
         }
       }
       return (T) clone;
+    }
+
+    if (source instanceof BasicDBObject) {
+      @SuppressWarnings("unchecked")
+      T clone = (T) ((BasicDBObject) source).copy();
+      return clone;
     }
 
     if (source instanceof LazyBSONObject) {
@@ -322,8 +325,8 @@ public final class Util {
 
     // copy field values into new object
     DBObject newobj = new BasicDBObject();
-    if (source.containsField(FongoDBCollection.ID_KEY)) {
-      newobj.put(FongoDBCollection.ID_KEY, source.get(FongoDBCollection.ID_KEY));
+    if (source.containsField(FongoDBCollection.ID_FIELD_NAME)) {
+      newobj.put(FongoDBCollection.ID_FIELD_NAME, source.get(FongoDBCollection.ID_FIELD_NAME));
     }
 
     Set<Map.Entry<String, Object>> entrySet;
@@ -342,7 +345,7 @@ public final class Util {
     // need to embedded the sub obj
     for (Map.Entry<String, Object> entry : entrySet) {
       String field = entry.getKey();
-      if (!FongoDBCollection.ID_KEY.equals(field)) {
+      if (!FongoDBCollection.ID_FIELD_NAME.equals(field)) {
         Object val = entry.getValue();
         if (ExpressionParser.isDbObject(val)) {
           newobj.put(field, clone(ExpressionParser.toDbObject(val)));
@@ -359,5 +362,14 @@ public final class Util {
    */
   public static boolean isDBObjectEmpty(DBObject projection) {
     return projection == null || projection.keySet().isEmpty();
+  }
+
+  public static Collection toCollection(Object array) {
+    int length = Array.getLength(array);
+    List list = new ArrayList();
+    for (int i = 0; i < length; i++) {
+      list.add(Array.get(array, i));
+    }
+    return list;
   }
 }

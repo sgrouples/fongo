@@ -151,7 +151,7 @@ public class UpdateEngine {
   Number genericAdd(Number left, Number right) {
     if (left instanceof Float || left instanceof Double || right instanceof Float || right instanceof Double) {
       return left.doubleValue() + right.doubleValue();
-    } else if (left instanceof Integer) {
+    } else if (left instanceof Integer && right instanceof Integer) {
       return left.intValue() + right.intValue();
     } else {
       return left.longValue() + right.longValue();
@@ -172,10 +172,10 @@ public class UpdateEngine {
   Number genericMax(Number left, Number right) {
     if (left instanceof Float || left instanceof Double || right instanceof Float || right instanceof Double) {
       return Math.max(left.doubleValue(), right.doubleValue());
-    } else if (left instanceof Integer) {
+    } else if (left instanceof Integer && right instanceof Integer) {
       return Math.max(left.intValue(), right.intValue());
     } else {
-      return Math.max(left.longValue(), right.intValue());
+      return Math.max(left.longValue(), right.longValue());
     }
   }
 
@@ -192,10 +192,10 @@ public class UpdateEngine {
   Number genericMin(Number left, Number right) {
     if (left instanceof Float || left instanceof Double || right instanceof Float || right instanceof Double) {
       return Math.min(left.doubleValue(), right.doubleValue());
-    } else if (left instanceof Integer) {
+    } else if (left instanceof Integer && right instanceof Integer) {
       return Math.min(left.intValue(), right.intValue());
     } else {
-      return Math.min(left.longValue(), right.intValue());
+      return Math.min(left.longValue(), right.longValue());
     }
   }
 

@@ -7,17 +7,27 @@ import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.FongoDB;
 import com.mongodb.FongoDBCollection;
-import com.mongodb.util.JSON;
+import com.mongodb.FongoMapReduceOutput;
+import com.mongodb.MapReduceCommand;
+import com.mongodb.MapReduceOutput;
+import com.mongodb.operation.MapReduceStatistics;
+import com.mongodb.util.FongoJSON;
+import com.mongodb.util.ObjectSerializer;
+import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import org.mozilla.javascript.ConsString;
 import org.mozilla.javascript.Context;
 import org.mozilla.javascript.NativeArray;
+import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.RhinoException;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.tools.shell.Global;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,8 +38,6 @@ import org.slf4j.LoggerFactory;
  */
 public class MapReduce {
   private static final Logger LOG = LoggerFactory.getLogger(MapReduce.class);
-
-  private final Fongo fongo;
 
   private final FongoDB fongoDB;
 
@@ -71,7 +79,7 @@ public class MapReduce {
       public void newResults(MapReduce mr, DBCollection coll, List<DBObject> results) {
         // Upsert == insert the result if not exist.
         for (DBObject result : results) {
-          coll.update(new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY)), result, true,
+          coll.update(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME)), result, true,
               false);
         }
       }
@@ -79,9 +87,9 @@ public class MapReduce {
     REDUCE {
       @Override
       public void newResults(MapReduce mr, DBCollection coll, List<DBObject> results) {
-        List<DBObject> reduced = mr.reduceOutputStage(coll, results);
+        final List<DBObject> reduced = mr.reduceOutputStage(coll, results);
         for (DBObject result : reduced) {
-          coll.update(new BasicDBObject(FongoDBCollection.ID_KEY, result.get(FongoDBCollection.ID_KEY)), result, true,
+          coll.update(new BasicDBObject(FongoDBCollection.ID_FIELD_NAME, result.get(FongoDBCollection.ID_FIELD_NAME)), result, true,
               false);
         }
       }
@@ -104,18 +112,24 @@ public class MapReduce {
         return UUID.randomUUID().toString();
       }
 
-      // Return a list of all results.
       @Override
-      public DBObject createResult(DBCollection coll) {
-        BasicDBList list = new BasicDBList();
-        list.addAll(coll.find().toArray());
-        return list;
+      public MapReduceOutput createResult(DBObject query, final DBCollection coll, final MapReduceStatistics ignored) {
+        return new FongoMapReduceOutput(query, coll.find().toArray());
       }
     };
 
     public static Outmode valueFor(DBObject object) {
       for (Outmode outmode : values()) {
         if (object.containsField(outmode.name().toLowerCase())) {
+          return outmode;
+        }
+      }
+      return null;
+    }
+
+    public static Outmode valueFor(MapReduceCommand.OutputType outputType) {
+      for (Outmode outmode : values()) {
+        if (outputType.name().equalsIgnoreCase(outmode.name().toLowerCase())) {
           return outmode;
         }
       }
@@ -130,19 +144,18 @@ public class MapReduce {
       // Do nothing.
     }
 
-    public abstract void newResults(MapReduce marReduce, DBCollection coll, List<DBObject> results);
+    public abstract void newResults(MapReduce mapReduce, DBCollection coll, List<DBObject> results);
 
-    public DBObject createResult(DBCollection coll) {
-      DBObject result = new BasicDBObject("collection", coll.getName()).append("db", coll.getDB().getName());
-      return result;
+    public MapReduceOutput createResult(final DBObject query, final DBCollection coll, final MapReduceStatistics mapReduceStatistics) {
+      return new FongoMapReduceOutput(query, coll, mapReduceStatistics);
     }
+
   }
 
   public MapReduce(Fongo fongo, FongoDBCollection coll, String map, String reduce, String finalize,
                    Map<String, Object> scope, DBObject out, DBObject query, DBObject sort, Number limit) {
-    this.fongo = fongo;
     if (out.containsField("db")) {
-      this.fongoDB = (FongoDB) fongo.getDB((String) out.get("db"));
+      this.fongoDB = fongo.getDB((String) out.get("db"));
     } else {
       this.fongoDB = (FongoDB) coll.getDB();
     }
@@ -160,63 +173,109 @@ public class MapReduce {
   /**
    * @return null if error.
    */
-  public DBObject computeResult() {
+  public MapReduceOutput computeResult() {
+    final long startTime = System.currentTimeMillis();
     // Replace, merge or reduce ?
     Outmode outmode = Outmode.valueFor(out);
-    DBCollection coll = fongoDB.createCollection(outmode.collectionName(out), null);
+    DBCollection coll = fongoDB.getCollection(outmode.collectionName(out));
     // Mode replace.
     outmode.initCollection(coll);
-    outmode.newResults(this, coll, runInContext());
-    DBObject result = outmode.createResult(coll);
+    final MapReduceResult mapReduceResult = runInContext();
+    outmode.newResults(this, coll, mapReduceResult.result);
+
+    final MapReduceStatistics mapReduceStatistics = new MapReduceStatistics(mapReduceResult.inputCount, mapReduceResult.outputCount, mapReduceResult.emitCount, (int) (System.currentTimeMillis() - startTime));
+    final MapReduceOutput result = outmode.createResult(this.query, coll, mapReduceStatistics);
     LOG.debug("computeResult() : {}", result);
     return result;
   }
 
-  private List<DBObject> runInContext() {
+  static class MapReduceResult {
+    final int inputCount, outputCount, emitCount;
+    final List<DBObject> result;
+
+    public MapReduceResult(int inputCount, int outputCount, int emitCount, List<DBObject> result) {
+      this.inputCount = inputCount;
+      this.outputCount = outputCount;
+      this.emitCount = emitCount;
+      this.result = result;
+    }
+  }
+
+  private MapReduceResult runInContext() {
     // TODO use Compilable ? http://www.jmdoudoux.fr/java/dej/chap-scripting.htm
     Context cx = Context.enter();
     try {
-      Scriptable scriptable = cx.initStandardObjects();
-      if (this.scope != null) {
-        for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
-          scriptable.put(entry.getKey(), scriptable, entry.getValue());
-        }
-      }
+      Scriptable scriptable = new Global(cx);//cx.initStandardObjects();
+      cx.initStandardObjects();
+      ScriptableObject.defineClass(scriptable, FongoNumberLong.class);
+      ScriptableObject.defineClass(scriptable, FongoNumberInt.class);
+//      cx.setGeneratingDebug(true);
+//      cx.getWrapFactory().setJavaPrimitiveWrap(false);
 
-      List<DBObject> objects = this.fongoDBCollection.find(query).sort(sort).limit(limit).toArray();
-      List<String> javascriptFunctions = constructJavascriptFunction(objects);
+      final StringBuilder stringBuilder = new StringBuilder();
+      // Add some function to javascript engine.
+      this.addMongoFunctions(stringBuilder);
+      this.addScopeObjects(stringBuilder);
+
+      final List<String> javascriptFunctions = new ArrayList<String>();
+      javascriptFunctions.add(stringBuilder.toString());
+      final List<DBObject> objects = this.fongoDBCollection.find(query).sort(sort).limit(limit).toArray();
+      constructJavascriptFunction(javascriptFunctions, objects);
       for (String jsFunction : javascriptFunctions) {
         try {
-          cx.evaluateString(scriptable, jsFunction, "<map-reduce>", 0, null);
+          cx.evaluateString(scriptable, jsFunction, "MapReduce", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
+          if (e.getMessage().contains("FongoAssertException")) {
+            fongoDB.notOkErrorResult(16722, "Error: assert failed: " + e.getMessage()).throwOnError();
+          }
           fongoDB.notOkErrorResult(16722, "JavaScript execution failed: " + e.getMessage()).throwOnError();
         }
       }
 
       // Get the result into an object.
-      NativeArray outs = (NativeArray) scriptable.get("$$$fongoOuts$$$", scriptable);
-      List<DBObject> dbOuts = new ArrayList<DBObject>();
+      final NativeArray outs = (NativeArray) scriptable.get("$$$fongoOuts$$$", scriptable);
+      final List<DBObject> dbOuts = new ArrayList<DBObject>();
       for (int i = 0; i < outs.getLength(); i++) {
-        NativeObject out = (NativeObject) outs.get(i, outs);
+        final NativeObject out = (NativeObject) outs.get(i, outs);
         dbOuts.add(getObject(out));
       }
-      return dbOuts;
+      // TODO : verify emitCount
+      return new MapReduceResult(objects.size(), dbOuts.size(), objects.size(), dbOuts);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    } catch (InstantiationException e) {
+      throw new RuntimeException(e);
+    } catch (InvocationTargetException e) {
+      throw new RuntimeException(e);
     } finally {
       Context.exit();
+    }
+  }
+
+  private void addScopeObjects(StringBuilder stringBuilder) {
+    if (this.scope != null) {
+      for (Map.Entry<String, Object> entry : this.scope.entrySet()) {
+        stringBuilder.append("var ").append(entry.getKey()).append(" = ");
+        FongoJSON.serialize(entry.getValue(), stringBuilder, OBJECT_SERIALIZERS);
+        stringBuilder.append(";\n");
+      }
     }
   }
 
   private List<DBObject> reduceOutputStage(DBCollection coll, List<DBObject> mapReduceOutput) {
     Context cx = Context.enter();
     try {
-      Scriptable scope = cx.initStandardObjects();
-      List<String> jsFunctions = constructReduceOutputStageJavascriptFunction(coll, mapReduceOutput);
+      final Scriptable scope = cx.initStandardObjects();
+      final List<String> jsFunctions = constructReduceOutputStageJavascriptFunction(coll, mapReduceOutput);
       for (String jsFunction : jsFunctions) {
         try {
           cx.evaluateString(scope, jsFunction, "<reduce output stage>", 0, null);
         } catch (RhinoException e) {
           LOG.error("Exception running script {}", jsFunction, e);
+          if (e.getMessage().contains("FongoAssertException")) {
+            fongoDB.notOkErrorResult(16722, "Error: assert failed: " + e.getMessage()).throwOnError();
+          }
           fongoDB.notOkErrorResult(16722, "JavaScript execution failed: " + e.getMessage()).throwOnError();
         }
       }
@@ -232,7 +291,7 @@ public class MapReduce {
       LOG.debug("reduceOutputStage() : {}", dbOuts);
       return dbOuts;
     } finally {
-      cx.exit();
+      Context.exit();
     }
   }
 
@@ -243,9 +302,7 @@ public class MapReduce {
       NativeArray noArray = (NativeArray) no;
       for (int i = 0; i < noArray.getLength(); i++) {
         Object value = noArray.get(i, noArray);
-        if (value instanceof NativeObject || value instanceof NativeArray) {
-          value = getObject((ScriptableObject) value);
-        }
+        value = getObjectOrTransform(value);
         ret.add(value);
       }
       return ret;
@@ -255,22 +312,39 @@ public class MapReduce {
     for (Object propId : propIds) {
       String key = Context.toString(propId);
       Object value = NativeObject.getProperty(no, key);
-      if (value instanceof NativeObject || value instanceof NativeArray) {
-        value = getObject((ScriptableObject) value);
-      }
+      value = getObjectOrTransform(value);
       ret.put(key, value);
     }
     return ret;
   }
 
+  private Object getObjectOrTransform(Object value) {
+    if (value instanceof NativeObject || value instanceof NativeArray) {
+      value = getObject((ScriptableObject) value);
+    }
+    if (value instanceof Integer) {
+      value = ((Integer) value).doubleValue();
+    }
+    if (value instanceof ConsString) {
+      value = value.toString();
+    }
+    if (value instanceof NativeJavaObject) {
+      value = ((NativeJavaObject) value).unwrap();
+    }
+    if (value instanceof FongoNumberLong) {
+      value = ((FongoNumberLong) value).value;
+    }
+    if (value instanceof FongoNumberInt) {
+      value = ((FongoNumberInt) value).value;
+    }
+    return value;
+  }
+
   /**
    * Create the map/reduce/finalize function.
    */
-  private List<String> constructJavascriptFunction(List<DBObject> objects) {
-    List<String> result = new ArrayList<String>();
+  private List<String> constructJavascriptFunction(List<String> result, List<DBObject> objects) {
     StringBuilder sb = new StringBuilder(80000);
-    // Add some function to javascript engine.
-    addMongoFunctions(sb);
 
     // Create variables for exporting.
     sb.append("var $$$fongoEmits$$$ = new Object();\n");
@@ -287,14 +361,15 @@ public class MapReduce {
     sb.append("var $$$fongoVars$$$ = new Object();\n");
     // For each object, execute in javascript the function.
     for (DBObject object : objects) {
-      String json = JSON.serialize(object);
-      sb.append("$$$fongoVars$$$ = ").append(json).append(";\n");
+      sb.append("$$$fongoVars$$$ = ");
+      FongoJSON.serialize(object, sb, OBJECT_SERIALIZERS);
+      sb.append(";\n");
       sb.append("$$$fongoVars$$$['fongoExecute'] = fongoMapFunction;\n");
       sb.append("$$$fongoVars$$$.fongoExecute();\n");
-      if (sb.length() > 65535) { // Rhino limit :-(
-        result.add(sb.toString());
-        sb.setLength(0);
-      }
+//      if (sb.length() > 65535) { // Rhino limit :-(
+//        result.add(sb.toString());
+//        sb.setLength(0);
+//      }
     }
     result.add(sb.toString());
 
@@ -304,7 +379,7 @@ public class MapReduce {
     sb.append("var $$$fongoOuts$$$ = Array();\n" +
         "for(var i in $$$fongoEmits$$$) {\n" +
         "var elem = $$$fongoEmits$$$[i];\n" +
-        "values = []; id = null; for (var ii in elem) { values.push(elem[ii].value); id = elem[ii].id;}\n" +
+        "var values = []; id = null; for (var ii in elem) { values.push(elem[ii].value); id = elem[ii].id;}\n" +
         "$$$fongoOuts$$$[$$$fongoOuts$$$.length] = { _id : id, value : reduce(id, values) };\n" +
         "}\n");
     result.add(sb.toString());
@@ -324,18 +399,18 @@ public class MapReduce {
     sb.append("var reduce = ").append(reduce).append("\n");
     sb.append("var $$$fongoOuts$$$ = new Array();\n");
     for (DBObject object : objects) {
-      String objectJson = JSON.serialize(object);
-      String objectValueJson = JSON.serialize(object.get("value"));
-      DBObject existing = coll.findOne(new BasicDBObject().append(FongoDBCollection.ID_KEY,
-          object.get(FongoDBCollection.ID_KEY)));
+      String objectJson = FongoJSON.serialize(object);
+      String objectValueJson = FongoJSON.serialize(object.get("value"));
+      DBObject existing = coll.findOne(new BasicDBObject().append(FongoDBCollection.ID_FIELD_NAME,
+          object.get(FongoDBCollection.ID_FIELD_NAME)));
       if (existing == null || existing.get("value") == null) {
         sb.append("$$$fongoOuts$$$[$$$fongoOuts$$$.length] = ").append(objectJson).append(";\n");
       } else {
-        String id = JSON.serialize(object.get(FongoDBCollection.ID_KEY));
-        String existingValueJson = JSON.serialize(existing.get("value"));
+        String id = FongoJSON.serialize(object.get(FongoDBCollection.ID_FIELD_NAME));
+        String existingValueJson = FongoJSON.serialize(existing.get("value"));
         sb.append("$$$fongoId$$$ = ").append(id).append(";\n");
         sb.append("$$$fongoValues$$$ = [ ").append(existingValueJson).append(", ").append(objectValueJson).append("];\n");
-        sb.append("$$$fongoReduced$$$ = { _id : $$$fongoId$$$, value : reduce($$$fongoId$$$, $$$fongoValues$$$)};")
+        sb.append("$$$fongoReduced$$$ = { _id: $$$fongoId$$$, 'value': reduce($$$fongoId$$$, $$$fongoValues$$$)};")
             .append(";\n");
         sb.append("$$$fongoOuts$$$[$$$fongoOuts$$$.length] = $$$fongoReduced$$$;\n");
       }
@@ -357,5 +432,144 @@ public class MapReduce {
         "    }\n" +
         "    return a;" +
         "};\n");
+
+    construct.append("printjson = function(a) {" +
+        "    print(tojson(a));\n" +
+        " };\n");
+
+    construct.append("printjsononeline = function(a) {\n" +
+        "    print(tojson(a));\n" +
+        " };\n");
+
+    construct.append("assert = function(a) {\n" +
+        "    if (!a) throw new FongoAssertException();\n" +
+        " };\n");
+
+    construct.append("isString = function(a) {\n" +
+        "    return typeof(a) === 'string';\n" +
+        " };\n");
+
+    construct.append("isNumber = function(a) {\n" +
+        "    return typeof(a) === 'number';\n" +
+        " };\n");
+
+    construct.append("isObject = function(a) {\n" +
+        "    return typeof(a) === 'object';\n" +
+        " };\n");
+
+    construct.append("tojson = function(a) {\n" +
+        "    return JSON.stringify(a,null,0);\n" +
+        " };\n");
+
+    construct.append("tojsononeline = function(a) {\n" +
+        "    return JSON.stringify(a,null,0);\n" +
+        " };\n");
+
+    construct.append("NumberLong = function(a) {\n" +
+        "        return new FongoNumberLong(a);\n" +
+        "};\n");
+
+    construct.append("NumberInt = function(a) {\n" +
+        "        return new FongoNumberInt(a);\n" +
+        "};\n");
+  }
+
+  public static class FongoNumberLong extends ScriptableObject {
+    long value;
+
+    public FongoNumberLong() {
+    }
+
+    public FongoNumberLong(long value) {
+      this.value = value;
+    }
+
+    // Method jsConstructor defines the JavaScript constructor
+    public void jsConstructor(int a) {
+      this.value = a;
+    }
+
+    public int jsFunction_toNumber() {
+      return (int) value;
+    }
+
+    public int jsFunction_valueOf() {
+      return jsFunction_toNumber();
+    }
+
+    @Override
+    public String getClassName() {
+      return "FongoNumberLong";
+    }
+
+    public String jsFunction_toString() {
+      return "NumberLong(" + this.value + ")";
+    }
+  }
+
+  public static class FongoNumberInt extends ScriptableObject {
+    int value;
+
+    public FongoNumberInt() {
+    }
+
+    // Method jsConstructor defines the JavaScript constructor
+    public void jsConstructor(int a) {
+      this.value = a;
+    }
+
+    public int jsFunction_toNumber() {
+      return value;
+    }
+
+    public int jsFunction_valueOf() {
+      return value;
+    }
+
+    @Override
+    public String getClassName() {
+      return "FongoNumberInt";
+    }
+
+    public String jsFunction_toString() {
+      return "NumberInt(" + this.value + ")";
+    }
+  }
+
+
+  private static class FongoLongSerializer implements ObjectSerializer {
+
+    @Override
+    public String serialize(final Object obj) {
+      StringBuilder builder = new StringBuilder();
+      serialize(obj, builder);
+      return builder.toString();
+    }
+
+    @Override
+    public void serialize(final Object obj, final StringBuilder buf) {
+      buf.append("NumberLong(").append(obj.toString()).append(")");
+    }
+  }
+
+  private static class FongoIntegerSerializer implements ObjectSerializer {
+    @Override
+    public String serialize(final Object obj) {
+      StringBuilder builder = new StringBuilder();
+      serialize(obj, builder);
+      return builder.toString();
+    }
+
+    @Override
+    public void serialize(final Object obj, final StringBuilder buf) {
+      buf.append("NumberInt(").append(obj.toString()).append(")");
+    }
+  }
+
+  static final Map<Class<?>, ObjectSerializer> OBJECT_SERIALIZERS = new HashMap<Class<?>, ObjectSerializer>();
+
+  static {
+    OBJECT_SERIALIZERS.put(Long.class, new FongoLongSerializer());
+    OBJECT_SERIALIZERS.put(Integer.class, new FongoIntegerSerializer());
   }
 }
