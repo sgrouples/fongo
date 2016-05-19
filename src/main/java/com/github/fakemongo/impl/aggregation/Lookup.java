@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/22/2016
  */
 public class Lookup extends PipelineKeyword {

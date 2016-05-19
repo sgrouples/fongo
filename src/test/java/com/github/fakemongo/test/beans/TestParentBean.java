@@ -6,7 +6,7 @@ import com.google.common.base.Objects;
 import java.util.List;
 
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/23/2016
  */
 @JsonSerialize(include = JsonSerialize.Inclusion.NON_NULL)

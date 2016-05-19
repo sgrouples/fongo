@@ -26,7 +26,7 @@ import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import static org.junit.Assert.*;
 
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/22/2016
  */
 public class LookupTest {
