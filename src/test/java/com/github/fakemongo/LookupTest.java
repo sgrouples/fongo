@@ -41,13 +41,13 @@ public class LookupTest {
     // start with 2 collections
     DBCollection primaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(primaryColl, "[\n" +
-        "    {\n" +
-        "        \"_id\" : \"p1\"\n" +
-        "    },\n" +
-        "    {\n" +
-        "        \"_id\" : \"p2\"\n" +
-        "    }\n" +
-        "]\n");
+                                      "    {\n" +
+                                      "        \"_id\" : \"p1\"\n" +
+                                      "    },\n" +
+                                      "    {\n" +
+                                      "        \"_id\" : \"p2\"\n" +
+                                      "    }\n" +
+                                      "]\n");
     DBCollection secondaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(secondaryColl, "[" +
         "    {\n" +
