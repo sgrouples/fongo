@@ -65,6 +65,7 @@ public class ExpressionParser {
   public static final String ELEM_MATCH = QueryOperators.ELEM_MATCH;
   public static final String WHERE = QueryOperators.WHERE;
   public static final String GEO_WITHIN = "$geoWithin";
+  public static final String GEO_INTERSECTS = "$geoIntersects";
   public static final String SLICE = "$slice";
   public static final Filter AllFilter = new Filter() {
     @Override
@@ -294,6 +295,7 @@ public class ExpressionParser {
       new NearCommandFilterFactory(NEAR_SPHERE, true),
       new NearCommandFilterFactory(NEAR, false),
       new GeoWithinCommandFilterFactory(GEO_WITHIN),
+      new GeoIntersectsCommandFilterFactory(GEO_INTERSECTS),
       new BasicCommandFilterFactory(TYPE) {
         @Override
         public Filter createFilter(final List<String> path, DBObject refExpression) {
@@ -987,6 +989,18 @@ public class ExpressionParser {
     };
   }
 
+  private Filter createGeointersectsFilter(final List<String> path, final Geometry geometry) {
+    return new Filter() {
+
+      @Override
+      public boolean apply(DBObject o) {
+
+        Geometry local = GeoUtil.toGeometry(Util.extractField(o, path));
+        return GeoUtil.geowithin(local, geometry);
+      }
+    };
+  }
+
   public int parseRegexOptionsToPatternFlags(String flagString) {
     int flags = 0;
     for (int i = 0; flagString != null && i < flagString.length(); i++) {
@@ -1328,9 +1342,33 @@ public class ExpressionParser {
     // http://docs.mongodb.org/manual/reference/operator/query/geoWithin/
     @Override
     public Filter createFilter(final List<String> path, DBObject refExpression) {
-      LOG.debug("geoWithin path:{}, refExp:{}", path, refExpression);
-      Geometry geometry = GeoUtil.toGeometry(castToDBObject("$geoWithin", refExpression.get("$geoWithin")));
-      return createGeowithinFilter(path, geometry);
+      LOG.debug(command + " path:{}, refExp:{}", path, refExpression);
+      Geometry geometry = GeoUtil.toGeometry(castToDBObject(command, refExpression.get(command)));
+      return createGeointersectsFilter(path, geometry);
+    }
+  }
+
+  private final class GeoIntersectsCommandFilterFactory extends BasicCommandFilterFactory {
+
+    public GeoIntersectsCommandFilterFactory(final String command) {
+      super(command);
+    }
+
+    // https://docs.mongodb.com/manual/reference/operator/query/geoIntersects/
+    @Override
+    public Filter createFilter(final List<String> path, DBObject refExpression) {
+      LOG.debug(command + " path:{}, refExp:{}", path, refExpression);
+      DBObject geoIntersect = castToDBObject(command, refExpression.get(command));
+      if (geoIntersect.get("$geometry") == null) {
+        throw new FongoException(2, "Query failed with error code 2 and error message '$geoIntersect not supported with provided geometry: " + refExpression);
+      }
+      final DBObject dbObjectGeometry = castToDBObject("$geometry", geoIntersect.get("$geometry"));
+      try {
+        Geometry geometry = GeoUtil.toGeometry(dbObjectGeometry);
+        return createGeowithinFilter(path, geometry);
+      } catch (IllegalArgumentException iea) {
+        throw new FongoException(2, "Query failed with error code 2 and error message 'Loop is not closed: " + dbObjectGeometry.get("coordinates"));
+      }
     }
   }
 
