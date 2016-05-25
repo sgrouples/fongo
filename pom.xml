@@ -58,6 +58,9 @@
         <sonar.jacoco.reportPath>${jacoco.destFile.unit}</sonar.jacoco.reportPath>
         <sonar.core.codeCoveragePlugin>jacoco</sonar.core.codeCoveragePlugin>
         <sonar.dynamicAnalysis>reuseReports</sonar.dynamicAnalysis>
+
+        <!-- Gpg -->
+        <gpg.keyname>257FA0AB</gpg.keyname>
     </properties>
 
     <dependencies>
