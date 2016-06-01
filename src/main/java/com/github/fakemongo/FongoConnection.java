@@ -463,6 +463,13 @@ public class FongoConnection implements Connection {
       return null;
     } else if (command.containsKey("ping")) {
       return (T) new Document("ok", 1.0);
+    } else if (command.containsKey("insert")) {
+      final FongoDBCollection dbCollection = (FongoDBCollection) db.getCollection(command.get("insert").asString().getValue());
+      List<BsonValue> documentsToInsert = command.getArray("documents").getValues();
+      for (BsonValue document : documentsToInsert) {
+        dbCollection.insert(dbObject(document.asDocument()));
+      }
+      return (T) new Document("ok", 1.0).append("n", documentsToInsert.size());
     } else {
       LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));
