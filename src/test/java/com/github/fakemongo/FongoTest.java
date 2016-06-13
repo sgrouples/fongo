@@ -26,6 +26,7 @@ import com.mongodb.QueryBuilder;
 import com.mongodb.ServerAddress;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteResult;
+import com.mongodb.client.MongoDatabase;
 import com.mongodb.util.FongoJSON;
 import java.net.InetSocketAddress;
 import java.sql.Time;
@@ -47,6 +48,7 @@ import org.assertj.core.api.Assertions;
 import static org.assertj.core.api.Assertions.assertThat;
 import org.assertj.core.util.Lists;
 import org.bson.BSON;
+import org.bson.Document;
 import org.bson.Transformer;
 import org.bson.codecs.configuration.CodecConfigurationException;
 import org.bson.types.Binary;
@@ -3472,6 +3474,46 @@ public class FongoTest {
     // Then
     Assertions.assertThat(ping.getErrorMessage()).isNullOrEmpty();
     Assertions.assertThat(ping.ok()).isTrue();
+  }
+
+  @Test
+  public void should_insert_documents() {
+    // Given
+    final BasicDBList documentsToAdd = new BasicDBList();
+
+    documentsToAdd.add(new BasicDBObject("a", "document"));
+    documentsToAdd.add(new BasicDBObject("b", "document"));
+    documentsToAdd.add(new BasicDBObject("c", "document"));
+
+    final DB database = fongoRule.getDB();
+    final String aCollection = "aCollection";
+
+    // When
+    CommandResult insert = database.command(new BasicDBObject("insert", aCollection).append("documents", documentsToAdd));
+
+    // Then
+    assertEquals(new BasicDBObject("ok", 1.0).append("n", documentsToAdd.size()), insert);
+    assertEquals(documentsToAdd.size(), database.getCollection(aCollection).count());
+  }
+
+  @Test
+  public void should_insert_documents_V3() {
+    // Given
+    final BasicDBList documentsToAdd = new BasicDBList();
+
+    documentsToAdd.add(new BasicDBObject("a", "document"));
+    documentsToAdd.add(new BasicDBObject("b", "document"));
+    documentsToAdd.add(new BasicDBObject("c", "document"));
+
+    final MongoDatabase database = fongoRule.getDatabase();
+    final String aCollection = "aCollection";
+
+    // When
+    Document insert = database.runCommand(new BasicDBObject("insert", aCollection).append("documents", documentsToAdd));
+
+    // Then
+    assertEquals(new Document("ok", 1.0).append("n", documentsToAdd.size()), insert);
+    assertEquals(documentsToAdd.size(), database.getCollection(aCollection).count());
   }
 
   static class Seq {
