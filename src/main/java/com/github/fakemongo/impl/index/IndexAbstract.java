@@ -8,9 +8,13 @@ import com.mongodb.DBObject;
 import com.mongodb.FongoDBCollection;
 import static com.mongodb.FongoDBCollection.ID_FIELD_NAME;
 import com.mongodb.MongoException;
-
-import java.util.*;
-
+import com.mongodb.QueryOperators;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.bson.types.Binary;
 
 /**
@@ -279,7 +283,11 @@ public abstract class IndexAbstract<T extends DBObject> {
 
     //get keys including embedded indexes
     for (String field : fields) {
-      if (!queryFields.containsField(field) && !keyEmbeddedFieldMatch(field, queryFields)) {
+      final Object o = queryFields.get(field);
+      if (o == null && !keyEmbeddedFieldMatch(field, queryFields)) {
+        return false;
+      }
+      if (ExpressionParser.isDbObject(o) && ExpressionParser.toDbObject(o).containsField(QueryOperators.EXISTS)) {
         return false;
       }
     }
