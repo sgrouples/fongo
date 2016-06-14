@@ -3516,6 +3516,160 @@ public class FongoTest {
     assertEquals(documentsToAdd.size(), database.getCollection(aCollection).count());
   }
 
+  @Test
+  public void should_delete_documents() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2));
+    collection.insert(new BasicDBObject("_id", 3));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("_id", 2)));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("_id", 3)));
+
+    final DB database = fongoRule.getDB();
+
+    // When
+    CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new BasicDBObject("ok", 1.0).append("n", deleteQueries.size()), delete);
+    assertEquals(1, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_delete_documents_V3() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2));
+    collection.insert(new BasicDBObject("_id", 3));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("_id", 2)));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("_id", 3)));
+
+    final MongoDatabase database = fongoRule.getDatabase();
+
+    // When
+    Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new Document("ok", 1.0).append("n", deleteQueries.size()), delete);
+    assertEquals(1, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_delete_single_document_with_limit1() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 3).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 4).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 5).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 6).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 7).append("key", "value2"));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value1")).append("limit", 1));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value2")).append("limit", 1));
+
+    final DB database = fongoRule.getDB();
+
+    // When
+    CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new BasicDBObject("ok", 1.0).append("n",2), delete);
+    assertEquals(5, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_delete_single_document_with_limit1_V3() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 3).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 4).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 5).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 6).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 7).append("key", "value2"));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value1")).append("limit", 1));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value2")).append("limit", 1));
+
+    final MongoDatabase database = fongoRule.getDatabase();
+
+    // When
+    Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new Document("ok", 1.0).append("n",2), delete);
+    assertEquals(5, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_delete_all_documents_with_limit0() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 3).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 4).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 5).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 6).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 7).append("key", "value2"));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value1")).append("limit", 0));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value2")).append("limit", 0));
+
+    final DB database = fongoRule.getDB();
+
+    // When
+    CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new BasicDBObject("ok", 1.0).append("n",6), delete);
+    assertEquals(1, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_delete_all_documents_with_limit0_V3() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 3).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 4).append("key", "value1"));
+    collection.insert(new BasicDBObject("_id", 5).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 6).append("key", "value2"));
+    collection.insert(new BasicDBObject("_id", 7).append("key", "value2"));
+
+    final BasicDBList deleteQueries = new BasicDBList();
+
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value1")).append("limit", 0));
+    deleteQueries.add(new BasicDBObject("q", new BasicDBObject("key", "value2")).append("limit", 0));
+
+    final MongoDatabase database = fongoRule.getDatabase();
+
+    // When
+    Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
+
+    // Then
+    assertEquals(new Document("ok", 1.0).append("n",6), delete);
+    assertEquals(1, database.getCollection(collection.getName()).count());
+  }
+
   static class Seq {
     Object[] data;
 

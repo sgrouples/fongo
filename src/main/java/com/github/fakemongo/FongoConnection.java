@@ -46,6 +46,7 @@ import com.mongodb.internal.validator.UpdateFieldNameValidator;
 import com.mongodb.operation.FongoBsonArrayWrapper;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
+import java.util.Iterator;
 import static java.util.Arrays.asList;
 import java.util.Collections;
 import java.util.List;
@@ -55,6 +56,7 @@ import org.bson.BsonArray;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
+import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
 import org.bson.BsonString;
@@ -470,6 +472,35 @@ public class FongoConnection implements Connection {
         dbCollection.insert(dbObject(document.asDocument()));
       }
       return (T) new Document("ok", 1.0).append("n", documentsToInsert.size());
+    } else if (command.containsKey("delete")) {
+      final FongoDBCollection dbCollection = (FongoDBCollection) db.getCollection(command.get("delete").asString().getValue());
+      List<BsonValue> documentsToDelete = command.getArray("deletes").getValues();
+
+      int numDocsDeleted = 0;
+      for (BsonValue document : documentsToDelete) {
+        BsonDocument deletesDocument = document.asDocument();
+
+        DBObject deleteQuery = dbObject(deletesDocument.get("q").asDocument());
+
+        BsonInt32 limit = (BsonInt32) deletesDocument.getOrDefault("limit", new BsonInt32(-1));
+        
+        WriteResult result = null;
+        if ( limit.intValue() < 1 ) {
+          result = dbCollection.remove(deleteQuery);
+        } else {
+          Iterator<DBObject> iterator = dbCollection.find(deleteQuery).limit(1).iterator();
+
+          if (iterator.hasNext()) {
+            DBObject docToDelete = iterator.next();
+            result = dbCollection.remove(new BasicDBObject("_id", docToDelete.get("_id")));
+          }
+        }
+
+        if ( result != null ) {
+          numDocsDeleted += result.getN();
+        }
+      }
+      return (T) new Document("ok", 1.0).append("n", numDocsDeleted);
     } else {
       LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));
