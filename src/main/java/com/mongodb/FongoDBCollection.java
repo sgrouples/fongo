@@ -1274,7 +1274,7 @@ public class FongoDBCollection extends DBCollection {
     IndexAbstract result = null;
     int foundCommon = -1;
     Set<String> queryFields = query.keySet();
-    for (IndexAbstract index : indexes) {
+    for (IndexAbstract index : this.indexes) {
       if (index.canHandle(query)) {
         // The most restrictive first.
         if (index.getFields().size() > foundCommon || (result != null && !result.isUnique() && index.isUnique())) {
@@ -1454,6 +1454,7 @@ public class FongoDBCollection extends DBCollection {
   public static EncoderContext encoderContext() {
     return EncoderContext.builder().build();
   }
+
   public static CodecRegistry defaultCodecRegistry() {
     return MongoClient.getDefaultCodecRegistry();
   }

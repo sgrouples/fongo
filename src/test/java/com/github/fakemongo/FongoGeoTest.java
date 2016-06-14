@@ -447,6 +447,110 @@ public class FongoGeoTest {
     collection.insert(fongoRule.parseDBObject("{ \"_id\":1, \"geoJsonObject\" : { \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}}), coordinates:{ \"coordinates\" : [ 93.22196492435961 , 61.191126647382404]}"));
   }
 
+
+  @Test
+  public void should_$geoIntersects_with_box_throw_exception() {
+    DBCollection collection = fongoRule.newCollection();
+    collection.insert(new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 0)));
+    collection.insert(new BasicDBObject("_id", 2).append("loc", new BasicDBObject("longitude", 1).append("latitude", 1)));
+    collection.createIndex(new BasicDBObject("loc", "2d"));
+
+    // When/Then
+    ExpectedMongoException.expectCode(exception, 2);
+    collection.find(new BasicDBObject("loc", new BasicDBObject("$geoIntersects", new BasicDBObject("$box", Util.list(Util.list(0, 0), Util.list(10, 10)))))).toArray();
+  }
+
+  @Test
+  public void should_$geoIntersects_with_polygon_throw_exception() {
+    // Given
+    DBCollection collection = fongoRule.newCollection();
+    // Inside
+    collection.insert(new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40)));
+    collection.createIndex(new BasicDBObject("loc", "2d"));
+
+    // When/Then
+    ExpectedMongoException.expectCode(exception, 2);
+//    exception.expectMessage("Query failed with error code 2 and error message '$geoIntersect not supported with provided geometry: { $geoIntersects: { $polygon: [ [ 0, 41 ], [ 1, 40 ], [ 0, 39 ], [ -1, 40 ] ] } }' on server 127.0.0.1:27017");
+    collection.find(new BasicDBObject("loc", new BasicDBObject("$geoIntersects", new BasicDBObject("$polygon", Util.list(Util.list(0, 41), Util.list(1, 40), Util.list(0, 39), Util.list(-1, 40)))))).toArray();
+  }
+
+  @Test
+  public void should_$geoIntersects_with_polygon_throw_exception_loop_not_closed() {
+    DBCollection collection = fongoRule.newCollection();
+    // Inside
+    collection.insert(new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40)));
+
+    ExpectedMongoException.expectCode(exception, 2);
+//    exception.expectMessage("Query failed with error code 2 and error message 'Loop is not closed: [ [ 0, 41 ], [ 1, 40 ], [ 0, 39 ], [ -1, 40 ] ]' on server 127.0.0.1:27017");
+    collection.find(new BasicDBObject("loc", new BasicDBObject("$geoIntersects", new BasicDBObject("$geometry", new BasicDBObject("type", "Polygon").append("coordinates", Util.list(Util.list(Util.list(0, 41), Util.list(1, 40), Util.list(0, 39), Util.list(-1, 40)))))))).toArray();
+  }
+
+  @Test
+  public void should_$geoIntersects_with_polygon_return_results() {
+    DBCollection collection = fongoRule.newCollection();
+    // Inside
+    collection.insert(new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 2).append("loc", new BasicDBObject("longitude", .5).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 3).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40.5)));
+    collection.insert(new BasicDBObject("_id", 4).append("loc", new BasicDBObject("longitude", -.5).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 5).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39.5)));
+    collection.insert(new BasicDBObject("_id", 6).append("loc", new BasicDBObject("longitude", 0).append("latitude", 41)));
+    collection.insert(new BasicDBObject("_id", 7).append("loc", new BasicDBObject("longitude", -1).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 8).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 10).append("loc", new BasicDBObject("longitude", 1).append("latitude", 41)));
+    // Outside
+    collection.insert(new BasicDBObject("_id", 11).append("loc", new BasicDBObject("longitude", 1).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 12).append("loc", new BasicDBObject("longitude", -1).append("latitude", 41)));
+    collection.insert(new BasicDBObject("_id", 13).append("loc", new BasicDBObject("longitude", -1).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 14).append("helloWorld", new BasicDBObject("longitude", -1).append("latitude", 39)));
+    collection.createIndex(new BasicDBObject("loc", "2d"));
+
+    List<DBObject> objects = collection.find(new BasicDBObject("loc", new BasicDBObject("$geoIntersects", new BasicDBObject("$geometry", new BasicDBObject("type", "Polygon").append("coordinates", fongoRule.parseList(" [\n" +
+        "               [ [ 0, 41 ], [ 1, 41 ], [ 0, 37 ], [ -1, 40 ], [ 0, 41 ] ]\n" +
+        "             ]")))))).toArray();
+    Assertions.assertThat(objects).containsOnly(
+        (new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40))),
+        (new BasicDBObject("_id", 2).append("loc", new BasicDBObject("longitude", .5).append("latitude", 40))),
+        (new BasicDBObject("_id", 3).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40.5))),
+        (new BasicDBObject("_id", 4).append("loc", new BasicDBObject("longitude", -.5).append("latitude", 40))),
+        (new BasicDBObject("_id", 5).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39.5))),
+        (new BasicDBObject("_id", 6).append("loc", new BasicDBObject("longitude", 0).append("latitude", 41))),
+        (new BasicDBObject("_id", 7).append("loc", new BasicDBObject("longitude", -1).append("latitude", 40))),
+        (new BasicDBObject("_id", 8).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39))),
+        (new BasicDBObject("_id", 10).append("loc", new BasicDBObject("longitude", 1).append("latitude", 41)))
+    );
+  }
+
+  @Test
+  @Ignore("To check quickly, still a bug on limit test case.")
+  public void should_$geoIntersects_with_center_return_results() {
+    DBCollection collection = fongoRule.newCollection();
+    // Inside
+    collection.insert(new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 2).append("loc", new BasicDBObject("longitude", .5).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 3).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40.5)));
+    collection.insert(new BasicDBObject("_id", 4).append("loc", new BasicDBObject("longitude", -.5).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 5).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39.5)));
+    collection.insert(new BasicDBObject("_id", 6).append("loc", new BasicDBObject("longitude", 0).append("latitude", 41)));
+    collection.insert(new BasicDBObject("_id", 7).append("loc", new BasicDBObject("longitude", -1).append("latitude", 40)));
+    collection.insert(new BasicDBObject("_id", 8).append("loc", new BasicDBObject("longitude", 0).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 10).append("loc", new BasicDBObject("longitude", 1).append("latitude", 41)));
+    collection.insert(new BasicDBObject("_id", 11).append("loc", new BasicDBObject("longitude", 1).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 12).append("loc", new BasicDBObject("longitude", -1).append("latitude", 41)));
+    collection.insert(new BasicDBObject("_id", 13).append("loc", new BasicDBObject("longitude", -1).append("latitude", 39)));
+    collection.insert(new BasicDBObject("_id", 14).append("helloWorld", new BasicDBObject("longitude", -1).append("latitude", 39)));
+    collection.createIndex(new BasicDBObject("loc", "2d"));
+
+    List<DBObject> objects = collection.find(new BasicDBObject("loc", new BasicDBObject("$geoIntersects", new BasicDBObject("$center", Util.list(Util.list(0, 41), 1))))).toArray();
+    Assertions.assertThat(objects).containsOnly(
+        (new BasicDBObject("_id", 1).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40))),
+        (new BasicDBObject("_id", 3).append("loc", new BasicDBObject("longitude", 0).append("latitude", 40.5))),
+        (new BasicDBObject("_id", 6).append("loc", new BasicDBObject("longitude", 0).append("latitude", 41))),
+        (new BasicDBObject("_id", 10).append("loc", new BasicDBObject("longitude", 1).append("latitude", 41))),
+        (new BasicDBObject("_id", 12).append("loc", new BasicDBObject("longitude", -1).append("latitude", 41)))
+    );
+  }
+
   public static DBObject roundDis(DBObject objectList) {
     for (final DBObject o : (List<DBObject>) objectList) {
       o.put("dis", round((Double) o.get("dis")));

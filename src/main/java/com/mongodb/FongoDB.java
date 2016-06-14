@@ -298,6 +298,8 @@ public class FongoDB extends DB {
       final Boolean dropTarget = (Boolean) cmd.get("dropTarget");
       this.renameCollection(renameCollection, to, dropTarget);
       return okResult();
+    } else if (cmd.containsField("insert")) {
+      return runInsert(cmd);
     } else {
       String collectionName = ((Map.Entry<String, DBObject>) cmd.toMap().entrySet().iterator().next()).getKey();
       if (collectionExists(collectionName)) {
@@ -521,5 +523,23 @@ public class FongoDB extends DB {
       okResult.put("result", result.getCommand());
     }
     return okResult;
+  }
+
+  private CommandResult runInsert(DBObject cmd) {
+    if (!cmd.containsField("insert") && !cmd.containsField("documents")) {
+      return notOkErrorResult(null, "need insert and documents");
+    }
+
+    final FongoDBCollection collection = doGetCollection((String) cmd.get("insert"));
+
+    List<DBObject> documentsToInsert = (List<DBObject>) cmd.get("documents");
+
+    for (DBObject document : documentsToInsert) {
+      collection.insert(document);
+    }
+
+    final CommandResult commandResult = okResult();
+    commandResult.append("n", documentsToInsert.size());
+    return commandResult;
   }
 }

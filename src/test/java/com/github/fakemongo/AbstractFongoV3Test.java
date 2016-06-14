@@ -1131,6 +1131,36 @@ public abstract class AbstractFongoV3Test {
     Assertions.assertThat(ping.getDouble("ok")).isEqualTo(1.0);
   }
 
+  @Test
+  public void shouldFindOneDocumentWithoutTheOptionalFieldWithNoIndex() {
+// Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("_id", "id1").append("optionalField", "value"));
+    collection.insertOne(new Document("_id", "id2"));
+
+    // When
+    long result = collection.count(new Document("optionalField", new Document("$exists", false)));
+
+    // Then
+    assertThat(result).isEqualTo(1);
+  }
+
+  @Test
+  public void shouldFindOneDocumentWithoutTheOptionalFieldWithIndex() {
+    // Given
+    MongoCollection<Document> collection = newCollection();
+    collection.insertOne(new Document("_id", "id1").append("optionalField", "value"));
+    collection.insertOne(new Document("_id", "id2"));
+    collection.createIndex(new Document("optionalField", 1));
+
+    // When
+    long result = collection.count(new Document("optionalField", new Document("$exists", false)));
+
+    // Then
+    // Broken: result is 0
+    assertThat(result).isEqualTo(1);
+  }
+
   private Document docId(final Object value) {
     return new Document("_id", value);
   }
