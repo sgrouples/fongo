@@ -8,25 +8,25 @@ import com.github.fakemongo.test.beans.TestParentBean;
 import com.mongodb.AggregationOutput;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
 import org.apache.commons.lang3.RandomUtils;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.api.Condition;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
 import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static org.apache.commons.lang3.RandomStringUtils.randomAlphabetic;
+import static org.junit.Assert.*;
+
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/22/2016
  */
 public class LookupTest {
@@ -41,13 +41,13 @@ public class LookupTest {
     // start with 2 collections
     DBCollection primaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(primaryColl, "[\n" +
-        "    {\n" +
-        "        \"_id\" : \"p1\"\n" +
-        "    },\n" +
-        "    {\n" +
-        "        \"_id\" : \"p2\"\n" +
-        "    }\n" +
-        "]\n");
+                                      "    {\n" +
+                                      "        \"_id\" : \"p1\"\n" +
+                                      "    },\n" +
+                                      "    {\n" +
+                                      "        \"_id\" : \"p2\"\n" +
+                                      "    }\n" +
+                                      "]\n");
     DBCollection secondaryColl = fongoRule.newCollection();
     fongoRule.insertJSON(secondaryColl, "[" +
         "    {\n" +

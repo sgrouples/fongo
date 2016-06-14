@@ -3,7 +3,7 @@ package com.github.fakemongo.test.beans;
 import com.google.common.base.Objects;
 
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/23/2016
  */
 public class TestChildBean extends TestParentBean {

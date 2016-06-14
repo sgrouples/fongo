@@ -6,7 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.Version;
 
 /**
- * @author rkolliva
+ * @author Kollivakkam Raghavan
  * @created 4/23/2016
  */
 public abstract class AbstractTestBean {
