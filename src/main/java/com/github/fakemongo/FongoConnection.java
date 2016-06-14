@@ -482,7 +482,12 @@ public class FongoConnection implements Connection {
 
         DBObject deleteQuery = dbObject(deletesDocument.get("q").asDocument());
 
-        BsonInt32 limit = (BsonInt32) deletesDocument.getOrDefault("limit", new BsonInt32(-1));
+        BsonInt32 limit = null;
+        if ( deletesDocument.containsKey("limit") ) {
+          limit = deletesDocument.getInt32("limit");
+        } else {
+          limit = new BsonInt32(-1);
+        }
         
         WriteResult result = null;
         if ( limit.intValue() < 1 ) {
