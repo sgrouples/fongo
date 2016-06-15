@@ -300,6 +300,8 @@ public class FongoDB extends DB {
       return okResult();
     } else if (cmd.containsField("insert")) {
       return runInsert(cmd);
+    } else if (cmd.containsField("delete")) {
+      return runDelete(cmd);
     } else {
       String collectionName = ((Map.Entry<String, DBObject>) cmd.toMap().entrySet().iterator().next()).getKey();
       if (collectionExists(collectionName)) {
@@ -540,6 +542,43 @@ public class FongoDB extends DB {
 
     final CommandResult commandResult = okResult();
     commandResult.append("n", documentsToInsert.size());
+    return commandResult;
+  }
+
+  private CommandResult runDelete(DBObject cmd) {
+    if (!cmd.containsField("delete") && !cmd.containsField("deletes")) {
+      return notOkErrorResult(null, "need delete and deletes");
+    }
+
+    final FongoDBCollection collection = doGetCollection((String) cmd.get("delete"));
+
+    List<DBObject> documentsToDelete = (List<DBObject>) cmd.get("deletes");
+
+    int deletedDocuments = 0;
+    for (DBObject document : documentsToDelete) {
+      DBObject deleteQuery = (DBObject) document.get("q");
+      Integer limit = (Integer) document.get("limit");
+
+      WriteResult result = null;
+      if ( limit != null && limit < 1 ) {
+        result = collection.remove(deleteQuery);
+      } else {
+        Iterator<DBObject> iterator = collection.find(deleteQuery).limit(1).iterator();
+
+        if (iterator.hasNext()) {
+          DBObject docToDelete = iterator.next();
+          result = collection.remove(new BasicDBObject("_id", docToDelete.get("_id")));
+        }
+      }
+
+      if ( result != null ) {
+        deletedDocuments += result.getN();
+      }
+
+    }
+
+    final CommandResult commandResult = okResult();
+    commandResult.append("n", deletedDocuments);
     return commandResult;
   }
 }
