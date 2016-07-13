@@ -154,12 +154,6 @@
             <version>19.0</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.wololo</groupId>
-            <artifactId>jts2geojson</artifactId>
-            <version>0.7.0</version>
-            <scope>test</scope>
-        </dependency>
 
         <dependency>
             <groupId>org.scalatest</groupId>
