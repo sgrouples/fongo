@@ -21,6 +21,7 @@ import java.util.List;
 import org.geojson.GeoJsonObject;
 import org.geojson.LngLatAlt;
 import org.geojson.MultiPolygon;
+import org.geojson.MultiPoint;
 import org.geojson.Point;
 import org.geojson.Polygon;
 import org.slf4j.Logger;
@@ -188,6 +189,9 @@ public final class GeoUtil {
           if (object instanceof Point) {
             Point point = (Point) object;
             coordinate = new Coordinate(point.getCoordinates().getLatitude(), point.getCoordinates().getLongitude());
+          } else if (object instanceof MultiPoint) {
+            MultiPoint point = (MultiPoint) object;
+            coordinate = new Coordinate(point.getCoordinates().get(0).getLatitude(), point.getCoordinates().get(0).getLongitude());
           } else if (object instanceof Polygon) {
             Polygon point = (Polygon) object;
             coordinate = new Coordinate(point.getCoordinates().get(0).get(0).getLatitude(), point.getCoordinates().get(0).get(0).getLongitude());
@@ -249,6 +253,9 @@ public final class GeoUtil {
         if (geoJsonObject instanceof Point) {
           Point point = (Point) geoJsonObject;
           return createGeometryPoint(toCoordinate(point.getCoordinates()));
+        } else if (geoJsonObject instanceof MultiPoint) {
+          MultiPoint points = (MultiPoint) geoJsonObject;
+          return toJtsMultiPoint(points.getCoordinates());
         } else if (geoJsonObject instanceof Polygon) {
           Polygon polygon = (Polygon) geoJsonObject;
           return toJtsPolygon(polygon.getCoordinates());
@@ -269,6 +276,14 @@ public final class GeoUtil {
       throw new IllegalArgumentException("can't handle " + FongoJSON.serialize(dbObject));
     }
     return null;
+  }
+
+  private static Geometry toJtsMultiPoint(List<LngLatAlt> lngLatAlts) {
+    List<Coordinate> coordinates = new ArrayList<Coordinate>();
+    for (LngLatAlt lngLatAlt : lngLatAlts) {
+      coordinates.add(toCoordinate(lngLatAlt));
+    }
+    return GEOMETRY_FACTORY.createMultiPoint(coordinates.toArray(new Coordinate[0]));
   }
 
   public static com.vividsolutions.jts.geom.Polygon toJtsPolygon(List<List<LngLatAlt>> lngLatAlts) {
