@@ -256,3 +256,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Georg Meyer] (https://github.com/scho)
 * [Igor] (https://github.com/ilaborie)
 * [Corey Vaillancourt] (https://github.com/coreyjv)
+* [Eric Karge] (https://github.com/e-karge)
