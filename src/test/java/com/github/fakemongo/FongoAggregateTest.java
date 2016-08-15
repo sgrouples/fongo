@@ -13,14 +13,13 @@ import com.mongodb.MongoException;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
-import java.util.Locale;
 import java.util.TimeZone;
 import org.assertj.core.api.Assertions;
 import org.assertj.core.util.Lists;
 import org.junit.Assert;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import org.junit.Ignore;
 import org.junit.Rule;
@@ -714,9 +713,6 @@ public class FongoAggregateTest {
   // https://github.com/fakemongo/fongo/issues/163
   @Test
   public void should_invalid_keyword_send_error() {
-    ExpectedMongoException.expect(exception, MongoException.class);
-    ExpectedMongoException.expectCode(exception, 15999);
-    exception.expectMessage("invalid operator '$NOTEXIST'");
     // Given
     final DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("t", new java.util.Date()));
@@ -724,7 +720,10 @@ public class FongoAggregateTest {
     // When
     BasicDBObject obj = new BasicDBObject("$group",
         new BasicDBObject("_id", new BasicDBObject("day", new BasicDBObject("$NOTEXIST", "$t"))));
-    AggregationOutput ao = collection.aggregate(Arrays.asList(obj));
+    ExpectedMongoException.expect(exception, MongoException.class);
+    ExpectedMongoException.expectCode(exception, 15999);
+    exception.expectMessage("invalid operator '$NOTEXIST'");
+    collection.aggregate(Arrays.asList(obj));
   }
 
   @Test
@@ -776,6 +775,37 @@ public class FongoAggregateTest {
     // Then
     Assertions.assertThat(cursor.hasNext()).isTrue();
     Assertions.assertThat(cursor.next()).isEqualTo(new BasicDBObject("_id", new BasicDBObject("day", Calendar.getInstance(TimeZone.getTimeZone("GMT")).get(Calendar.DAY_OF_MONTH))));
+  }
+
+  // https://github.com/fakemongo/fongo/issues/220
+  // https://docs.mongodb.com/manual/reference/operator/aggregation/sample/
+  @Test
+  public void should_$sample_return_random_documents() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    AggregationOptions options = AggregationOptions.builder()
+        .outputMode(AggregationOptions.OutputMode.CURSOR).batchSize(100)
+        .allowDiskUse(true).build();
+    final List<DBObject> dbObjects = fongoRule.parseList("[{ \"_id\" : 1, \"name\" : \"dave123\", \"q1\" : true, \"q2\" : true },\n" +
+        "{ \"_id\" : 2, \"name\" : \"dave2\", \"q1\" : false, \"q2\" : false  },\n" +
+        "{ \"_id\" : 3, \"name\" : \"ahn\", \"q1\" : true, \"q2\" : true  },\n" +
+        "{ \"_id\" : 4, \"name\" : \"li\", \"q1\" : true, \"q2\" : false  },\n" +
+        "{ \"_id\" : 5, \"name\" : \"annT\", \"q1\" : false, \"q2\" : true  },\n" +
+        "{ \"_id\" : 6, \"name\" : \"li\", \"q1\" : true, \"q2\" : true  },\n" +
+        "{ \"_id\" : 7, \"name\" : \"ty\", \"q1\" : false, \"q2\" : true  }]");
+    collection.insert(dbObjects);
+
+    // When
+    BasicDBObject obj = new BasicDBObject("$sample",
+        new BasicDBObject("size", 3));
+    Cursor cursor = collection.aggregate(Arrays.asList(obj), options);
+
+    // Then
+    List<DBObject> resultAggregate = Lists.newArrayList(cursor);
+    Assertions.assertThat(resultAggregate).hasSize(3).doesNotContainNull();
+    for (DBObject dbObject : resultAggregate) {
+      Assertions.assertThat(dbObjects).contains(dbObject);
+    }
   }
 
   private DBCollection createTestCollection() {
