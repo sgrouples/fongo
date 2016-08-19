@@ -4,9 +4,12 @@ import com.mongodb.DB;
 import com.mongodb.DBCollection;
 import com.mongodb.DBObject;
 import com.mongodb.annotations.ThreadSafe;
-import java.util.ArrayList;
+
+import java.util.HashSet;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Random;
+import java.util.Set;
 
 /**
  */
@@ -14,9 +17,20 @@ import java.util.Random;
 public class Sample extends PipelineKeyword {
   public static final Sample INSTANCE = new Sample();
 
-  private static final Random RANDOM = new Random();
+  private static final Random rnd = new Random();
 
-  private Sample() {
+  // Based on Floyd's random sample algorithm, taken from here: http://stackoverflow.com/a/3724708/736741
+  private static Set<Integer> randomSample(int max, int n) {
+    HashSet<Integer> res = new HashSet<Integer>(n);
+    int count = max + 1;
+    for (int i = count - n; i < count; i++) {
+      Integer item = rnd.nextInt(i + 1);
+      if (res.contains(item))
+        res.add(i);
+      else
+        res.add(item);
+    }
+    return res;
   }
 
   /**
@@ -31,9 +45,12 @@ public class Sample extends PipelineKeyword {
     if (count <= size) {  // no need to sample, collection has less elements than we want to sample
       return coll;
     }
+
     if (count != 0) {
-      for (int i = 0; i < size; i++) {
-        objects.addAll(coll.find().skip(RANDOM.nextInt(count)).limit(1).toArray());
+      Set<Integer> samples = randomSample(count - 1, size);
+      List<DBObject> collAsArray = coll.find().toArray();
+      for (Integer sample : samples) {
+        objects.add(collAsArray.get(sample));
       }
     }
 
