@@ -808,6 +808,35 @@ public class FongoAggregateTest {
     }
   }
 
+  @Test
+  public void should_$sample_return_all_documents_for_small_collection() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    AggregationOptions options = AggregationOptions.builder()
+            .outputMode(AggregationOptions.OutputMode.CURSOR).batchSize(100)
+            .allowDiskUse(true).build();
+    final List<DBObject> dbObjects = fongoRule.parseList("[{ \"_id\" : 1, \"name\" : \"dave123\", \"q1\" : true, \"q2\" : true },\n" +
+            "{ \"_id\" : 2, \"name\" : \"dave2\", \"q1\" : false, \"q2\" : false  },\n" +
+            "{ \"_id\" : 3, \"name\" : \"ahn\", \"q1\" : true, \"q2\" : true  },\n" +
+            "{ \"_id\" : 4, \"name\" : \"li\", \"q1\" : true, \"q2\" : false  },\n" +
+            "{ \"_id\" : 5, \"name\" : \"annT\", \"q1\" : false, \"q2\" : true  },\n" +
+            "{ \"_id\" : 6, \"name\" : \"li\", \"q1\" : true, \"q2\" : true  },\n" +
+            "{ \"_id\" : 7, \"name\" : \"ty\", \"q1\" : false, \"q2\" : true  }]");
+    collection.insert(dbObjects);
+
+    // When sample size bigger collection size
+    BasicDBObject objBigSample = new BasicDBObject("$sample",
+            new BasicDBObject("size", 10));
+    Cursor cursorBigSample = collection.aggregate(Arrays.asList(objBigSample), options);
+
+    // Then return full collection
+    List<DBObject> resultAggregateBigSample = Lists.newArrayList(cursorBigSample);
+    Assertions.assertThat(resultAggregateBigSample).hasSize(dbObjects.size()).doesNotContainNull();
+    for (DBObject dbObject : resultAggregateBigSample) {
+      Assertions.assertThat(dbObjects).contains(dbObject);
+    }
+  }
+
   private DBCollection createTestCollection() {
     DBCollection collection = fongoRule.newCollection();
     collection.insert(new BasicDBObject("myId", "p0").append("date", 1));
