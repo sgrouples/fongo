@@ -795,15 +795,27 @@ public class FongoAggregateTest {
         "{ \"_id\" : 7, \"name\" : \"ty\", \"q1\" : false, \"q2\" : true  }]");
     collection.insert(dbObjects);
 
-    // When
+    // When sample size smaller collection size
     BasicDBObject obj = new BasicDBObject("$sample",
         new BasicDBObject("size", 3));
     Cursor cursor = collection.aggregate(Arrays.asList(obj), options);
 
-    // Then
+    // Then return sampled collection
     List<DBObject> resultAggregate = Lists.newArrayList(cursor);
     Assertions.assertThat(resultAggregate).hasSize(3).doesNotContainNull();
     for (DBObject dbObject : resultAggregate) {
+      Assertions.assertThat(dbObjects).contains(dbObject);
+    }
+
+    // When sample size bigger collection size
+    BasicDBObject objBigSample = new BasicDBObject("$sample",
+            new BasicDBObject("size", 10));
+    Cursor cursorBigSample = collection.aggregate(Arrays.asList(objBigSample), options);
+
+    // Then return full collection
+    List<DBObject> resultAggregateBigSample = Lists.newArrayList(cursorBigSample);
+    Assertions.assertThat(resultAggregateBigSample).hasSize(dbObjects.size()).doesNotContainNull();
+    for (DBObject dbObject : resultAggregateBigSample) {
       Assertions.assertThat(dbObjects).contains(dbObject);
     }
   }

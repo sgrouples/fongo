@@ -28,6 +28,9 @@ public class Sample extends PipelineKeyword {
 
     List<DBObject> objects = new ArrayList<DBObject>(size);
     int count = (int) coll.count();
+    if (count <= size) {  // no need to sample, collection has less elements than we want to sample
+      return coll;
+    }
     if (count != 0) {
       for (int i = 0; i < size; i++) {
         objects.addAll(coll.find().skip(RANDOM.nextInt(count)).limit(1).toArray());
