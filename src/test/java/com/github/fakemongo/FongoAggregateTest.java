@@ -795,17 +795,34 @@ public class FongoAggregateTest {
         "{ \"_id\" : 7, \"name\" : \"ty\", \"q1\" : false, \"q2\" : true  }]");
     collection.insert(dbObjects);
 
-    // When sample size smaller collection size
+    // When
     BasicDBObject obj = new BasicDBObject("$sample",
         new BasicDBObject("size", 3));
     Cursor cursor = collection.aggregate(Arrays.asList(obj), options);
 
-    // Then return sampled collection
+    // Then
     List<DBObject> resultAggregate = Lists.newArrayList(cursor);
     Assertions.assertThat(resultAggregate).hasSize(3).doesNotContainNull();
     for (DBObject dbObject : resultAggregate) {
       Assertions.assertThat(dbObjects).contains(dbObject);
     }
+  }
+
+  @Test
+  public void should_$sample_return_all_documents_for_small_collection() {
+    // Given
+    final DBCollection collection = fongoRule.newCollection();
+    AggregationOptions options = AggregationOptions.builder()
+            .outputMode(AggregationOptions.OutputMode.CURSOR).batchSize(100)
+            .allowDiskUse(true).build();
+    final List<DBObject> dbObjects = fongoRule.parseList("[{ \"_id\" : 1, \"name\" : \"dave123\", \"q1\" : true, \"q2\" : true },\n" +
+            "{ \"_id\" : 2, \"name\" : \"dave2\", \"q1\" : false, \"q2\" : false  },\n" +
+            "{ \"_id\" : 3, \"name\" : \"ahn\", \"q1\" : true, \"q2\" : true  },\n" +
+            "{ \"_id\" : 4, \"name\" : \"li\", \"q1\" : true, \"q2\" : false  },\n" +
+            "{ \"_id\" : 5, \"name\" : \"annT\", \"q1\" : false, \"q2\" : true  },\n" +
+            "{ \"_id\" : 6, \"name\" : \"li\", \"q1\" : true, \"q2\" : true  },\n" +
+            "{ \"_id\" : 7, \"name\" : \"ty\", \"q1\" : false, \"q2\" : true  }]");
+    collection.insert(dbObjects);
 
     // When sample size bigger collection size
     BasicDBObject objBigSample = new BasicDBObject("$sample",
