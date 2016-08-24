@@ -192,6 +192,31 @@ public class FongoDBCollectionTest {
      return list;
   }
 
+  @Test
+  public void findByMapInListInQueryWithAllNestedElemMatch() {
+    BasicDBObject existing = new BasicDBObject()
+        .append("_id", 1)
+        .append("aList", asDbList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "b").append("value", 2),
+            new BasicDBObject().append("key", "c").append("value", 3)
+        ));
+    collection.insert(existing);
+    DBObject query =
+        new BasicDBObject("aList",
+            new BasicDBObject("$all", asDbList(
+                new BasicDBObject(
+                    "$elemMatch",
+                    new BasicDBObject().append("key", "a").append("value", 1)),
+                new BasicDBObject(
+                    "$elemMatch",
+                    new BasicDBObject().append("key", "b").append("value", 2))
+            ))
+        );
+    DBObject result = collection.findOne(query);
+    assertEquals("should have found result", existing, result);
+  }
+
   /** Tests multiprojections that are nested with the same prefix: a.b.c and a.b.d */
   @Test
   public void applyProjectionsWithBooleanValues() {
