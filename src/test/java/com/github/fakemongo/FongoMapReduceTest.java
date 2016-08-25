@@ -2,19 +2,9 @@ package com.github.fakemongo;
 
 import com.github.fakemongo.impl.Util;
 import com.github.fakemongo.junit.FongoRule;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.MapReduceCommand;
-import com.mongodb.MapReduceOutput;
+import com.mongodb.*;
 import com.mongodb.util.FongoJSON;
-import java.io.IOException;
-import static java.util.Arrays.asList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.assertj.core.api.Assertions;
-import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExpectedException;
@@ -22,6 +12,15 @@ import org.junit.rules.RuleChain;
 import org.junit.rules.TestRule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
 
 public class FongoMapReduceTest {
   private static final Logger LOG = LoggerFactory.getLogger(FongoMapReduceTest.class);
@@ -624,9 +623,6 @@ public class FongoMapReduceTest {
     assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
         new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
         results);
-//    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2L)),
-//        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3L))),
-//        results);
   }
 
   @Test
@@ -703,9 +699,23 @@ public class FongoMapReduceTest {
     assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2D)),
         new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3D))),
         results);
-//    assertEquals(asList(new BasicDBObject("_id", new BasicDBObject("url", "www.google.com")).append("value", new BasicDBObject("count", 2L)),
-//        new BasicDBObject("_id", new BasicDBObject("url", "www.no-fucking-idea.com")).append("value", new BasicDBObject("count", 3L))),
-//        results);
+  }
+
+  @Test
+  public void should_internal_NumberLong_work() {
+    // Given
+    DBCollection coll = fongoRule.insertJSON(fongoRule.newCollection(), "[{url: \"www.google.com\", date: 1411004152944 }]");
+
+    String map = "function(){    emit(this.url, {date: this.date});  };";
+    String reduce = "function(key, values){   var res = []; values.forEach(function(v){ res.push(v.date); });  return res;  };";
+
+    // When
+    final MapReduceOutput result = coll.mapReduce(map, reduce, "result", new BasicDBObject());
+
+    // Then
+    List<DBObject> results = fongoRule.newCollection("result").find().toArray();
+    assertEquals(asList(new BasicDBObject("_id", "www.google.com").append("value", Arrays.asList((double) 1411004152944L))),
+            results);
   }
 
   @Test
