@@ -261,6 +261,50 @@ public class ExpressionParserTest {
   }
 
   @Test
+  public void testAllOperatorNestElemMatch() {
+    DBObject query = new BasicDBObjectBuilder().push("a").add("$all",
+        asList(
+            new BasicDBObject(
+                "$elemMatch",
+                new BasicDBObject().append("key", "a").append("value", 1)),
+            new BasicDBObject(
+                "$elemMatch",
+                new BasicDBObject().append("key", "b").append("value", 2)))
+    ).pop().get();
+    List<DBObject> results = doFilter(
+        query,
+        new BasicDBObject("a", asList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "b").append("value", 2),
+            new BasicDBObject().append("key", "c").append("value", 3)
+        )),
+        new BasicDBObject("a", asList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "b").append("value", 2),
+            new BasicDBObject().append("key", "e").append("value", 3)
+        )),
+        new BasicDBObject("a", asList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "X").append("value", 2),
+            new BasicDBObject().append("key", "c").append("value", 3)
+        )),
+        new BasicDBObject("a", null)
+    );
+    assertEquals(Arrays.<DBObject>asList(
+        new BasicDBObject("a", asList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "b").append("value", 2),
+            new BasicDBObject().append("key", "c").append("value", 3)
+        )),
+        new BasicDBObject("a", asList(
+            new BasicDBObject().append("key", "a").append("value", 1),
+            new BasicDBObject().append("key", "b").append("value", 2),
+            new BasicDBObject().append("key", "e").append("value", 3)
+        ))
+    ), results);
+  }
+
+  @Test
   public void testExistsOperator() {
     DBObject query = new BasicDBObjectBuilder().push("a").add("$exists", true).pop().get();
     List<DBObject> results = doFilter(

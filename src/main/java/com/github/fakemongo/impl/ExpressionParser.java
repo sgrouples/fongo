@@ -203,6 +203,15 @@ public class ExpressionParser {
               if (!listContainsPattern(storedList, (Pattern) queryObject)) {
                 return false;
               }
+            } else if (queryObject instanceof DBObject
+                && ((DBObject)queryObject).keySet().size() > 0
+                && ((DBObject)queryObject).keySet().iterator().next().equals(ELEM_MATCH)) {
+              // Run $elementMatch query on the list instead
+              DBObject elemMatchQuery = new BasicDBObject("$$$$fongo$$$$", queryObject);
+              Filter filter = buildFilter(elemMatchQuery);
+              if (!filter.apply(new BasicDBObject("$$$$fongo$$$$", storedList))) {
+                return false;
+              }
             } else {
               if (!storedList.contains(queryObject)) {
                 return false;
