@@ -258,3 +258,5 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Corey Vaillancourt](https://github.com/coreyjv)
 * [Eric Karge](https://github.com/e-karge)
 * [Matthias Egli](https://github.com/MatthiasEgli)
+* [Yaniv Oliver](https://github.com/yanivoliver)
+* [Yunchi Luo](https://github.com/mightyguava)
