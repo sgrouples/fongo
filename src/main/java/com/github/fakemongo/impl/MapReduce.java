@@ -1,35 +1,17 @@
 package com.github.fakemongo.impl;
 
 import com.github.fakemongo.Fongo;
-import com.mongodb.BasicDBList;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBCollection;
-import com.mongodb.DBObject;
-import com.mongodb.FongoDB;
-import com.mongodb.FongoDBCollection;
-import com.mongodb.FongoMapReduceOutput;
-import com.mongodb.MapReduceCommand;
-import com.mongodb.MapReduceOutput;
+import com.mongodb.*;
 import com.mongodb.operation.MapReduceStatistics;
 import com.mongodb.util.FongoJSON;
 import com.mongodb.util.ObjectSerializer;
-import java.lang.reflect.InvocationTargetException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import org.mozilla.javascript.ConsString;
-import org.mozilla.javascript.Context;
-import org.mozilla.javascript.NativeArray;
-import org.mozilla.javascript.NativeJavaObject;
-import org.mozilla.javascript.NativeObject;
-import org.mozilla.javascript.RhinoException;
-import org.mozilla.javascript.Scriptable;
-import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.*;
 import org.mozilla.javascript.tools.shell.Global;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.*;
 
 /**
  * http://docs.mongodb.org/manual/reference/method/db.collection.mapReduce/
@@ -475,25 +457,21 @@ public class MapReduce {
   }
 
   public static class FongoNumberLong extends ScriptableObject {
-    long value;
+    Long value;
 
     public FongoNumberLong() {
     }
 
-    public FongoNumberLong(long value) {
-      this.value = value;
-    }
-
     // Method jsConstructor defines the JavaScript constructor
-    public void jsConstructor(int a) {
-      this.value = a;
+    public void jsConstructor(Double a) {
+      this.value = a.longValue();
     }
 
-    public int jsFunction_toNumber() {
-      return (int) value;
+    public double jsFunction_toNumber() {
+      return value;
     }
 
-    public int jsFunction_valueOf() {
+    public double jsFunction_valueOf() {
       return jsFunction_toNumber();
     }
 
