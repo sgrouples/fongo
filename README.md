@@ -260,3 +260,4 @@ Version 1.6.0 break compatibility with 2.12.X driver version.
 * [Matthias Egli](https://github.com/MatthiasEgli)
 * [Yaniv Oliver](https://github.com/yanivoliver)
 * [Yunchi Luo](https://github.com/mightyguava)
+* [Avihai Berkovitz](https://github.com/aciduck)
