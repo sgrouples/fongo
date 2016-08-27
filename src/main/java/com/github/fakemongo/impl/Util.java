@@ -372,4 +372,15 @@ public final class Util {
     }
     return list;
   }
+
+  public static List toList(Collection expression) {
+    if (expression instanceof List) {
+      return (List) expression;
+    }
+    List list = new ArrayList();
+    for (Object object : expression) {
+      list.add(object);
+    }
+    return list;
+  }
 }

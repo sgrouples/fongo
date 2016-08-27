@@ -204,8 +204,8 @@ public class ExpressionParser {
                 return false;
               }
             } else if (queryObject instanceof DBObject
-                && ((DBObject)queryObject).keySet().size() > 0
-                && ((DBObject)queryObject).keySet().iterator().next().equals(ELEM_MATCH)) {
+                && ((DBObject) queryObject).keySet().size() > 0
+                && ((DBObject) queryObject).keySet().iterator().next().equals(ELEM_MATCH)) {
               // Run $elementMatch query on the list instead
               DBObject elemMatchQuery = new BasicDBObject("$$$$fongo$$$$", queryObject);
               Filter filter = buildFilter(elemMatchQuery);
@@ -664,12 +664,13 @@ public class ExpressionParser {
         } else {
           for (Object storedValue : storedOption) {
             if (storedValue instanceof List) {
+              List second;
               if (expression instanceof Collection) {
-                return storedValue.equals(expression) || contains((List) storedValue, (Collection) expression);
+                second = Util.toList((Collection) expression);
+              } else {
+                second = Util.list(expression);
               }
-              if (contains((List) storedValue, expression)) {
-                return true;
-              }
+              return compareLists((List) storedValue, second) == 0;
             } else {
               if (expression == null) {
                 return (storedValue == null);
@@ -690,7 +691,7 @@ public class ExpressionParser {
    * Compare objects between {@code queryValue} and {@code storedValue}.
    * Can return null if {@code comparableFilter} is true and {@code queryValue} and {@code storedValue} can't be compared.
    */
-  public int compareObjects(Object queryValue, Object storedValue) {
+  int compareObjects(Object queryValue, Object storedValue) {
     return compareObjects(queryValue, storedValue, false).intValue();
   }
 
@@ -828,7 +829,7 @@ public class ExpressionParser {
     return new String(array);
   }
 
-  public boolean contains(Collection source, Object element) {
+  private boolean contains(Collection source, Object element) {
     for (Object objectSource : source) {
       if (compareObjects(objectSource, element) == 0) {
         return true;
@@ -837,7 +838,7 @@ public class ExpressionParser {
     return false;
   }
 
-  public boolean contains(Collection source, Collection elements) {
+  private boolean contains(Collection source, Collection elements) {
     for (Object element : elements) {
       if (!contains(source, element)) {
         return false;

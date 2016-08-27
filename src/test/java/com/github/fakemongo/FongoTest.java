@@ -72,7 +72,7 @@ import org.slf4j.LoggerFactory;
 
 public class FongoTest {
 
-  public final FongoRule fongoRule = new FongoRule(false);
+  public final FongoRule fongoRule = new FongoRule(!false);
 
   public final ExpectedException exception = ExpectedException.none();
 
@@ -3585,7 +3585,7 @@ public class FongoTest {
     CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n",2), delete);
+    assertEquals(new BasicDBObject("ok", 1.0).append("n", 2), delete);
     assertEquals(5, database.getCollection(collection.getName()).count());
   }
 
@@ -3612,7 +3612,7 @@ public class FongoTest {
     Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new Document("ok", 1.0).append("n",2), delete);
+    assertEquals(new Document("ok", 1.0).append("n", 2), delete);
     assertEquals(5, database.getCollection(collection.getName()).count());
   }
 
@@ -3639,7 +3639,7 @@ public class FongoTest {
     CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n",6), delete);
+    assertEquals(new BasicDBObject("ok", 1.0).append("n", 6), delete);
     assertEquals(1, database.getCollection(collection.getName()).count());
   }
 
@@ -3666,8 +3666,74 @@ public class FongoTest {
     Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new Document("ok", 1.0).append("n",6), delete);
+    assertEquals(new Document("ok", 1.0).append("n", 6), delete);
     assertEquals(1, database.getCollection(collection.getName()).count());
+  }
+
+  @Test
+  public void should_$size_return_empty_arrays() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 3).append("array", Util.list("1")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("array", new BasicDBObject("$size", 0))).toArray();
+
+    // Then
+    assertThat(dbObjects).hasSize(1).containsOnly(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+  }
+
+  @Test
+  // "https://github.com/fakemongo/fongo/issues/225"
+  public void should_empty_array_return_empty_arrays() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 3).append("array", Util.list("1")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("array", new BasicDBList())).toArray();
+
+    // Then
+    assertThat(dbObjects).hasSize(1).containsOnly(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+  }
+
+  @Test
+  // "https://github.com/fakemongo/fongo/issues/225"
+  public void should_array_return_equals_arrays() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 3).append("array", Util.list("1")));
+    collection.insert(new BasicDBObject("_id", 4).append("array", Util.list("1", "2")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("array", Util.list("1"))).toArray();
+
+    // Then
+    assertThat(dbObjects).hasSize(1).containsOnly(new BasicDBObject("_id", 3).append("array", Util.list("1")));
+  }
+
+  @Test
+  // "https://github.com/fakemongo/fongo/issues/225"
+  public void should_array_return_equals_arrays_only_in_order() {
+    // Given
+    DBCollection collection = newCollection();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.insert(new BasicDBObject("_id", 2).append("array", new BasicDBList()));
+    collection.insert(new BasicDBObject("_id", 3).append("array", Util.list("1")));
+    collection.insert(new BasicDBObject("_id", 4).append("array", Util.list("2", "1")));
+    collection.insert(new BasicDBObject("_id", 5).append("array", Util.list("1", "2")));
+
+    // When
+    final List<DBObject> dbObjects = collection.find(new BasicDBObject("array", Util.list("1", "2"))).toArray();
+
+    // Then
+    assertThat(dbObjects).hasSize(1).containsOnly(new BasicDBObject("_id", 5).append("array", Util.list("1", "2")));
   }
 
   static class Seq {
