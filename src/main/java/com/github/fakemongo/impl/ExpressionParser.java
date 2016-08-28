@@ -664,13 +664,11 @@ public class ExpressionParser {
         } else {
           for (Object storedValue : storedOption) {
             if (storedValue instanceof List) {
-              List second;
               if (expression instanceof Collection) {
-                second = Util.toList((Collection) expression);
+                return compareLists((List) storedValue, Util.toList((Collection) expression)) == 0;
               } else {
-                second = Util.list(expression);
+                return contains((List) storedValue, expression);
               }
-              return compareLists((List) storedValue, second) == 0;
             } else {
               if (expression == null) {
                 return (storedValue == null);

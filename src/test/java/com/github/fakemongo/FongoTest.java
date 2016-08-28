@@ -72,7 +72,7 @@ import org.slf4j.LoggerFactory;
 
 public class FongoTest {
 
-  public final FongoRule fongoRule = new FongoRule(!false);
+  public final FongoRule fongoRule = new FongoRule(false);
 
   public final ExpectedException exception = ExpectedException.none();
 
