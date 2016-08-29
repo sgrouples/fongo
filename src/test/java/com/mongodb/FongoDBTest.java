@@ -19,7 +19,7 @@ public class FongoDBTest {
   private final ReadPreference preference = ReadPreference.nearest();
 
   @Rule
-  public FongoRule fongoRule = new FongoRule(!true);
+  public FongoRule fongoRule = new FongoRule(!true, Fongo.V3_SERVER_VERSION);
   private DB db;
 
   @Before
@@ -70,15 +70,15 @@ public class FongoDBTest {
   @Test
   public void commandBuildInfoPullsDefaultMongoVersionFromFongo() throws Exception {
     CommandResult commandResult = db.command("buildInfo");
-    String expectedVersionAsString = StringUtils.collectionToDelimitedString(Fongo.DEFAULT_SERVER_VERSION.getVersionList(), ".");
+    String expectedVersionAsString = StringUtils.collectionToDelimitedString(fongoRule.getServerVersion().getVersionList(), ".");
     assertThat(commandResult.getString("version")).isEqualTo(expectedVersionAsString);
   }
 
   @Test
   public void commandBuildInfoPullsChangedMongoVersionFromFongo() throws Exception {
-      db = new Fongo("testfongo", new ServerVersion(3, 1)).getDB("testdb");
-      CommandResult commandResult = db.command("buildInfo");
-      assertThat(commandResult.getString("version")).isEqualTo("3.1.0");
+    db = new Fongo("testfongo", new ServerVersion(3, 1)).getDB("testdb");
+    CommandResult commandResult = db.command("buildInfo");
+    assertThat(commandResult.getString("version")).isEqualTo("3.1.0");
   }
 
   @Test
