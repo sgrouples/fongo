@@ -50,7 +50,6 @@ import org.assertj.core.util.Lists;
 import org.bson.BSON;
 import org.bson.Document;
 import org.bson.Transformer;
-import org.bson.codecs.configuration.CodecConfigurationException;
 import org.bson.types.Binary;
 import org.bson.types.MaxKey;
 import org.bson.types.MinKey;
@@ -61,7 +60,6 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
-import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
@@ -98,20 +96,42 @@ public class FongoTest {
     assertSame("getCollection should be idempotent", collection, db.getCollectionFromString("coll"));
     assertEquals(newHashSet(), db.getCollectionNames());
     collection.insert(new BasicDBObject("_id", 1));
-    assertEquals(newHashSet("coll", "system.indexes"), db.getCollectionNames());
+
+    final Set<String> expected;
+    if (fongoRule.mustContainsSystemIndexes()) {
+      expected = newHashSet("coll", "system.indexes");
+    } else {
+      expected = newHashSet("coll");
+    }
+    Assertions.assertThat(db.getCollectionNames()).isEqualTo(expected);
   }
 
-  @Test(expected = NullPointerException.class)
-  public void should_throw_a_NPE_when_option_is_null() {
+  @Test
+  public void should_not_throw_a_NPE_when_option_is_null() {
     DB db = fongoRule.getDB("db");
-    db.createCollection("coll", null);
+    final DBCollection coll = db.createCollection("coll", null);
+    Assertions.assertThat(coll).isNotNull();
+    final HashSet<String> expected;
+    if (fongoRule.mustContainsSystemIndexes()) {
+      expected = Sets.newHashSet("coll", "system.indexes");
+    } else {
+      expected = Sets.newHashSet("coll");
+    }
+    Assertions.assertThat(db.getCollectionNames()).isEqualTo(expected);
   }
 
   @Test
   public void should_createCollection_create_the_collection() {
     DB db = fongoRule.getDB("db");
     db.createCollection("coll", new BasicDBObject());
-    assertEquals(Sets.newHashSet("coll", "system.indexes"), db.getCollectionNames());
+
+    final HashSet<String> expected;
+    if (fongoRule.mustContainsSystemIndexes()) {
+      expected = Sets.newHashSet("coll", "system.indexes");
+    } else {
+      expected = Sets.newHashSet("coll");
+    }
+    Assertions.assertThat(db.getCollectionNames()).isEqualTo(expected);
   }
 
   @Test
@@ -1273,14 +1293,11 @@ public class FongoTest {
   public void testInsertReturnModifiedDocumentCount() {
     DBCollection collection = newCollection();
     WriteResult result = collection.insert(new BasicDBObject("_id", new BasicDBObject("foo", 1)), new BasicDBObject("_id", new BasicDBObject("foo", 2)));
-//    System.out.println(result.getLastError());
-//    System.out.println(result.getLastError());
-    assertEquals(null, result.getUpsertedId());
     assertEquals(null, result.getUpsertedId());
     Assertions.assertThat(result.isUpdateOfExisting()).isFalse();
 
     // Don't know why, but "n" is "0" on mongodb 2.6.7...
-    assertEquals(2, result.getN());
+    assertEquals(2, result.getN()); // 0 in real mongo, don't know why.
   }
 
   @Test
@@ -1388,17 +1405,17 @@ public class FongoTest {
     coll1.insert(new BasicDBObject("hello", "world"));
     coll2.insert(new BasicDBObject("hello", "world"));
     // <["coll1", "coll2", "system.indexes"]>
-    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + 3);
+    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + (fongoRule.mustContainsSystemIndexes() ? 3 : 2));
 
     // when
     coll1.drop();
     coll2.drop();
     //<["system.indexes"]>
-    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + 1);
+    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + (fongoRule.mustContainsSystemIndexes() ? 1 : 0));
 
     // Insert a value must create the collection.
     coll1.insert(new BasicDBObject("_id", 1));
-    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + 2);
+    Assertions.assertThat(db.getCollectionNames()).hasSize(startingCollectionSize + (fongoRule.mustContainsSystemIndexes() ? 2 : 1));
   }
 
   @Test
@@ -1421,7 +1438,7 @@ public class FongoTest {
     DB db = fongoRule.getDB();
     CommandResult result = db.command("undefined");
     assertEquals("ok should always be defined", 0.0, result.get("ok"));
-    assertEquals("no such cmd: undefined", result.get("errmsg"));
+    Assertions.assertThat((String) result.get("errmsg")).contains("no such command: 'undefined', bad cmd: '");
   }
 
   @Test
@@ -1433,7 +1450,7 @@ public class FongoTest {
     coll.insert(new BasicDBObject());
     CommandResult result = db.command(countCmd);
     assertEquals("The command should have been successful", 1.0, result.get("ok"));
-    assertEquals("The count should be in the result", 2.0D, result.get("n"));
+    assertEquals("The count should be in the result", 2.0, result.get("n"));  // 2.0 with fongo, 2 with mongo
   }
 
   @Test
@@ -3069,40 +3086,39 @@ public class FongoTest {
   @Test
   public void should_not_handle_timestamp() {
     // TODO !
-    Assume.assumeTrue(fongoRule.isRealMongo());
+//    Assume.assumeTrue(fongoRule.isRealMongo());
     // Given
     DBCollection collection = newCollection();
     final long now = 1444444444444L;
-    // Timestamp doesn't work anymore
-    exception.expect(CodecConfigurationException.class);
-    exception.expectMessage("Can't find a codec for class java.sql.Timestamp");
     collection.insert(new BasicDBObject("_id", 1).append("date", new Timestamp(now)));
+
+    // Then
+    Assertions.assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 1).append("date", new Date(now)));
   }
 
   @Test
   public void should_not_handle_time() {
     // TODO !
-    Assume.assumeTrue(fongoRule.isRealMongo());
+//    Assume.assumeTrue(fongoRule.isRealMongo());
     // Given
     DBCollection collection = newCollection();
     final long now = 1444444444444L;
-    // Timestamp doesn't work anymore
-    exception.expect(CodecConfigurationException.class);
-    exception.expectMessage("Can't find a codec for class java.sql.Time");
     collection.insert(new BasicDBObject("_id", 3).append("date", new Time(now)));
+
+    // Then
+    Assertions.assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 3).append("date", new Date(now)));
   }
 
   @Test
   public void should_not_handle_character() {
     // TODO !
-    Assume.assumeTrue(fongoRule.isRealMongo());
+//    Assume.assumeTrue(fongoRule.isRealMongo());
     // Given
     DBCollection collection = newCollection();
-    final long now = 1444444444444L;
-    // Timestamp doesn't work anymore
-    exception.expect(CodecConfigurationException.class);
-    exception.expectMessage("Can't find a codec for class java.lang.Character.");
     collection.insert(new BasicDBObject("_id", 2).append("value", Character.valueOf('c')));
+
+    // Then
+    Assertions.assertThat(collection.find().toArray()).containsExactly(new BasicDBObject("_id", 2).append("value", "c"));
   }
 
   @Test
@@ -3374,9 +3390,11 @@ public class FongoTest {
   }
 
   @Test
-  public void should_fully_rename_a_collection() {
+  public void should_not_rename_a_collection_if_not_admin() {
     // Given
     DBCollection collection = fongoRule.getDB("olddb").getCollection("oldName");
+    collection.drop();
+    fongoRule.getDB("newdb").getCollection("newcollection").drop();
     collection.insert(new BasicDBObject("_id", 1));
     collection.createIndex(new BasicDBObject("date", 1));
 
@@ -3385,7 +3403,27 @@ public class FongoTest {
     DBCollection second = fongoRule.getDB("newdb").getCollection("newcollection");
 
     // Then
-    assertThat(commandResult.getErrorMessage()).isNullOrEmpty();
+    assertThat(commandResult.getErrorMessage()).isEqualTo("renameCollection may only be run against the admin database.");
+    assertThat(commandResult.ok()).isFalse();
+    assertThat(second.getFullName()).isEqualTo("newdb.newcollection");
+    assertThat(collection.getFullName()).isEqualTo("olddb.oldName");
+  }
+
+  @Test
+  public void should_fully_rename_a_collection() {
+    // Given
+    DBCollection collection = fongoRule.getDB("olddb").getCollection("oldName");
+    collection.drop();
+    fongoRule.getDB("newdb").getCollection("newcollection").drop();
+    collection.insert(new BasicDBObject("_id", 1));
+    collection.createIndex(new BasicDBObject("date", 1));
+
+    // When
+    final CommandResult commandResult = fongoRule.getDB("admin").command(new BasicDBObject("renameCollection", "olddb.oldName").append("to", "newdb.newcollection"));
+    DBCollection second = fongoRule.getDB("newdb").getCollection("newcollection");
+
+    // Then
+    assertThat(commandResult.getErrorMessage()).isNull();
     assertThat(commandResult.ok()).isTrue();
     assertThat(second.getFullName()).isEqualTo("newdb.newcollection");
     assertThat(collection.getFullName()).isEqualTo("olddb.oldName");
@@ -3492,7 +3530,7 @@ public class FongoTest {
     CommandResult insert = database.command(new BasicDBObject("insert", aCollection).append("documents", documentsToAdd));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n", documentsToAdd.size()), insert);
+    assertEquals(new BasicDBObject("ok", 1).append("n", documentsToAdd.size()), insert);
     assertEquals(documentsToAdd.size(), database.getCollection(aCollection).count());
   }
 
@@ -3512,12 +3550,12 @@ public class FongoTest {
     Document insert = database.runCommand(new BasicDBObject("insert", aCollection).append("documents", documentsToAdd));
 
     // Then
-    assertEquals(new Document("ok", 1.0).append("n", documentsToAdd.size()), insert);
+    assertEquals(new Document("ok", 1).append("n", documentsToAdd.size()), insert);
     assertEquals(documentsToAdd.size(), database.getCollection(aCollection).count());
   }
 
   @Test
-  public void should_delete_documents() {
+  public void should_not_delete_documents_if_limit_is_missing() {
     // Given
     DBCollection collection = newCollection();
     collection.insert(new BasicDBObject("_id", 1));
@@ -3535,8 +3573,7 @@ public class FongoTest {
     CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n", deleteQueries.size()), delete);
-    assertEquals(1, database.getCollection(collection.getName()).count());
+    assertEquals(new BasicDBObject("ok", 0.0).append("errmsg", "missing limit field").append("code", 9), delete);
   }
 
   @Test
@@ -3554,12 +3591,10 @@ public class FongoTest {
 
     final MongoDatabase database = fongoRule.getDatabase();
 
-    // When
-    Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
-    // Then
-    assertEquals(new Document("ok", 1.0).append("n", deleteQueries.size()), delete);
-    assertEquals(1, database.getCollection(collection.getName()).count());
+    ExpectedMongoException.expectMongoCommandException(exception, 9);
+    // When
+    database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
   }
 
   @Test
@@ -3585,7 +3620,7 @@ public class FongoTest {
     CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n", 2), delete);
+    assertEquals(new BasicDBObject("ok", 1).append("n", 2), delete);
     assertEquals(5, database.getCollection(collection.getName()).count());
   }
 
@@ -3612,7 +3647,7 @@ public class FongoTest {
     Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new Document("ok", 1.0).append("n", 2), delete);
+    assertEquals(new Document("ok", 1).append("n", 2), delete);
     assertEquals(5, database.getCollection(collection.getName()).count());
   }
 
@@ -3639,7 +3674,7 @@ public class FongoTest {
     CommandResult delete = database.command(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new BasicDBObject("ok", 1.0).append("n", 6), delete);
+    assertEquals(new BasicDBObject("ok", 1.0).append("n", 6), delete); // 1.0 with fongo, 1 with real mongo.
     assertEquals(1, database.getCollection(collection.getName()).count());
   }
 
@@ -3666,7 +3701,7 @@ public class FongoTest {
     Document delete = database.runCommand(new BasicDBObject("delete", collection.getName()).append("deletes", deleteQueries));
 
     // Then
-    assertEquals(new Document("ok", 1.0).append("n", 6), delete);
+    assertEquals(new Document("ok", 1).append("n", 6), delete);
     assertEquals(1, database.getCollection(collection.getName()).count());
   }
 

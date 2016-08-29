@@ -16,10 +16,15 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
 import org.bson.Document;
 import org.junit.rules.ExternalResource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Create a Junit Rule to use with annotation
@@ -36,6 +41,7 @@ import org.junit.rules.ExternalResource;
  */
 public class FongoRule extends ExternalResource {
 
+  private final static Logger LOG = LoggerFactory.getLogger(FongoRule.class);
   /**
    * Will be true if we use the real MongoDB to test things against real world.
    */
@@ -252,4 +258,28 @@ public class FongoRule extends ExternalResource {
   public static String randomName(String prefix) {
     return prefix + UUID.randomUUID().toString();
   }
+
+  public boolean mustContainsSystemIndexes() {
+    final ServerVersion serverVersion = getServerVersion();
+    return serverVersion.compareTo(Fongo.V3_2_SERVER_VERSION) < 0;
+  }
+
+  public ServerVersion getServerVersion() {
+    final ServerVersion serverVersion;
+    if (isRealMongo()) {
+      final Document document = getMongoClient().getDatabase("test").runCommand(new BsonDocument("buildinfo", new BsonInt32(1)));
+      List source = (List) document.get("versionArray");
+      List version = new ArrayList();
+      for (int i = 0; i < 3; i++) {
+        version.add(source.get(i));
+      }
+      serverVersion = new ServerVersion(version);
+    } else {
+      serverVersion = getFongo().getServerVersion();
+    }
+    LOG.debug("version for mongodb server:{}", serverVersion);
+    return serverVersion;
+  }
+
+
 }

@@ -3,8 +3,8 @@ package com.mongodb;
 import com.github.fakemongo.Fongo;
 import com.github.fakemongo.impl.Aggregator;
 import com.github.fakemongo.impl.ExpressionParser;
-import com.github.fakemongo.impl.MapReduce;
 import com.github.fakemongo.impl.geo.GeoUtil;
+import com.mongodb.util.JSON;
 import com.vividsolutions.jts.geom.Coordinate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,38 +29,41 @@ import org.slf4j.LoggerFactory;
  * @author jon
  */
 public class FongoDB extends DB {
-  private final static Logger LOG = LoggerFactory.getLogger(FongoDB.class);
-  public static final String SYSTEM_NAMESPACES = "system.namespaces";
+  private static final Logger LOG = LoggerFactory.getLogger(FongoDB.class);
+  private static final String SYSTEM_NAMESPACES = "system.namespaces";
+  private static final String SYSTEM_INDEXES = "system.indexes";
 
   private final Map<String, FongoDBCollection> collMap = new ConcurrentHashMap<String, FongoDBCollection>();
-  private final Set<String> namespaceDeclarated = Collections.synchronizedSet(new LinkedHashSet<String>());
+  private final Set<String> namespaceDeclared = Collections.synchronizedSet(new LinkedHashSet<String>());
   final Fongo fongo;
 
   public FongoDB(Fongo fongo, String name) {
     super(fongo.getMongo(), name);
     this.fongo = fongo;
     doGetCollection("system.users");
-    doGetCollection("system.indexes");
+    doGetCollection(SYSTEM_INDEXES);
     doGetCollection(SYSTEM_NAMESPACES);
   }
 
   @Override
   public synchronized DBCollection createCollection(final String collectionName, final DBObject options) {
     // See getCreateCollectionOperation()
-    if (options.get("size") != null && !(options.get("size") instanceof Number)) {
-      throw new IllegalArgumentException("'size' should be Number");
-    }
-    if (options.get("max") != null && !(options.get("max") instanceof Number)) {
-      throw new IllegalArgumentException("'max' should be Number");
-    }
-    if (options.get("capped") != null && !(options.get("capped") instanceof Boolean)) {
-      throw new IllegalArgumentException("'capped' should be Boolean");
-    }
-    if (options.get("autoIndexId") != null && !(options.get("capped") instanceof Boolean)) {
-      throw new IllegalArgumentException("'capped' should be Boolean");
-    }
-    if (options.get("storageEngine") != null && !(options.get("storageEngine") instanceof DBObject)) {
-      throw new IllegalArgumentException("storageEngine' should be DBObject");
+    if (options != null) {
+      if (options.get("size") != null && !(options.get("size") instanceof Number)) {
+        throw new IllegalArgumentException("'size' should be Number");
+      }
+      if (options.get("max") != null && !(options.get("max") instanceof Number)) {
+        throw new IllegalArgumentException("'max' should be Number");
+      }
+      if (options.get("capped") != null && !(options.get("capped") instanceof Boolean)) {
+        throw new IllegalArgumentException("'capped' should be Boolean");
+      }
+      if (options.get("autoIndexId") != null && !(options.get("capped") instanceof Boolean)) {
+        throw new IllegalArgumentException("'capped' should be Boolean");
+      }
+      if (options.get("storageEngine") != null && !(options.get("storageEngine") instanceof DBObject)) {
+        throw new IllegalArgumentException("storageEngine' should be DBObject");
+      }
     }
 
     if (this.collMap.containsKey(collectionName)) {
@@ -293,6 +296,9 @@ public class FongoDB extends DB {
         return errorResult(me.getCode(), me.getMessage());
       }
     } else if (cmd.containsField("renameCollection")) {
+      if (!this.getName().equals("admin")) {
+        return notOkErrorResult(null, "renameCollection may only be run against the admin database.");
+      }
       final String renameCollection = (String) cmd.get("renameCollection");
       final String to = (String) cmd.get("to");
       final Boolean dropTarget = (Boolean) cmd.get("dropTarget");
@@ -337,7 +343,7 @@ public class FongoDB extends DB {
     if (!cmd.keySet().isEmpty()) {
       command = cmd.keySet().iterator().next();
     }
-    return notOkErrorResult(null, "no such cmd: " + command);
+    return notOkErrorResult(null, "no such command: '" + command + "', bad cmd: '" + JSON.serialize(cmd) + "'");
   }
 
   public void renameCollection(String renameCollection, String to, Boolean dropTarget) {
@@ -374,7 +380,7 @@ public class FongoDB extends DB {
   @Override
   public Set<String> getCollectionNames() {
     List<String> collectionNames = new ArrayList<String>();
-    Iterator<DBObject> collections = getCollection("system.namespaces").find(new BasicDBObject());
+    Iterator<DBObject> collections = getCollection(SYSTEM_NAMESPACES).find(new BasicDBObject());
     while (collections.hasNext()) {
       String collectionName = collections.next().get("name").toString();
       if (!collectionName.contains("$")) {
@@ -382,21 +388,20 @@ public class FongoDB extends DB {
       }
     }
 
+    if (!mustContainsSystemIndexes()) {
+      collectionNames.remove("system.indexes");
+    }
+
     Collections.sort(collectionNames);
     return new LinkedHashSet<String>(collectionNames);
   }
 
-  public CommandResult okResult() {
-    final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
-    return new CommandResult(result, fongo.getServerAddress());
+  private boolean mustContainsSystemIndexes() {
+    return this.fongo.getServerVersion().compareTo(Fongo.V3_2_SERVER_VERSION) < 0;
   }
 
-  public CommandResult okErrorResult(int code, String err) {
+  public CommandResult okResult() {
     final BsonDocument result = new BsonDocument("ok", new BsonDouble(1.0));
-    result.put("code", new BsonInt32(code));
-    if (err != null) {
-      result.put("err", new BsonString(err));
-    }
     return new CommandResult(result, fongo.getServerAddress());
   }
 
@@ -440,8 +445,8 @@ public class FongoDB extends DB {
   }
 
   public MongoCommandException mongoCommandException(int code, String err) {
-     final BsonDocument result = bsonResultNotOk(code, err);
-     return new MongoCommandException(result, fongo.getServerAddress());
+    final BsonDocument result = bsonResultNotOk(code, err);
+    return new MongoCommandException(result, fongo.getServerAddress());
   }
 
   public CommandResult notOkErrorResult(int code, String err, String errmsg) {
@@ -465,21 +470,22 @@ public class FongoDB extends DB {
     return "FongoDB." + this.getName();
   }
 
-  public synchronized void removeCollection(FongoDBCollection collection) {
+  synchronized void removeCollection(FongoDBCollection collection) {
     this.collMap.remove(collection.getName());
     this.getCollection(SYSTEM_NAMESPACES).remove(new BasicDBObject("name", collection.getFullName()));
-    this.namespaceDeclarated.remove(collection.getFullName());
+    this.namespaceDeclared.remove(collection.getFullName());
   }
 
-  public void addCollection(FongoDBCollection collection) {
+  void addCollection(FongoDBCollection collection) {
     this.collMap.put(collection.getName(), collection);
     if (!collection.getName().startsWith("system.")) {
-      if (!this.namespaceDeclarated.contains(collection.getFullName())) {
-        this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getFullName()).append("options", new BasicDBObject()));
-        if (this.namespaceDeclarated.size() == 0) {
-          this.getCollection(SYSTEM_NAMESPACES).insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes").append("options", new BasicDBObject()));
+      if (!this.namespaceDeclared.contains(collection.getFullName())) {
+        final FongoDBCollection dbCollectionNamespace = this.getCollection(SYSTEM_NAMESPACES);
+        dbCollectionNamespace.insert(new BasicDBObject("name", collection.getFullName()).append("options", new BasicDBObject()));
+        if (this.namespaceDeclared.isEmpty() && dbCollectionNamespace.count(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes")) == 0) {
+          dbCollectionNamespace.insert(new BasicDBObject("name", collection.getDB().getName() + ".system.indexes").append("options", new BasicDBObject()));
         }
-        this.namespaceDeclarated.add(collection.getFullName());
+        this.namespaceDeclared.add(collection.getFullName());
       }
     }
   }
@@ -505,15 +511,15 @@ public class FongoDB extends DB {
 
   private CommandResult runMapReduce(DBObject cmd, String key) {
     MapReduceOutput result = doMapReduce(
-            (String) cmd.get(key),
-            (String) cmd.get("map"),
-            (String) cmd.get("reduce"),
-            (String) cmd.get("finalize"),
-            (Map) cmd.get("scope"),
-            ExpressionParser.toDbObject(cmd.get("out")),
-            ExpressionParser.toDbObject(cmd.get("query")),
-            ExpressionParser.toDbObject(cmd.get("sort")),
-            (Number) cmd.get("limit"));
+        (String) cmd.get(key),
+        (String) cmd.get("map"),
+        (String) cmd.get("reduce"),
+        (String) cmd.get("finalize"),
+        (Map) cmd.get("scope"),
+        ExpressionParser.toDbObject(cmd.get("out")),
+        ExpressionParser.toDbObject(cmd.get("query")),
+        ExpressionParser.toDbObject(cmd.get("sort")),
+        (Number) cmd.get("limit"));
     if (result == null) {
       return notOkErrorResult("can't mapReduce");
     }
@@ -541,6 +547,7 @@ public class FongoDB extends DB {
     }
 
     final CommandResult commandResult = okResult();
+    commandResult.put("ok", 1);
     commandResult.append("n", documentsToInsert.size());
     return commandResult;
   }
@@ -554,15 +561,24 @@ public class FongoDB extends DB {
 
     List<DBObject> documentsToDelete = (List<DBObject>) cmd.get("deletes");
 
+    for (DBObject document : documentsToDelete) {
+      if (!document.containsField("limit")) {
+        return notOkErrorResult(9, null, "missing limit field");
+      }
+    }
+
+    boolean okIsInteger = false; // I dont understand
+
     int deletedDocuments = 0;
     for (DBObject document : documentsToDelete) {
       DBObject deleteQuery = (DBObject) document.get("q");
       Integer limit = (Integer) document.get("limit");
 
       WriteResult result = null;
-      if ( limit != null && limit < 1 ) {
+      if (limit != null && limit < 1) {
         result = collection.remove(deleteQuery);
       } else {
+        okIsInteger = true;
         Iterator<DBObject> iterator = collection.find(deleteQuery).limit(1).iterator();
 
         if (iterator.hasNext()) {
@@ -571,13 +587,16 @@ public class FongoDB extends DB {
         }
       }
 
-      if ( result != null ) {
+      if (result != null) {
         deletedDocuments += result.getN();
       }
 
     }
 
     final CommandResult commandResult = okResult();
+    if (okIsInteger) {
+      commandResult.put("ok", 1);
+    }
     commandResult.append("n", deletedDocuments);
     return commandResult;
   }

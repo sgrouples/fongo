@@ -958,6 +958,7 @@ public abstract class AbstractFongoV3Test {
     MongoNamespace oldNamespace = collection.getNamespace();
     collection.insertOne(new Document("_id", 1));
     collection.createIndex(new Document("date", 1));
+    fongoRule.getMongoClient().getDatabase("newdb").drop();
 
     // When
     collection.renameCollection(new MongoNamespace("newdb.newcollection"));
@@ -978,11 +979,11 @@ public abstract class AbstractFongoV3Test {
     collection.createIndex(new Document("date", 1));
 
     // When
-    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(2);
+    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(fongoRule.mustContainsSystemIndexes() ? 2 : 1);
     collection.drop();
 
     // Then
-    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(1);
+    assertThat(toList(fongoRule.getDatabase().listCollections())).hasSize(fongoRule.mustContainsSystemIndexes() ? 1 : 0);
     assertThat(toList(collection.find())).isEmpty();
 //    assertThat(toList(collection.listIndexes())).isEmpty();
   }
@@ -1000,9 +1001,13 @@ public abstract class AbstractFongoV3Test {
 
     // Then
     assertThat(documents.iterator().next()).isInstanceOf(Document.class);
-    assertThat(toList(documents)).containsOnly(new Document("name", "collection2").append("options", new Document()),
-        new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()),
-        new Document("name", "system.indexes").append("options", new Document()));
+    List<Document> expected = Lists.newArrayList();
+    expected.add(new Document("name", "collection2").append("options", new Document()));
+    expected.add(new Document("name", collection1.getNamespace().getCollectionName()).append("options", new Document()));
+    if (serverVersion().compareTo(new ServerVersion(3, 0)) <= 0) {
+      expected.add(new Document("name", "system.indexes").append("options", new Document()));
+    }
+    assertThat(toList(documents)).containsOnly(expected.toArray(new Document[0]));
   }
 
   @Test
@@ -1017,7 +1022,11 @@ public abstract class AbstractFongoV3Test {
     final MongoIterable<String> names = fongoRule.getDatabase().listCollectionNames();
 
     // Then
-    assertThat(toList(names)).containsOnly("system.indexes", collection1.getNamespace().getCollectionName(), collection2.getNamespace().getCollectionName());
+    if (serverVersion().compareTo(new ServerVersion(3, 0)) <= 0) {
+      assertThat(toList(names)).containsOnly("system.indexes", collection1.getNamespace().getCollectionName(), collection2.getNamespace().getCollectionName());
+    } else {
+      assertThat(toList(names)).containsOnly(collection1.getNamespace().getCollectionName(), collection2.getNamespace().getCollectionName());
+    }
   }
 
   @Test

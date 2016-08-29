@@ -18,6 +18,7 @@ import static com.mongodb.FongoDBCollection.dbObjects;
 import static com.mongodb.FongoDBCollection.decode;
 import static com.mongodb.FongoDBCollection.decoderContext;
 import com.mongodb.MongoClient;
+import com.mongodb.MongoCommandException;
 import com.mongodb.MongoNamespace;
 import com.mongodb.WriteConcern;
 import com.mongodb.WriteConcernException;
@@ -46,9 +47,9 @@ import com.mongodb.internal.validator.UpdateFieldNameValidator;
 import com.mongodb.operation.FongoBsonArrayWrapper;
 import com.mongodb.util.JSON;
 import java.util.ArrayList;
-import java.util.Iterator;
 import static java.util.Arrays.asList;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -56,6 +57,7 @@ import org.bson.BsonArray;
 import org.bson.BsonBoolean;
 import org.bson.BsonDocument;
 import org.bson.BsonDocumentReader;
+import org.bson.BsonDouble;
 import org.bson.BsonInt32;
 import org.bson.BsonInt64;
 import org.bson.BsonNull;
@@ -384,7 +386,7 @@ public class FongoConnection implements Connection {
       final long limit = command.containsKey("limit") ? command.getInt64("limit").longValue() : -1;
       final long skip = command.containsKey("skip") ? command.getInt64("skip").longValue() : 0;
 
-      return (T) new BsonDocument("n", new BsonInt64(dbCollection.getCount(query, null, limit, skip, dbCollection.getReadPreference(), 0, TimeUnit.MICROSECONDS, null)));
+      return (T) new BsonDocument("n", new BsonDouble(dbCollection.getCount(query, null, limit, skip, dbCollection.getReadPreference(), 0, TimeUnit.MICROSECONDS, null)));
     } else if (command.containsKey("findandmodify")) {
       final DBCollection dbCollection = db.getCollection(command.get("findandmodify").asString().getValue());
       final DBObject query = dbObject(command, "query");
@@ -471,10 +473,15 @@ public class FongoConnection implements Connection {
       for (BsonValue document : documentsToInsert) {
         dbCollection.insert(dbObject(document.asDocument()));
       }
-      return (T) new Document("ok", 1.0).append("n", documentsToInsert.size());
+      return (T) new Document("ok", 1).append("n", documentsToInsert.size());
     } else if (command.containsKey("delete")) {
       final FongoDBCollection dbCollection = (FongoDBCollection) db.getCollection(command.get("delete").asString().getValue());
       List<BsonValue> documentsToDelete = command.getArray("deletes").getValues();
+      for (BsonValue document : documentsToDelete) {
+        if (!document.asDocument().containsKey("limit")) {
+          throw new MongoCommandException(new BsonDocument("ok", BsonBoolean.FALSE).append("code", new BsonInt32(9)), this.fongo.getServerAddress());
+        }
+      }
 
       int numDocsDeleted = 0;
       for (BsonValue document : documentsToDelete) {
@@ -482,15 +489,10 @@ public class FongoConnection implements Connection {
 
         DBObject deleteQuery = dbObject(deletesDocument.get("q").asDocument());
 
-        BsonInt32 limit = null;
-        if ( deletesDocument.containsKey("limit") ) {
-          limit = deletesDocument.getInt32("limit");
-        } else {
-          limit = new BsonInt32(-1);
-        }
-        
+        BsonInt32 limit = deletesDocument.getInt32("limit");
+
         WriteResult result = null;
-        if ( limit.intValue() < 1 ) {
+        if (limit.intValue() < 1) {
           result = dbCollection.remove(deleteQuery);
         } else {
           Iterator<DBObject> iterator = dbCollection.find(deleteQuery).limit(1).iterator();
@@ -501,15 +503,48 @@ public class FongoConnection implements Connection {
           }
         }
 
-        if ( result != null ) {
+        if (result != null) {
           numDocsDeleted += result.getN();
         }
       }
-      return (T) new Document("ok", 1.0).append("n", numDocsDeleted);
+      return (T) new Document("ok", 1).append("n", numDocsDeleted);
+    } else if (command.containsKey("find")) {
+      final FongoDBCollection dbCollection = (FongoDBCollection) db.getCollection(command.get("find").asString().getValue());
+      BsonInt32 limit = getValue(command, "limit", -1);
+      BsonInt32 skip = getValue(command, "skip", 0);
+      BsonInt32 maxScan = getValue(command, "maxScan", Integer.MAX_VALUE);
+      DBObject projection = null;
+      if (command.containsKey("projection")) {
+        projection = dbObject(command.getDocument("projection"));
+      }
+      DBObject query = new BasicDBObject();
+      query.put("$query", dbObject(command.get("filter").asDocument()));
+      if (command.containsKey("sort")) {
+        query.put("$orderby", dbObject(command.getDocument("sort")));
+      }
+      final DBCursor cur = dbCollection.find(query, projection);
+      cur.limit(limit.getValue());
+      cur.skip(skip.getValue());
+      cur.maxScan(maxScan.getValue());
+      final List<Document> each = documents(cur.toArray());
+//      return (T) new BsonDocument("cursor", new BsonDocument("id",
+//          new BsonInt64(0)).append("ns", new BsonString(dbCollection.getFullName()))
+//          .append("firstBatch", FongoBsonArrayWrapper.bsonArrayWrapper(each)));
+      return reencode(commandResultDecoder, "cursor", new BasicDBObject("id", 0L).append("ns", dbCollection.getFullName()).append("firstBatch", each));
     } else {
       LOG.warn("Command not implemented: {}", command);
       throw new FongoException("Not implemented for command : " + JSON.serialize(dbObject(command)));
     }
+  }
+
+  private BsonInt32 getValue(BsonDocument command, String maxScan2, int value) {
+    BsonInt32 maxScan;
+    if (command.containsKey(maxScan2)) {
+      maxScan = command.getInt32(maxScan2);
+    } else {
+      maxScan = new BsonInt32(value);
+    }
+    return maxScan;
   }
 
   private List<Document> documents(Iterable<DBObject> list) {
