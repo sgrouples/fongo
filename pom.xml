@@ -7,7 +7,7 @@
     </parent>
     <groupId>com.github.fakemongo</groupId>
     <artifactId>fongo</artifactId>
-    <version>2.1.0-SNAPSHOT</version>
+    <version>2.1.1-SG</version>
     <name>fongo</name>
     <description>Fake in-memory mongo</description>
     <url>https://github.com/fakemongo/fongo</url>
@@ -63,6 +63,16 @@
         <gpg.keyname>257FA0AB</gpg.keyname>
     </properties>
 
+    <distributionManagement>
+            <snapshotRepository>
+                <id>nexus-snapshots</id>
+                <url>https://nexus.groupl.es/repository/maven-snapshots/</url>
+            </snapshotRepository>
+            <repository>
+                <id>nexus-releases</id>
+                <url>https://nexus.groupl.es/repository/maven-releases/</url>
+            </repository>
+        </distributionManagement>
     <dependencies>
         <dependency>
             <groupId>org.mozilla</groupId>
